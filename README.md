@@ -1,4 +1,4 @@
-http://stackoverflow.com/questions/849308/pull-push-from-multiple-remote-locationshttp://stackoverflow.com/questions/849308/pull-push-from-multiple-remote-locations
+http://stackoverflow.com/questions/849308/pull-push-from-multiple-remote-locations
 
 ![Build status](https://travis-ci.org/fpinscala/fpinscala.svg?branch=master)
 
