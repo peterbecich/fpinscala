@@ -7,6 +7,141 @@ import parallelism._
 import state._
 import parallelism.Par._
 
+
+/*
+ The three monad laws
+
+ associativity:
+ m flatMap f flatMap g == m flatMap (x => f(x) flatMap g)
+
+ left unit:
+ unit(x) flatMap f == f(x)
+
+ right unit:
+ m flatMap unit == m
+
+ Show that Option is a monad
+
+ abstract class Option[+T] {
+   def flatMap[U](f: T => Option[U]): Option[U] = this match {
+     case Some(x) => f(x)
+     case None => None
+   }
+ }
+
+
+ 
+ Show left unit law:
+ In Option, Unit is Some
+
+ Where is it shown that f has signature (T => Option[U])?
+  Some(x) flatMap f
+ =f(x)
+
+ Show right unit law:
+  opt flatMap Some
+ =opt match {
+    case Some(x) => Some(x)
+    case None => None
+  }
+ =opt
+
+ Show associative law:
+ 
+  opt flatMap f flatMap g
+
+  Prove for both possibilities of parethesis placement ... or not
+  (opt flatMap f) flatMap g
+ =(opt match {
+    case Some(x) => f(x)
+    case None => None
+ } ) match {
+    case Some(y) => g(y)
+    case None => None
+ }
+ =(opt match {
+    case Some(x) => f(x) match {  // Analogous to algebraic distribution?
+      case Some(y) => g(y)
+      case None => None
+    }
+    case None => None match {
+      case Some(y) => g(y)
+      case None => None
+    }
+ } 
+) 
+=opt match {
+    case Some(x) => f(x) match {
+      case Some(y) => g(y)
+      case None => None
+    }
+    case None => None
+ } 
+
+                 aside:  f(x) match {
+                           case Some(y) => g(y)
+                           case None => None
+                         } = (x => f(x) flatMap g)
+=opt match {
+    case Some(x) => f(x) flatMap g
+    case None => None
+ } 
+=opt flatMap (x => f(x) flatMap g)
+
+
+
+
+Consequentially...
+
+Associativity says that one can "inline" nested for-expressions
+
+ for (y <- for (x <- m; y <- f(x)) yield y
+     z <- g(y)) yield z
+=for (x <-m;
+      y <-f(x);
+      z <-g(y)) yield z
+
+right unit 
+ for (x <- m) yield x
+=m
+
+left unit does not have an analogue for for-expressions
+
+
+
+example
+
+abstract class Try[+T]
+case class Success[T](x: T) extends Try[T]
+case class Failure(ex: Exception) extends Try[Nothing]
+
+object Try {
+  def apply[T](expr: => T): Try[T] = 
+    try Success(expr)  // uses Java try
+    catch {
+      case NonFatal(ex) => Failure(ex)
+      // fatal exception not necessary to catch
+    }
+
+  def flatMap[U](f: T => Try[U]): Try[U] = this match {
+    case Success(x) => try f(x) catch { case NonFatal(ex) => Failure(ex) }
+    case fail: Failure => fail
+  }
+  def map[U](f: T => U): Try[U] = this match {
+    case Success(x) => Try(f(x))
+    case fail: Failure => fail
+  }
+ }
+
+is Try a Monad?
+
+left unit
+show apply(x) flatMap f = f(x)
+
+
+   
+ */
+
 trait Functor[F[_]] {
   def map[A,B](fa: F[A])(f: A => B): F[B]
 

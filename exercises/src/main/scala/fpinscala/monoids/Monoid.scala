@@ -15,22 +15,88 @@ object Monoid {
     val zero = ""
   }
 
-  def listMonoid[A] = new Monoid[List[A]] {
-    def op(a1: List[A], a2: List[A]) = a1 ++ a2
+  def listMonoid[B] = new Monoid[List[B]] {
+    def op(a1: List[B], a2: List[B]) = a1 ++ a2
     val zero = Nil
   }
 
-  val intAddition: Monoid[Int] = sys.error("todo")
+  val intAddition: Monoid[Int] = new Monoid[Int] {
+    def op(a1: Int, a2: Int): Int = a1 + a2
+    val zero: Int = 0
+  }
 
-  val intMultiplication: Monoid[Int] = sys.error("todo")
+  val intMultiplication: Monoid[Int] = new Monoid[Int] {
+    def op(a1: Int, a2: Int): Int = a1 * a2
+    val zero: Int = 0
+  }
 
-  val booleanOr: Monoid[Boolean] = sys.error("todo")
+  val booleanOr: Monoid[Boolean] = new Monoid[Boolean] {
+    def op(a1: Boolean, a2: Boolean): Boolean = a1 | a2
+    val zero: Boolean = false
+  }
 
-  val booleanAnd: Monoid[Boolean] = sys.error("todo")
+  val booleanAnd: Monoid[Boolean] = new Monoid[Boolean] {
+    def op(a1: Boolean, a2: Boolean): Boolean = a1 & a2
+    val zero: Boolean = true
+  }
 
-  def optionMonoid[A]: Monoid[Option[A]] = sys.error("todo")
+  /*
+   scala.Option, not fpinscala...option
+   
+   Combine two options of unknown type with Flatmap, or Map...
+   Each Option must define these methods
+   */
 
-  def endoMonoid[A]: Monoid[A => A] = sys.error("todo")
+
+/*
+class
+scala.Option[A] doc source
+---------------------------
+class		    WithFilter doc
+<init>		    () => Option[A]
+collect		    (PartialFunction[A, B]) => Option[B]
+contains	    (A1) => Boolean
+exists		    (Function1[A, Boolean]) => Boolean
+filter		    (Function1[A, Boolean]) => Option[A]
+filterNot	    (Function1[A, Boolean]) => Option[A]
+flatMap		    (Function1[A, Option[B]]) => Option[B]
+flatten		    (<:<[A, Option[B]]) => Option[B]
+fold		    (<byname>[B]) => (Function1[A, B]) => B
+forall		    (Function1[A, Boolean]) => Boolean
+foreach		    (Function1[A, U]) => Unit
+get		    A
+getOrElse	    (<byname>[B]) => B
+isDefined	    Boolean
+isEmpty		    Boolean
+iterator	    Iterator[A]
+map		    (Function1[A, B]) => Option[B]
+nonEmpty	    Boolean
+orElse		    (<byname>[Option[B]]) => Option[B]
+orNull		    (<:<[Null, A1]) => A1
+toLeft		    (<byname>[X]) => <refinement>
+toList		    List[A]
+toRight		    (<byname>[X]) => <refinement>
+withFilter	    (Function1[A, Boolean]) => WithFilter
+ */
+  def optionMonoid[B]: Monoid[Option[B]] = new Monoid[Option[B]] {
+    def op(a1: Option[B], a2: Option[B]): Option[B] = {
+      //a1.flatMap(a2)
+      a1.orElse(a2)
+    }
+    val zero: Option[B] = None
+  }
+
+  def endoMonoid[B]: Monoid[B => B] = new Monoid[B => B] {
+    // are a1 and a2 necessarily associative?
+    def op(a1: B => B, a2: B => B): B => B = (in: B) => a1(a2(in))
+
+
+    // need type signature () => B
+    //def zero: B = 
+    // not true ... A = (B => B)
+
+    def zero: B => B = (in: B) => in
+  }
 
   // TODO: Placeholder for `Prop`. Remove once you have implemented the `Prop`
   // data type from Part 2.
@@ -41,7 +107,9 @@ object Monoid {
 
   import fpinscala.testing._
   import Prop._
-  def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop = sys.error("todo")
+  def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop = new Prop {
+
+  }
 
   def trimMonoid(s: String): Monoid[String] = sys.error("todo")
 
