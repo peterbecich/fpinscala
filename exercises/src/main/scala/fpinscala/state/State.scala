@@ -19,7 +19,10 @@ object RNG {
 
   type Rand[+A] = RNG => (A, RNG)
 
+  // uses type inference to guess argument to nextInt -- an RNG
   val int: Rand[Int] = _.nextInt
+
+  // explicit
   def randInt: Rand[Int] = (rng: RNG) => rng.nextInt
 
   def unit[A](a: A): Rand[A] =
@@ -125,8 +128,59 @@ object RNG {
 
   }
 
+  def both[A,B](ra: Rand[A], rb: Rand[B]): Rand[(A,B)] = 
+    RNG.map2(ra,rb){
+      (a: A, b: B) => (a,b)
+    }
 
-  def sequence[A](fs: List[Rand[A]]): Rand[List[A]] = ???
+  def randIntDouble: Rand[(Int, Double)] = 
+    RNG.both(RNG.randInt, RNG.randDouble)
+
+  def randIntDoubleEquivalent: Rand[(Int, Double)] = 
+    RNG.both(RNG.randInt, RNG.double)
+
+  def randIntDoubleEquivalent2: Rand[(Int, Double)] = 
+    RNG.both(RNG.randInt, RNG.double(_))
+
+
+  def randDoubleInt: Rand[(Double, Int)] = 
+    RNG.both(RNG.randDouble, RNG.randInt)
+
+
+  /*
+   List[Rand[A]]
+   Cons(Rand[A], Cons(Rand[A], Cons(Rand[A], Nil)))
+   Cons((rng1)=>(a1,rng2), Cons(rng2=>(a2,rng3), Cons(rng3=>(a3,rng4), Nil)))
+
+   
+   Rand[List[A]]
+   (rng1) => (Cons(a1,Cons(a2,Cons(a3,Nil))), rng4)
+
+   sequence
+   map2(
+
+
+   Remember List has all the built-in methods that Rand lacks:
+   fold
+   flatMap
+   etc.
+   */
+
+  def sequence[A](fs: List[Rand[A]]): Rand[List[A]] = {
+    // fs.foldRight(z: B)(op: Function2[Function1[A], B, B])
+    // fs.fold(z: A1)(op: Function2[A1, A1, A1])
+    // fs.foldLeft(z: B)(f: Function2[B, Function1[A], B])
+    
+    fs.foldRight{
+      RNG.unit(scala.collection.immutable.Nil): Rand[List[A]]
+    }{
+      (ra: Rand[A], rr: Rand[List[A]]) => {
+        RNG.map2(ra, rr){(a: A, la: List[A]) =>
+          a :: la
+        }
+      }
+    }
+  }
 
   def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B] = {
 
@@ -138,6 +192,7 @@ object RNG {
     // Rand[A] = RNG => (A, RNG)
     // Rand[B] = RNG => (B, RNG)
     // g = A => (RNG => (A, RNG))
+    // g = (a: A) => ((rng: RNG) => (a, rng))
 
     (rng: RNG) => {
       val (valueA, rngA) = f(rng)
@@ -146,21 +201,50 @@ object RNG {
     }
   }
 
-  def mapWithFlatMap[A,B](s: Rand[A])(f: A => B): Rand[B] =
-    rng => {
-      val (a, rng2) = s(rng)
-      (f(a), rng2)
-    }
+  def mapWithFlatMap[A,B](s: Rand[A])(f: A => B): Rand[B] = {
+    //def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B]
 
+    // this is 'unit'
+    //val g: (A => Rand[B]) = (a: A) => ((rng: RNG) => (f(a), rng))
+    val g: (A => Rand[B]) = (a: A) => RNG.unit(f(a))
+    flatMap(s)(g): Rand[B]
+
+  }
 }
 
 case class State[S,+A](run: S => (A, S)) {
-  def map[B](f: A => B): State[S, B] =
-    sys.error("todo")
-  def map2[B,C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
-    sys.error("todo")
-  def flatMap[B](f: A => State[S, B]): State[S, B] =
-    sys.error("todo")
+  def map[B](f: A => B): State[S, B] = {
+    State {
+      (s0: S) => {
+        val (a, s1) = run(s0)
+        (f(a), s1)
+      }
+    }
+
+  }
+    
+  def map2[B,C](sb: State[S, B])(f: (A, B) => C): State[S, C] = {
+    State {
+      (s0: S) => {
+        val (a, s1) = this.run(s0)
+        val (b, s2) = sb.run(s1)
+        (f(a,b), s2)
+      }
+    }
+  }
+
+  def flatMap[B](f: A => State[S, B]): State[S, B] = {
+// [error]  found   : S => fpinscala.state.State[S,B]
+// [error]  required: fpinscala.state.State[S,B]
+
+    State {
+      (s0: S) => {
+        val (a, s1) = run(s0)
+        f(a).run(s1)
+      }
+    }
+  }
+
 }
 
 sealed trait Input
@@ -170,6 +254,11 @@ case object Turn extends Input
 case class Machine(locked: Boolean, candies: Int, coins: Int)
 
 object State {
+  def unit[S,A](a: A): State[S,A] = 
+    State {
+      (s: S) => (a, s)
+    }
+
   type Rand[A] = State[RNG, A]
   def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = ???
 }
