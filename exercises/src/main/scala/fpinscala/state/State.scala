@@ -174,8 +174,8 @@ object RNG {
     fs.foldRight{
       RNG.unit(scala.collection.immutable.Nil): Rand[List[A]]
     }{
-      (ra: Rand[A], rr: Rand[List[A]]) => {
-        RNG.map2(ra, rr){(a: A, la: List[A]) =>
+      (ra: Rand[A], rl: Rand[List[A]]) => {
+        RNG.map2(ra, rl){(a: A, la: List[A]) =>
           a :: la
         }
       }
@@ -231,6 +231,7 @@ case class State[S,+A](run: S => (A, S)) {
         (f(a,b), s2)
       }
     }
+
   }
 
   def flatMap[B](f: A => State[S, B]): State[S, B] = {
@@ -244,6 +245,8 @@ case class State[S,+A](run: S => (A, S)) {
       }
     }
   }
+
+
 
 }
 
@@ -259,6 +262,58 @@ object State {
       (s: S) => (a, s)
     }
 
+  def sequence[S,A](sas: List[State[S,A]]): State[S, List[A]] = {
+    /*
+     The main "leap" was knowing the type signature of this method.
+     "List" is not abstracted away ... yet.
+     */
+    sas.foldRight {
+      //State.unit(List[A]())
+      State((s: S)=>(List[A](),s))
+    }{
+      (state: State[S,A], stateList: State[S,List[A]])=>
+      state.map2(stateList)((a: A, la: List[A]) => a::la)
+    }
+  }
+
+  def modify[S](f: S => S): State[S, Unit] = {
+    State.get.flatMap(s => State.set(f(s)))
+  }
+
+
+  def get[S]: State[S,S] = State((s:S)=>(s,s))
+  def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+
+
   type Rand[A] = State[RNG, A]
-  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = ???
+  // S = Machine
+  // A = (Coins held, Candies held)
+  // def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = {
+    // (machine: Machine) =>
+    // inputs.foldRight(
+    //   //State[Machine, (Int,Int)](machine, (machine.coins,machine.candies))
+    //   State.unit(machine)
+    // ){
+    //   (nextInput: Input,
+    //     (machine: Machine, (coinsHeld: Int, candiesHeld: Int))) => {
+    //     machine.locked match {
+    //       case false => {
+    //         nextInput match {
+    //           case Coin
+    //         }
+    //         case true => (machine, (coinsHeld, candiesHeld))
+    //       }
+
+  //   (machine0: Machine) =>
+  //   inputs.foldRight(
+  //     State.unit(machine0)
+  //   ){
+  //     (nextInput: Input,
+  //       (machine: Machine, (coinsHeld: Int, candiesHeld: Int))) => {
+  //       // flatMap: old Machine => new Machine and coins, candies tuple
+  //     }
+  //   }
+  // }
+  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)]
+
 }
