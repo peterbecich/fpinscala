@@ -314,6 +314,6 @@ object State {
   //     }
   //   }
   // }
-  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)]
+  //def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)]
 
 }
