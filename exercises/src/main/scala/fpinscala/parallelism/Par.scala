@@ -50,6 +50,23 @@ object Par {
   def map[A,B](pa: Par[A])(f: A => B): Par[B] = 
     map2(pa, unit(()))((a,_) => f(a))
 
+
+  // def sequence[A](ps: List[Par[A]]): Par[List[A]] = {
+  //   es => {
+  //     ps.foldRight(Par.unit(List[A]())(es)){
+  //       (pla: Par[List[A]], pa: Par[A]) => {
+  //         Par.unit(pa(es).get() :: pla(es).get())(es)
+  //       }
+  //     }
+
+  //   }
+  // }
+
+  def parMap[A,B](ps: List[A])(f: A=>B): Par[List[B]] = {
+    Par.map(Par.unit(ps))(_.map(f))
+    
+  }
+
   def sortPar(parList: Par[List[Int]]) = map(parList)(_.sorted)
 
   def equal[A](e: ExecutorService)(p: Par[A], p2: Par[A]): Boolean = 
