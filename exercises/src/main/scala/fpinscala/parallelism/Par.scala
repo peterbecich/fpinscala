@@ -63,7 +63,14 @@ object Par {
       if (run(es)(cond).get) t(es) // Notice we are blocking on the result of `cond`.
       else f(es)
 
-  /* Gives us infix syntax for `Par`. */
+  // def split[A](par: Par[Tuple2[A,A]]): Tuple2[Par[A],Par[A]] = 
+  //   es => {
+  //     val (leftFuture, rightFuture) = par(es)
+  //     (leftFuture, rightFuture)
+  //   }
+      
+
+  /* Gives us infix syntax for `Par`.4 */
   implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
 
   class ParOps[A](p: Par[A]) {
@@ -74,6 +81,8 @@ object Par {
 
 object Examples {
   import Par._
+
+  // does not use Parallel types
   def sum(ints: IndexedSeq[Int]): Int = // `IndexedSeq` is a superclass of random-access sequences like `Vector` in the standard library. Unlike lists, these sequences provide an efficient `splitAt` method for dividing them into two parts at a particular index.
     if (ints.size <= 1)
       ints.headOption getOrElse 0 // `headOption` is a method defined on all collections in Scala. We saw this function in chapter 3.
@@ -81,5 +90,35 @@ object Examples {
       val (l,r) = ints.splitAt(ints.length/2) // Divide the sequence in half using the `splitAt` function.
       sum(l) + sum(r) // Recursively sum both halves and add the results together.
     }
+  implicit def toParInts(ints: IndexedSeq[Int]): Par[IndexedSeq[Int]] = 
+    Par.unit(ints)
+
+  // def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+  //   (service: ExecutorService) => {
+  //     if (Par.map(parInts)((is: IndexedSeq[Int]) => is.size)(service).get() <= 1)
+  //       Par.map(parInts)((is: IndexedSeq[Int]) => is.headOption.getOrElse(0))(service)
+
+  //     else {
+  //       val parSplit: Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] = 
+  //         Par.map(parInts)(
+  //           (is: IndexedSeq[Int]) => is.splitAt(
+  //             Par.map(parInts)(_.size / 2)(service).get()
+  //           )
+  //         )
+
+
+
+  //   }
+  // }
+
+  def main(args: Array[String]): Unit = {
+    println(Examples.sum(1 to 10))
+
+    // val vec = scala.collection.immutable.Vector(1 to 10)
+    val vec = (1 to 10).toVector
+    println(Examples.sum(vec))
+
+
+  }
 
 }
