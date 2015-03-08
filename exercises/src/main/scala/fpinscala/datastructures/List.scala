@@ -33,6 +33,28 @@ object List { // `List` companion object. Contains functions for creating and wo
       case Nil => a2
       case Cons(h,t) => Cons(h, append(t, a2))
     }
+  // def _append[A](a1: List[A], a2: List[A]): List[A] = 
+  //   foldLeft(a1, Nil: List[A]){
+  //     // f: (List[A], A) => List[A]
+  //     (la2: List[A], a: A) => Cons(a, la2)
+  //   }
+
+  def passThru[A](l: List[A]): List[A] =
+    foldLeft(l, Nil: List[A]){
+      (la: List[A], a: A) => Cons[A](a, la)
+    }
+
+  def reverse[A](l: List[A]): List[A] =
+    foldLeft(l, Nil: List[A]){
+      (la: List[A], a: A) => Cons[A](a, la)
+    }
+
+
+  def passThruFoldRight[A](l: List[A]): List[A] =
+    foldRight(l, Nil: List[A]){
+      (a: A, la: List[A]) => Cons[A](a, la)
+    }
+
 
   def foldRight[A,B](as: List[A], z: B)(f: (A, B) => B): B = // Utility functions
     as match {
@@ -48,9 +70,17 @@ object List { // `List` companion object. Contains functions for creating and wo
 
 
   def tail[A](l: List[A]): List[A] = l match {
-    case Cons(h, t) => tail(t)
+    // unreachable code
+    // case Cons(h, Nil) => Cons(h, Nil)
+
+    // case Cons(h, t) => tail(t)
+    // case Cons(h, Nil) => Cons(h, Nil)
+    // case Nil => Nil
+
     case Cons(h, Nil) => Cons(h, Nil)
+    case Cons(h, t) => tail(t)
     case Nil => Nil
+
   }
 
 
@@ -100,7 +130,70 @@ object List { // `List` companion object. Contains functions for creating and wo
 
 
   def map[A,B](l: List[A])(f: A => B): List[B] =
-    foldLeft(l, Nil: List[B]){
+    reverse(foldLeft(l, Nil: List[B]){
       (lb: List[B], a: A) => Cons[B](f(a), lb)
+    })
+
+  def mapByFoldRight[A,B](l: List[A])(f: A => B): List[B] =
+    foldRight(l, Nil: List[B]){
+      (a: A, lb: List[B]) => Cons[B](f(a), lb)
     }
+
+
+  def flatMap[A,B](l: List[A])(f: A => List[B]): List[B] =
+    foldRight(l, Nil: List[B]){
+      // make ":::" list concatenation syntactic sugar explicit
+      // besides, that's only implemented for Std Library lists!
+      (a: A, lb: List[B]) => List.append(f(a), lb)
+    }
+
 }
+
+object TestList {
+
+  // doesn't give desired result with "variadic" argument to method
+  //val listA = List.apply(50 to 64)
+
+  val listA = List.apply(65, 66, 67, 68, 69, 70, 85)
+
+  val list1 = List.apply(65, 66, 67)
+  val list2 = List.apply(68, 69, 70, 85)
+
+  def main(args: Array[String]): Unit = {
+    println(listA)
+
+    val letters = List.map(listA)(_.toChar)
+
+    println(letters)
+
+    println("pass thru by fold left")
+    println(List.passThru(listA))
+
+    println("pass thru by fold left, reversed")
+    println(List.reverse(List.passThru(listA)))
+
+
+    println("pass thru by fold right")
+    //println(List.foldRight(listA, Nil:List[Integer
+    println(List.passThruFoldRight(listA))
+
+
+    println("letters by map")
+    println(List.map(listA)(_.toChar))
+
+    println("letters by map fold right")
+    println(List.mapByFoldRight(listA)(_.toChar))
+
+    println("flatMap")
+    println(
+      List.flatMap(listA)(
+        (i: Int) => List.apply(i, i+1, i+2)
+      )
+    )
+
+
+  }
+
+}
+
+
