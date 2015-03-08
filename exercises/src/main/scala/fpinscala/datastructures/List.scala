@@ -82,13 +82,25 @@ object List { // `List` companion object. Contains functions for creating and wo
       // not tail recursive
       // val z1 = f(z, h)
       // Cons(z1, foldLeft(t, z1)(f))
-      foldLeft(
+
+      // apply f before entering next iteration of foldLeft
+
+      // symbolically, it would appear that every recursion has a tail,
+      // albeit "heavier" or "lighter"
+
+      // apparently, though, the compiler can figure out when a parent foldLeft
+      // never needs to be accessed again
+      foldLeft(t, f(z, h))(f)
     }
-    case Nil => Nil
+    case Nil => z
   }
 
+
+  // The type annotation Nil:List[Int] is needed here, because otherwise Scala infers the B type parameter in foldRight as List[Nothing].
+
+
   def map[A,B](l: List[A])(f: A => B): List[B] =
-    foldLeft(l, List){
+    foldLeft(l, Nil: List[B]){
       (lb: List[B], a: A) => Cons[B](f(a), lb)
     }
 }
