@@ -61,6 +61,13 @@ object List { // `List` companion object. Contains functions for creating and wo
       case Nil => z
       case Cons(x, xs) => f(x, foldRight(xs, z)(f))
     }
+
+  def foldRightViaFoldLeft[A,B](as: List[A], z: B)(f: (A, B) => B): B = {
+    val out = foldLeft(as, z){
+      // given (A, B).  Need (B, A)
+      (b: B, a: A) => f(a,b)
+    }
+  }
   
   def sum2(ns: List[Int]) = 
     foldRight(ns, 0)((x,y) => x + y)
@@ -107,6 +114,15 @@ object List { // `List` companion object. Contains functions for creating and wo
 
   def length[A](l: List[A]): Int = foldLeft(l, 0)((count: Int, element: A) => {count+1})
 
+  def filter[A](as: List[A])(f: A => Boolean): List[A] = {
+    foldRight(as, Nil: List[A]){
+      (a: A, l2: List[A]) => 
+      if (f(a)) Cons[A](a, l2)
+      else l2
+    }
+  }
+
+  @annotation.tailrec
   def foldLeft[A,B](l: List[A], z: B)(f: (B, A) => B): B = l match {
     case Cons(h, t) => {
       // not tail recursive
@@ -189,6 +205,13 @@ object TestList {
       List.flatMap(listA)(
         (i: Int) => List.apply(i, i+1, i+2)
       )
+    )
+
+    println("fold right via fold left")
+    println(
+      List.foldRightViaFoldLeft(listA, Nil: List[Char]){
+        (a: Int, lb: List[Char]) => Cons[Char](a.toChar, lb)
+      }
     )
 
 

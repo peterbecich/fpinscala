@@ -12,7 +12,7 @@ object FPInScalaBuild extends Build {
             base = file("."),
             settings = opts ++ Seq(
               onLoadMessage ~= (_ + nio2check())
-            )) aggregate (chapterCode, exercises, answers)
+            )).aggregate(chapterCode, exercises, answers)
   lazy val chapterCode =
     Project(id = "chapter-code",
             base = file("chaptercode"),
