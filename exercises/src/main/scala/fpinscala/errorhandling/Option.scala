@@ -55,9 +55,27 @@ object Option {
     else Some(xs.sum / xs.length)
   def variance(xs: Seq[Double]): Option[Double] = sys.error("todo")
 
-  def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] = sys.error("todo")
+  def map2[A,B,C](aOp: Option[A], bOp: Option[B])(f: (A, B) => C): Option[C] = 
+    (aOp, bOp) match {
+      case (Some(a), Some(b)) => Some(f(a,b))
+      case _ => None
+    }
 
-  def sequence[A](a: List[Option[A]]): Option[List[A]] = sys.error("todo")
+  /*
+   Implement through traverse.
+   traverse's types on left hand side
+   B = A
+   A = Option[A]
+   */
+  // def sequence[A](a: List[Option[A]]): Option[List[A]] = 
+  //   traverse(a){
+  //     // output Option[A]
+  //     (opA: Option[A]) => opA
+  //   }
 
-  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = sys.error("todo")
+  // def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = a match {
+  //   case head::Nil => head match {
+  //     case 
+  //   case head::tail => 
+  // }
 }
