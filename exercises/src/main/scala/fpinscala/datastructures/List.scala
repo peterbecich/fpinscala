@@ -62,12 +62,12 @@ object List { // `List` companion object. Contains functions for creating and wo
       case Cons(x, xs) => f(x, foldRight(xs, z)(f))
     }
 
-  def foldRightViaFoldLeft[A,B](as: List[A], z: B)(f: (A, B) => B): B = {
-    val out = foldLeft(as, z){
-      // given (A, B).  Need (B, A)
-      (b: B, a: A) => f(a,b)
-    }
-  }
+  // def foldRightViaFoldLeft[A,B](as: List[A], z: B)(f: (A, B) => B): B = {
+  //   val out = foldLeft(as, z){
+  //     // given (A, B).  Need (B, A)
+  //     (b: B, a: A) => f(a,b)
+  //   }
+  // }
   
   def sum2(ns: List[Int]) = 
     foldRight(ns, 0)((x,y) => x + y)
@@ -208,11 +208,11 @@ object TestList {
     )
 
     println("fold right via fold left")
-    println(
-      List.foldRightViaFoldLeft(listA, Nil: List[Char]){
-        (a: Int, lb: List[Char]) => Cons[Char](a.toChar, lb)
-      }
-    )
+    // println(
+    //   List.foldRightViaFoldLeft(listA, Nil: List[Char]){
+    //     (a: Int, lb: List[Char]) => Cons[Char](a.toChar, lb)
+    //   }
+    // )
 
 
   }
