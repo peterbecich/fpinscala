@@ -62,12 +62,25 @@ object Option {
     }
 
   /*
+
+   Write a function sequence that combines a list of Options into one Option containing a list of all the Some values in the original list. If the original list contains None even once, the result of the function should be None; otherwise the result should be Some with a list of all the values. Here is its signature
+
+This is a clear instance where it’s not appropriate to define the function in the OO style. This shouldn’t be a method on List (which shouldn’t need to know anything about Option), and it can’t be a method on Option, so it goes in the Option companion object.
+
+   */
+
+  def sequence[A](a: List[Option[A]]): Option[List[A]] = a match {
+    case Some(h)::Nil => 
+    case Some(h)::t => Some(h).flatMap
+    case None::t => None
+    case Nil => Some(Nil)
+  /*
    Implement through traverse.
    traverse's types on left hand side
    B = A
    A = Option[A]
    */
-  // def sequence[A](a: List[Option[A]]): Option[List[A]] = 
+  // def sequenceThroughTraverse[A](a: List[Option[A]]): Option[List[A]] = 
   //   traverse(a){
   //     // output Option[A]
   //     (opA: Option[A]) => opA
