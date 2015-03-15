@@ -67,11 +67,25 @@ object Option {
     else Some(xs.sum / xs.length)
   def variance(xs: Seq[Double]): Option[Double] = sys.error("todo")
 
+  // def map2[A,B,C](aOp: Option[A], bOp: Option[B])(f: (A, B) => C): Option[C] = 
+  //   (aOp, bOp) match {
+  //     case (Some(a), Some(b)) => Some(f(a,b))
+  //     case _ => None
+  //   }
+
   def map2[A,B,C](aOp: Option[A], bOp: Option[B])(f: (A, B) => C): Option[C] = 
-    (aOp, bOp) match {
-      case (Some(a), Some(b)) => Some(f(a,b))
-      case _ => None
-    }
+    aOp.flatMap(
+      (a: A) => bOp.map((b: B) => f(a,b))
+    )
+/*
+ Note that this would not work;
+ it would produce Option[Option[C]].
+    aOp.map(
+      (a: A) => bOp.map(
+        (b: B) => f(a,b)
+      )
+    )
+ */
 
   /*
 
@@ -94,26 +108,28 @@ This is a clear instance where it’s not appropriate to define the function in 
    
 
    flatMap{
-   (loa: List[Option[A]]): Option[List[A]] =>
-   loa.match {
+   (a: A]): Option[List[A]] =>
+   a.match {
 
    }
    */
 
-  def sequence[A](a: List[Option[A]]): Option[List[A]] = {
-    val flatten: (A => Option[List[A]]) = 
-      a1 => Some(List(a1))
+  // def sequence[A](a: List[Option[A]]): Option[List[A]] = {
+  //   // val flatten: (A => Option[List[A]]) = 
+  //   //   a1 => Some(List(a1))
+  //   val flatten: (A => List[A]) = 
+  //     a1 => Some(List(a1))
 
-    // a match {
-    //   case Some(h)::Nil => 
-    //   case Some(h)::t =>
-    //   case None::t => None
-    //   case Nil => Some(Nil)
 
-    // }
+  //   a match {
+  //     case sh::t => sh.flatMap(flatten)  //sh = some head
+  //     case None::t => None
+  //     case Nil => Some(Nil)
+
+  //   }
 
     
-  }
+  // }
   /*
    Implement through traverse.
    traverse's types on left hand side

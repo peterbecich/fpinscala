@@ -162,25 +162,32 @@ object Functor {
 
 trait Monad[M[_]] extends Functor[M] {
   def unit[A](a: => A): M[A]
-  def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B]
+
+  def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] // note Monad is a TRAIT
 
   def map[A,B](ma: M[A])(f: A => B): M[B] =
     flatMap(ma)(a => unit(f(a)))
+
   def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
     flatMap(ma)(a => map(mb)(b => f(a, b)))
 
-  def sequence[A](lma: List[M[A]]): M[List[A]] = ???
+  def sequence[A](lma: List[M[A]]): M[List[A]] = ??? // lma match {
+    // case h::t => 
+
 
   def traverse[A,B](la: List[A])(f: A => M[B]): M[List[B]] = ???
 
   def replicateM[A](n: Int, ma: M[A]): M[List[A]] = ???
 
-  def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = ???
+  def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = 
+    (a: A) => f(a).flatMap(g)
+
 
   // Implement in terms of `compose`:
-  def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = ???
+  def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = +++
 
-  def join[A](mma: M[M[A]]): M[A] = ???
+
+  def join[A](mma: M[M[A]]): M[A] = ??? //mma.flatMap((ma: M[A]) => 
 
   // Implement in terms of `join`:
   def __flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = ???
