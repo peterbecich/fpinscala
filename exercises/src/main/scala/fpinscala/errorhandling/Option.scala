@@ -14,20 +14,32 @@ sealed trait Option[+A] {
     case None => default
   }
 
-  def flatMap[B](f: A => Option[B]): Option[B] = this match {
-    case Some(get) => f(get)
-    case None => None
-  }
+  // def flatMap[B](f: A => Option[B]): Option[B] = this match {
+  //   case Some(get) => f(get)
+  //   case None => None
+  // }
+
+  // getOrElse necessary in case of change in container type;
+  // not really necessary in this case, because our only Functor is Option
+  // Only option is Option, ha ha
+  def flatMap[B](f: A => Option[B]): Option[B] = 
+    this.map((a: A) => f(a)).getOrElse(None)
 
   def orElse[B>:A](ob: => Option[B]): Option[B] = this match {
     case Some(get) => Some(get)
     case None => ob
   }
 
-  def filter(f: A => Boolean): Option[A] = this match {
-    case Some(get) if f(get)==true => Some(get)
-    case _ => None
-  }
+  // def filter(f: A => Boolean): Option[A] = this match {
+  //   case Some(get) if f(get)==true => Some(get)
+  //   case _ => None
+  // }
+
+  def filter(f: A => Boolean): Option[A] = 
+    this.flatMap(
+      (a: A) => if(f(a)==true) Some(a) else None
+    )
+
 }
 case class Some[+A](get: A) extends Option[A]
 case object None extends Option[Nothing]
