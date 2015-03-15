@@ -69,11 +69,39 @@ This is a clear instance where it’s not appropriate to define the function in 
 
    */
 
-  def sequence[A](a: List[Option[A]]): Option[List[A]] = a match {
-    case Some(h)::Nil => 
-    case Some(h)::t => Some(h).flatMap
-    case None::t => None
-    case Nil => Some(Nil)
+  /*
+   Flatten the recursion with flatMap
+   We want Option[List[A]]
+
+   Cons(Some(a), Cons(Some(b), Cons(Some(c), Nil)))
+   make up f
+   sequence(Cons(Some(a), Cons(Some(b), Cons(Some(c), Nil))))
+   Some(Cons(a, sequence(Cons(Some(b), Cons(Some(c), Nil)))))
+   Some(Cons(a, Cons(b, sequence(Cons(Some(c), Nil)))))
+   Some(Cons(a, Cons(b, Cons(c, Nil))))
+   
+
+   flatMap{
+   (loa: List[Option[A]]): Option[List[A]] =>
+   loa.match {
+
+   }
+   */
+
+  def sequence[A](a: List[Option[A]]): Option[List[A]] = {
+    val flatten: (A => Option[List[A]]) = 
+      a1 => Some(List(a1))
+
+    // a match {
+    //   case Some(h)::Nil => 
+    //   case Some(h)::t =>
+    //   case None::t => None
+    //   case Nil => Some(Nil)
+
+    // }
+
+    
+  }
   /*
    Implement through traverse.
    traverse's types on left hand side
