@@ -179,12 +179,12 @@ trait Monad[M[_]] extends Functor[M] {
 
   def replicateM[A](n: Int, ma: M[A]): M[List[A]] = ???
 
-  def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = 
-    (a: A) => f(a).flatMap(g)
+  def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = ???
+//    (a: A) => f(a).flatMap(g)
 
 
   // Implement in terms of `compose`:
-  def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = +++
+  def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = ???
 
 
   def join[A](mma: M[M[A]]): M[A] = ??? //mma.flatMap((ma: M[A]) => 
