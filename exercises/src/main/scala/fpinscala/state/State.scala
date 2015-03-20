@@ -13,7 +13,7 @@ object RNG {
       val newSeed = (seed * 0x5DEECE66DL + 0xBL) & 0xFFFFFFFFFFFFL // `&` is bitwise AND. We use the current seed to generate a new seed.
       val nextRNG = Simple(newSeed) // The next state, which is an `RNG` instance created from the new seed.
       val n = (newSeed >>> 16).toInt // `>>>` is right binary shift with zero fill. The value `n` is our new pseudo-random integer.
-      (n, nextRNG) // The return value is a tuple containing both a pseudo-random integer and the next `RNG` state.
+        (n, nextRNG) // The return value is a tuple containing both a pseudo-random integer and the next `RNG` state.
     }
   }
 
@@ -38,7 +38,7 @@ object RNG {
     val (nextInt, nextRNG) = rng.nextInt
     (nextInt.abs, nextRNG)
   }
-                                             //RNG.map(rng)(_.abs)
+  //RNG.map(rng)(_.abs)
 
   def double(rng: RNG): (Double, RNG) = {
     val (nextInt, nextRNG) = rng.nextInt
@@ -51,9 +51,9 @@ object RNG {
     // val (nextInt, secondRNG) = rng.nextInt
     // val (nextDouble, thirdRNG) = RNG.double(secondRNG)
     // ((nextInt, nextDouble), thirdRNG)
-    val intDoubleRand: Rand[(Int, Double)] = 
+    val intDoubleRand: Rand[(Int, Double)] =
       RNG.map2(
-        (rngA: RNG) => rngA.nextInt, 
+        (rngA: RNG) => rngA.nextInt,
         (rngB: RNG) => RNG.double(rngB)
       )((int: Int, dbl: Double) => (int, dbl))
 
@@ -97,17 +97,17 @@ object RNG {
     val ll = List.fill(count)(rand)
     ll.foldRight((List[A](), rng))(
 
-// [error] Note: Tuples cannot be directly destructured in method or function parameters.
-// [error]       Either create a single parameter accepting the Tuple1,
-// [error]       or consider a pattern matching anonymous function: `{ case (param1, param1) => ... }
-// [error]       (nextRand: Rand[A], (prevAList, prevRNG): (List[A], RNG)) => {
-// [error]                                               ^
+      // [error] Note: Tuples cannot be directly destructured in method or function parameters.
+      // [error]       Either create a single parameter accepting the Tuple1,
+      // [error]       or consider a pattern matching anonymous function: `{ case (param1, param1) => ... }
+      // [error]       (nextRand: Rand[A], (prevAList, prevRNG): (List[A], RNG)) => {
+      // [error]                                               ^
 
 
-//       (nextRand: Rand[A], (prevAList, prevRNG): (List[A], RNG)) => {
-//         val (nextA, nextRNG) = nextRand(prevRNG)
-//         (nextA :: prevAList, nextRNG)
-//       }
+      //       (nextRand: Rand[A], (prevAList, prevRNG): (List[A], RNG)) => {
+      //         val (nextA, nextRNG) = nextRand(prevRNG)
+      //         (nextA :: prevAList, nextRNG)
+      //       }
 
       (nextRand: Rand[A], l2: (List[A], RNG)) => {
         val (nextA, nextRNG) = nextRand(l2._2)
@@ -117,7 +117,7 @@ object RNG {
     )
   }
 
-  def map2[A,B,C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] = 
+  def map2[A,B,C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
   {
     // Return function RNG => (C, RNG)
     (rng: RNG) => {
@@ -128,22 +128,22 @@ object RNG {
 
   }
 
-  def both[A,B](ra: Rand[A], rb: Rand[B]): Rand[(A,B)] = 
+  def both[A,B](ra: Rand[A], rb: Rand[B]): Rand[(A,B)] =
     RNG.map2(ra,rb){
       (a: A, b: B) => (a,b)
     }
 
-  def randIntDouble: Rand[(Int, Double)] = 
+  def randIntDouble: Rand[(Int, Double)] =
     RNG.both(RNG.randInt, RNG.randDouble)
 
-  def randIntDoubleEquivalent: Rand[(Int, Double)] = 
+  def randIntDoubleEquivalent: Rand[(Int, Double)] =
     RNG.both(RNG.randInt, RNG.double)
 
-  def randIntDoubleEquivalent2: Rand[(Int, Double)] = 
+  def randIntDoubleEquivalent2: Rand[(Int, Double)] =
     RNG.both(RNG.randInt, RNG.double(_))
 
 
-  def randDoubleInt: Rand[(Double, Int)] = 
+  def randDoubleInt: Rand[(Double, Int)] =
     RNG.both(RNG.randDouble, RNG.randInt)
 
 
@@ -222,7 +222,7 @@ case class State[S,+A](run: S => (A, S)) {
     }
 
   }
-    
+  
   def map2[B,C](sb: State[S, B])(f: (A, B) => C): State[S, C] = {
     State {
       (s0: S) => {
@@ -235,8 +235,8 @@ case class State[S,+A](run: S => (A, S)) {
   }
 
   def flatMap[B](f: A => State[S, B]): State[S, B] = {
-// [error]  found   : S => fpinscala.state.State[S,B]
-// [error]  required: fpinscala.state.State[S,B]
+    // [error]  found   : S => fpinscala.state.State[S,B]
+    // [error]  required: fpinscala.state.State[S,B]
 
     State {
       (s0: S) => {
@@ -256,8 +256,11 @@ case object Turn extends Input
 
 case class Machine(locked: Boolean, candies: Int, coins: Int)
 
+//case class State[S,A](
+//type State = (
+
 object State {
-  def unit[S,A](a: A): State[S,A] = 
+  def unit[S,A](a: A): State[S,A] =
     State {
       (s: S) => (a, s)
     }
@@ -269,6 +272,7 @@ object State {
      */
     sas.foldRight {
       //State.unit(List[A]())
+      // Where is this parameter to State[A], (S => (A, S)), specified?
       State((s: S)=>(List[A](),s))
     }{
       (state: State[S,A], stateList: State[S,List[A]])=>
@@ -286,23 +290,25 @@ object State {
 
 
   type Rand[A] = State[RNG, A]
+
+//  def randInt: Rand[Int] = 
   // S = Machine
   // A = (Coins held, Candies held)
   // def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = {
-    // (machine: Machine) =>
-    // inputs.foldRight(
-    //   //State[Machine, (Int,Int)](machine, (machine.coins,machine.candies))
-    //   State.unit(machine)
-    // ){
-    //   (nextInput: Input,
-    //     (machine: Machine, (coinsHeld: Int, candiesHeld: Int))) => {
-    //     machine.locked match {
-    //       case false => {
-    //         nextInput match {
-    //           case Coin
-    //         }
-    //         case true => (machine, (coinsHeld, candiesHeld))
-    //       }
+  // (machine: Machine) =>
+  // inputs.foldRight(
+  //   //State[Machine, (Int,Int)](machine, (machine.coins,machine.candies))
+  //   State.unit(machine)
+  // ){
+  //   (nextInput: Input,
+  //     (machine: Machine, (coinsHeld: Int, candiesHeld: Int))) => {
+  //     machine.locked match {
+  //       case false => {
+  //         nextInput match {
+  //           case Coin
+  //         }
+  //         case true => (machine, (coinsHeld, candiesHeld))
+  //       }
 
   //   (machine0: Machine) =>
   //   inputs.foldRight(

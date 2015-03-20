@@ -27,7 +27,7 @@ object Monoid {
 
   val intMultiplication: Monoid[Int] = new Monoid[Int] {
     def op(a1: Int, a2: Int): Int = a1 * a2
-    val zero: Int = 0
+    val zero: Int = 1
   }
 
   val booleanOr: Monoid[Boolean] = new Monoid[Boolean] {
@@ -116,8 +116,8 @@ withFilter	    (Function1[A, Boolean]) => WithFilter
   def concatenate[A](as: List[A], m: Monoid[A]): A =
     sys.error("todo")
 
-  def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B = as match {
-    case h::t
+  def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B = ??? //as match {
+//    case h::t
 
 
 
