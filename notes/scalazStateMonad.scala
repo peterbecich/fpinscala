@@ -89,6 +89,21 @@ object Stateless extends SocialService {
       new State[S, A] {
         def run(i: S) = f(i)
       }
+    // state takes position of A
+    def get[S]: State[S, S] =
+      State { s => (s, s) }
+    def gets[S, A](f: S => A): State[S, A] =
+      State { s => (s, f(s)) }
+    def put[S](s: S): State[S, Unit] =
+      State { // old state ignored and replaced
+        (oldState: State) => (s, ())
+      }
+    def modify[S](f: S => S): State[S, Unit] =
+      State {
+        (oldState: State) => (f(oldState), ())
+      }
+
+
   }
 
   // refactor the Follower Stats problem with State
@@ -136,6 +151,15 @@ object Stateless extends SocialService {
     }
   }
 
+  def checkCacheState(u: String):
+      State[Cache, Option[FollowerStats]] = for {
+    cache <- State.get[Cache]
+        optionFollowerStats <- State.state {
+
+
+
+
+
 
   def retrieve(u: String)(c: Cache): 
       (Cache, FollowerStats)
@@ -147,16 +171,28 @@ object Stateless extends SocialService {
     (c.update(u, tfs), fs)
   }
 
-  def followerStats(u: String): FollowerStats = for {
+
+  /*
+   Where is the cache in here?
+   */
+  def followerStats(u: String): State[FollowerStats] = for {
     ofs: Option[FollowerStats] <- checkCacheState(u)
     fs: FollowerStats <- ofs match {
+      // learn to replace pattern matching with
+      // primitive functions like Fold
       case Some(fs) =>
         State { (state: State) => (state, fs) }:
             State[Cache, FollowerStats]
       case None =>
         retrieveState(u): State[Cache, FollowerStats]
     }
-  } yield fs: FollowerStats
+  } yield fs: State[FollowerStats]
+
+
+  // get output state and actual FollowerStats
+  (mutatedCache, followerStats) = 
+    (followerStats("Peter"): State[FollowerStats]).
+      run(myCache)
 
 
 
