@@ -52,7 +52,7 @@ object Gen {
 
   // do it with flatMap
   def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = {
-    if(n>0){
+    //if(n>0){
 
   }
   def _listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = {
