@@ -184,16 +184,23 @@ object RNG {
 
   def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B] = {
 
-    // difference between
-    // (g: A) => Rand[B]
-    // and
-    // g: A => Rand[B]
+    /*
+    Is there a difference between
+    (g: A) => Rand[B]
+    and
+    f: A => Rand[B]
+    ?
+     I think so, when it comes to passing.
+     f would take the form
+        def f(a: A): Rand[B]
+     Can f
 
-    // Rand[A] = RNG => (A, RNG)
-    // Rand[B] = RNG => (B, RNG)
-    // g = A => (RNG => (A, RNG))
-    // g = (a: A) => ((rng: RNG) => (a, rng))
 
+    Rand[A] = RNG => (A, RNG)
+    Rand[B] = RNG => (B, RNG)
+    g = A => (RNG => (A, RNG))
+    g = (a: A) => ((rng: RNG) => (a, rng))
+     */
     (rng: RNG) => {
       val (valueA, rngA) = f(rng)
       val randB = g(valueA)
@@ -216,7 +223,7 @@ case class State[S,+A](run: S => (A, S)) {
   def map[B](f: A => B): State[S, B] = {
     State {
       (s0: S) => {
-        val (a, s1) = run(s0)
+        val (a, s1) = this.run(s0)
         (f(a), s1)
       }
     }
@@ -238,9 +245,13 @@ case class State[S,+A](run: S => (A, S)) {
     // [error]  found   : S => fpinscala.state.State[S,B]
     // [error]  required: fpinscala.state.State[S,B]
 
+
+    // uses an implicit `apply` method of State
+    // case class State makes this `apply` method
+    // automatically
     State {
       (s0: S) => {
-        val (a, s1) = run(s0)
+        val (a, s1) = this.run(s0)
         f(a).run(s1)
       }
     }
@@ -288,6 +299,50 @@ object State {
   def get[S]: State[S,S] = State((s:S)=>(s,s))
   def set[S](s: S): State[S, Unit] = State(_ => ((), s))
 
+
+  /*
+   Example in section 6.6 shows method `modify` as 
+   For Comprehension
+
+   def modify[S](f: S => S): State[S, Unit] = for {
+     s <- get
+     _ <- set(f(s))    // this 'unit' is very confusing to me
+   // seeing the explicit expansion of this for comp.
+    // to maps and flatmaps, below, should clarify it
+   } yield ()  // unit
+
+   equivalent to 
+   
+  def modify[S](f: S => S): State[S, Unit] = {
+    State.get.flatMap(s => State.set(f(s)))
+  }
+
+
+   Note that the For Comprehension yields a unit,
+   while the method returns a State[S, Unit].
+   Somehow, the State object is returned implicitly!
+   
+
+   State.get takes no arguments and returns
+   foo =  State {
+       def run: (S => (A, S)) = 
+         (s0: S) => (s0,s0)
+     }: State[S,S]
+
+   foo.flatMap(s1 => State.set(f(s1))) results in
+
+   State {
+       def run: (S => (A, S))
+   = (s1: S) => State.set(f(s1))
+   = (s1: S) => State.set(s2)
+   = (s1: S) => State (
+       def run = (dontCare: S) => (Unit, s2)
+                      )
+   
+   
+     
+
+   */
 
   type Rand[A] = State[RNG, A]
 
