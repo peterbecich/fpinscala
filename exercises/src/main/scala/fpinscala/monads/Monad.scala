@@ -142,6 +142,14 @@ show apply(x) flatMap f = f(x)
    
  */
 
+
+/* Seeing F[_] confused me as I had assumed any variable outside of brackets could not be
+parametric.
+That is not the case.
+
+F is the parametric variable, and the variable inside the brackets is a "don't care"
+
+ */
 trait Functor[F[_]] {
   def map[A,B](fa: F[A])(f: A => B): F[B]
 
@@ -160,6 +168,52 @@ object Functor {
   }
 }
 
+trait Mon[F[_]] {
+  def unit[A](a: => A): F[A]   // why are these not methods on Functor?
+
+  def map[A,B](fa: F[A])(f: A => B): F[B] =
+    fa.flatMap(
+      (a: A) => F[B].unit(f(a))
+    )
+  def flatMap[A,B](fa: F[A])(f: A => F[B]): F[B]
+  def map2[A,B,C](fa: F[A], fb: F[B])(f: (A,B) => C): F[C] =
+    // fa.flatMap((a: A) =>
+    //   fb.map((b: B) =>  // use Map, f does not provide functor container
+    //     f(a,b)  // need F[C]
+    //   )
+    // )
+    fa.flatMap((a: A) =>
+      fb.flatMap((b: B) =>  // use Map, f does not provide functor container
+        F[C].unit(f(a,b))
+      )
+    )
+
+}
+
+object Mon {
+  def monOption: Mon[Option[A]] =
+    new Mon {
+      def unit(a: => A): Option[A] = Some(a)
+      def flatMap[B](oa: Option[A])(f: A => Option[B]) =
+        oa.flatMap(f)
+
+    }
+  def monList: Mon[List[A]] =
+    new Mon {
+      def unit(a: => A): List[A] = Cons(a)
+      def flatMap[B](oa: List[A])(f: A => List[B]) =
+        oa.flatMap(f)
+
+    }
+  // not all types that we define Mon for will already have flatMap and unit
+  // methods defined
+
+
+}
+
+
+// for example,
+// Monad[List[A]] extends Functor[List]
 trait Monad[M[_]] extends Functor[M] {
   def unit[A](a: => A): M[A]
 
