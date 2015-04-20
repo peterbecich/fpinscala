@@ -43,7 +43,17 @@ object Prop {
 /*
  case class State[S,A](run: S => (AS))
  */
-case class Gen[A](sample: State[RNG, A])
+case class Gen[A](sample: State[RNG, A]){
+  def map[B](f: A => B): Gen[B] = {
+    val newState: State[RNG, B] = this.sample.map(f)
+    Gen[B](newState)
+  }
+  def flatMap[B](f: A => Gen[B]): Gen[B] = {
+    val newGen = this.sample.flatMap(f)
+
+    newGen
+  }
+}
 
 object Gen {
   //import fpinscala.testing.Gen
@@ -74,19 +84,19 @@ object Gen {
   }
 }
 
-trait Gen[A] {
-  def map[B](f: A => B): Gen[B] = {
-    val newState: State[RNG, B] = this.sample.map(f)
-    Gen[B](newState)
-  }
-  def flatMap[B](f: A => Gen[B]): Gen[B] = {
-    val newGen = this.sample.flatMap(f)
+// trait Gen[A] {
+  // def map[B](f: A => B): Gen[B] = {
+  //   val newState: State[RNG, B] = this.sample.map(f)
+  //   Gen[B](newState)
+  // }
+  // def flatMap[B](f: A => Gen[B]): Gen[B] = {
+  //   val newGen = this.sample.flatMap(f)
 
-    newGen
-  }
+  //   newGen
+  // }
 
 
-}
+// }
 
 trait SGen[+A] {
 
