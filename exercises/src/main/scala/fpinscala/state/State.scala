@@ -304,6 +304,30 @@ object State {
   }
 
 
+  /*
+   At this point, there is some benefit to understanding how all Scala functions are objects:
+https://twitter.github.io/scala_school/basics2.html#fnobj
+
+Understanding this tells you how the apply method comes to be defined.
+The number of arguments to apply is not dynamic -- it is fixed by the type of function that is inherited from.
+
+Twitter's example:
+object addPair extends Function2[Int, Int, Int] {
+   def apply(m: Int, n: Int): Int = your definition
+   }
+equivalent to
+def addPair(m: Int, n: Int): Int
+
+To look only at the type signatures that our function addPair must conform to:
+object foo extends Function2[A,B,C] {
+  def apply(A, B): C
+   }
+equivalent to
+def foo(A, B): C
+
+   */
+
+
   def get[S]: State[S,S] = State((s:S)=>(s,s))
   /*
 
