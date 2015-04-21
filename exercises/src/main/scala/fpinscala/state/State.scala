@@ -311,6 +311,8 @@ https://twitter.github.io/scala_school/basics2.html#fnobj
 Understanding this tells you how the apply method comes to be defined.
 The number of arguments to apply is not dynamic -- it is fixed by the type of function that is inherited from.
 
+These objects inherited from, Function0 through Function22, live in the namespace scala.*
+
 Twitter's example:
 object addPair extends Function2[Int, Int, Int] {
    def apply(m: Int, n: Int): Int = your definition
@@ -324,6 +326,15 @@ object foo extends Function2[A,B,C] {
    }
 equivalent to
 def foo(A, B): C
+
+As with parametric functions, you get to define the variable names,
+so long as they conform to the parent's parametric types.
+
+
+The same is true for Scala Classes
+class AddOne extends Function[Int, Int] {
+   def apply(m: Int): Int = m+1
+   }
 
    */
 
