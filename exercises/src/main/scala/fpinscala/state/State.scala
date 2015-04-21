@@ -220,10 +220,21 @@ object RNG {
 }
 
 case class State[S,+A](run: S => (A, S)) {
+  /* IS the case class syntactic sugar for: 
+
+   https://twitter.github.io/scala_school/basics2.html#apply
+
+   class State {
+     def apply(run: S => (A,S)) = new State {
+       def apply = run
+     }
+   }
+
+   */
   def map[B](f: A => B): State[S, B] = {
     State {
       (s0: S) => {
-        val (a, s1) = this.run(s0)
+        val (a, s1) = this.run(s0)  // (S => (A,S))(s0) == (a, s1)
         (f(a), s1)
       }
     }
@@ -267,9 +278,6 @@ case object Turn extends Input
 
 case class Machine(locked: Boolean, candies: Int, coins: Int)
 
-//case class State[S,A](
-//type State = (
-
 object State {
   def unit[S,A](a: A): State[S,A] =
     State {
@@ -297,8 +305,23 @@ object State {
 
 
   def get[S]: State[S,S] = State((s:S)=>(s,s))
-  def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+  /*
 
+   def get[S] = new State {
+     def apply: 
+     (scala.Function1[S, Tuple2[A, S]]) => fpinscala.state.State[S, A] 
+     = ((s:S)=>(s,s)): scala.Function1[S, Tuple2[A, S]]
+
+   */
+  def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+  /*
+
+   def set[S](s: S): State[S, Unit] = new State {
+     def apply:
+     (scala.Function1[S, Tuple2[A, S]]) => fpinscala.state.State[S, A]
+     = (() => ((), s)): (scala.Function1[S, Tuple2[A, S]])
+
+   */
 
   /*
    Example in section 6.6 shows method `modify` as 
@@ -317,6 +340,7 @@ object State {
     State.get.flatMap(s => State.set(f(s)))
   }
 
+   State[S, Unit] == 
 
    Note that the For Comprehension yields a unit,
    while the method returns a State[S, Unit].
