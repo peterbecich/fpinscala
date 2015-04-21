@@ -232,24 +232,29 @@ case class State[S,+A](run: S => (A, S)) {
 
    */
   def map[B](f: A => B): State[S, B] = {
-    State {
-      (s0: S) => {
-        val (a, s1) = this.run(s0)  // (S => (A,S))(s0) == (a, s1)
-        (f(a), s1)
-      }
-    }
+    // State {
+    //   (s0: S) => {
+    //     val (a, s1) = this.run(s0)  // (S => (A,S))(s0) == (a, s1)
+    //     (f(a), s1)
+    //   }
+    // }
+    // implement with flatMap
+    flatMap((a: A) => State((s: S) => (f(a),s)))
 
   }
   
   def map2[B,C](sb: State[S, B])(f: (A, B) => C): State[S, C] = {
-    State {
-      (s0: S) => {
-        val (a, s1) = this.run(s0)
-        val (b, s2) = sb.run(s1)
-        (f(a,b), s2)
-      }
-    }
-
+    // State {
+    //   (s0: S) => {
+    //     val (a, s1) = this.run(s0)
+    //     val (b, s2) = sb.run(s1)
+    //     (f(a,b), s2)
+    //   }
+    // }
+    flatMap((a: A) => {
+      // map: B => C
+      sb.map((b: B) => f(a,b))
+    })
   }
 
   def flatMap[B](f: A => State[S, B]): State[S, B] = {
