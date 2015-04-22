@@ -281,6 +281,13 @@ object Mon {
       oa.flatMap(f)
   }
 
+  // object cannot have parametric type??
+  // object monOptionAsObject[A] extends Mon[Option] {
+  //   def unit(a: => A): Option[A] = Some(a)
+  //   def flatMap[B](oa: Option[A])(f: A => Option[B]) =
+  //     oa.flatMap(f)
+  // }
+
 
   /*
    Slightly different syntax
@@ -317,10 +324,26 @@ object Mon {
 
 // for example,
 // Monad[List[A]] extends Functor[List]
+// Functor's parametric signature, F[_] will *not* accept
+// M[A], List[A], List[Int], Option[A], etc...
+// Only M, List, Option,... is correct.
 trait Monad[M[_]] extends Functor[M] {
+  /*
+   Functor[M] lacks a unit method.
+   Unit needs to be abstractly implemented here.
+
+   Defining 'apply' would be appropriate for producing a Monad, right here.
+   Defining 'unit' is appropriate for producing an instance of the
+   internal type of Monad, M[_].
+
+   In other words, 'unit' produces an instance of a type "one level in",
+   not this type Monad.
+   */
+
+  // unit and flatMap left abtract, as they were in Mon
   def unit[A](a: => A): M[A]
 
-  def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] // note Monad is a TRAIT
+  def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B]
 
   def map[A,B](ma: M[A])(f: A => B): M[B] =
     this.flatMap(ma)(a => this.unit(f(a)))
@@ -328,9 +351,25 @@ trait Monad[M[_]] extends Functor[M] {
   def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
     this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
 
-  def sequence[A](lma: List[M[A]]): M[List[A]] = ??? // lma match {
-    // case h::t => 
+  /*
+   Sequence confused me because it is only useful with Lists.
+   It is an "odd duck" where other methods of Monad are very general.
+   Because it is so restricted, feel free to use the methods of List,
+   which is certainly a concrete type, unlike F or M.
+   */
+  def sequence[A](lma: List[M[A]]): M[List[A]] = lma match {
+    // Type erasure issue
+    //http://stackoverflow.com/questions/1094173/how-do-i-get-around-type-erasure-on-scala-or-why-cant-i-get-the-type-paramete
+    // type M[A] of h is ***unenforced***
+    // Since this is only a warning, I can keep these type annotations
+    // for my own clarity
+    case (h: M[A])::(t: List[M[A]]) => this.unit{
+      
+    }: M[List[A]]
 
+
+
+  }
 
   def traverse[A,B](la: List[A])(f: A => M[B]): M[List[B]] = ???
 
@@ -359,11 +398,12 @@ object Monad {
       ma flatMap f
   }
 
-  val parMonad: Monad[Par] = new Monad[Par] {
-    def unit[A](a: => A): Par[A] = Par.unit(a)
-    override def flatMap[A,B](ma: Par[A])(f: A => Par[B]): Par[B] =
-      ma flatMap f
-  }
+  // val parMonad: Monad[Par] = new Monad[Par] {
+  //   def unit[A](a: => A): Par[A] = Par.unit(a)
+  //   override def flatMap[A,B](ma: Par[A])(f: A => Par[B]): Par[B] =
+         //need to fix implementation of Par
+  //     ma flatMap f
+  // }
 
   def parserMonad[P[+_]](p: Parsers[P]): Monad[P] = ???
 
