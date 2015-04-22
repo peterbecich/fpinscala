@@ -270,10 +270,27 @@ object Mon {
 
   // It is because the signature of Mon[F[_]] is a "don't care"
   // for the internal type of F
+
+  /*
+   trait
+   fpinscala.monads.Mon$$monOption[A]
+   */
   trait monOption[A] extends Mon[Option] {
-      def unit(a: => A): Option[A] = Some(a)
-      def flatMap[B](oa: Option[A])(f: A => Option[B]) =
-        oa.flatMap(f)
+    def unit(a: => A): Option[A] = Some(a)
+    def flatMap[B](oa: Option[A])(f: A => Option[B]) =
+      oa.flatMap(f)
+  }
+
+
+  /*
+   Slightly different syntax
+   class
+   fpinscala.monads.Mon$$<refinement>
+   */
+  def monOptionAltSyntax[A] = new Mon[Option]{
+    def unit(a: => A): Option[A] = Some(a)
+    def flatMap[B](oa: Option[A])(f: A => Option[B]) =
+      oa.flatMap(f)
   }
 
   trait monList[A] extends Mon[List] {
