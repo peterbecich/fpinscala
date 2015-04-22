@@ -264,22 +264,27 @@ trait Mon[F[_]] {
 }
 
 object Mon {
-  def monOption[A]: Mon[Option[A]] =
-    new Mon {
+  // Option[A] takes no type parameters?
+  // "Option takes no type parameters" would make more sense to me
+  // def monOption[A]: Mon[Option[A]] =
+
+  // It is because the signature of Mon[F[_]] is a "don't care"
+  // for the internal type of F
+  trait monOption[A] extends Mon[Option] {
       def unit(a: => A): Option[A] = Some(a)
       def flatMap[B](oa: Option[A])(f: A => Option[B]) =
         oa.flatMap(f)
+  }
 
+  trait monList[A] extends Mon[List] {
+    def unit(a: => A): List[A] = List.apply(a)
+    def flatMap[B](oa: List[A])(f: A => List[B]): List[B] =
+      oa.flatMap(f): List[B]
     }
-  def monList: Mon[List[A]] =
-    new Mon {
-      def unit(a: => A): List[A] = Cons(a)
-      def flatMap[B](oa: List[A])(f: A => List[B]) =
-        oa.flatMap(f)
-
-    }
-  // not all types that we define Mon for will already have flatMap and unit
-  // methods defined
+  /* 
+   not all types that we define Mon for 
+   will already have flatMap and unit methods defined
+   */
 
 
 }
