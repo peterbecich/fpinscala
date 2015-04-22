@@ -287,11 +287,19 @@ object Mon {
    class
    fpinscala.monads.Mon$$<refinement>
    */
-  def monOptionAltSyntax[A] = new Mon[Option]{
+  def monOptionAsDef[A] = new Mon[Option]{
     def unit(a: => A): Option[A] = Some(a)
     def flatMap[B](oa: Option[A])(f: A => Option[B]) =
       oa.flatMap(f)
   }
+
+  // doesn't compile
+  // val monOptionAsVal[A] = new Mon[Option]{
+  //   def unit(a: => A): Option[A] = Some(a)
+  //   def flatMap[B](oa: Option[A])(f: A => Option[B]) =
+  //     oa.flatMap(f)
+  // }
+
 
   trait monList[A] extends Mon[List] {
     def unit(a: => A): List[A] = List.apply(a)
@@ -315,10 +323,10 @@ trait Monad[M[_]] extends Functor[M] {
   def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] // note Monad is a TRAIT
 
   def map[A,B](ma: M[A])(f: A => B): M[B] =
-    flatMap(ma)(a => unit(f(a)))
+    this.flatMap(ma)(a => this.unit(f(a)))
 
   def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
-    flatMap(ma)(a => map(mb)(b => f(a, b)))
+    this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
 
   def sequence[A](lma: List[M[A]]): M[List[A]] = ??? // lma match {
     // case h::t => 
