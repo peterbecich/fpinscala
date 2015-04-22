@@ -149,13 +149,33 @@ That is not the case.
 
 F is the parametric variable, and the variable inside the brackets is a "don't care"
 
+F's place can be taken by any parametric type
+List[A] can take F's place
+Int cannot take F's place
  */
 trait Functor[F[_]] {
   def map[A,B](fa: F[A])(f: A => B): F[B]
 
-  def distribute[A,B](fab: F[(A, B)]): (F[A], F[B]) =
-    (map(fab)(_._1), map(fab)(_._2))
+  // i.e. fab = List[(Int, String)]
+  def distribute[A,B](fab: F[(A, B)]): (F[A], F[B]) = {
+    //(map(fab)(_._1), map(fab)(_._2))
+    // more explicitly
 
+    // note this won't compile
+    // ***object*** Functor does not take type parameters
+    // instance of trait Functor has type parameters already set
+    // blank trait Functor will take type parameters???
+    //val first = Functor[F[(A,B)]].map(
+    val first: F[A] = this.map(fab){
+      (abTuple: (A,B)) => abTuple._1
+    }
+    val second: F[B] = this.map(fab){
+      (abTuple: (A,B)) => abTuple._2
+    }
+    // where 'this' is an instance of trait Functor 
+    // with map assumed defined
+    (first, second)
+  }
   def codistribute[A,B](e: Either[F[A], F[B]]): F[Either[A, B]] = e match {
     case Left(fa) => map(fa)(Left(_))
     case Right(fb) => map(fb)(Right(_))
@@ -166,32 +186,85 @@ object Functor {
   val listFunctor = new Functor[List] {
     def map[A,B](as: List[A])(f: A => B): List[B] = as map f
   }
+  // List[A] takes no type parameters??
+  // def listFunctionAlt[A] = new Functor[List[A]] {
+  def listFunctionAlt[A] = new Functor[List] {
+    def map[B](as: List[A])(f: A => B): List[B] = as map f
+  }
 }
 
-trait Mon[F[_]] {
-  def unit[A](a: => A): F[A]   // why are these not methods on Functor?
 
-  def map[A,B](fa: F[A])(f: A => B): F[B] =
-    fa.flatMap(
-      (a: A) => F[B].unit(f(a))
-    )
+/*
+ Instances of Mon will look like Mon[List[A]]
+ */
+trait Mon[F[_]] {
+  def unit[A](a: => A): F[A]   // why are these methods not returning a Functor?
+
+
+  def map[A,B](fa: F[A])(f: A => B): F[B] = {
+    // same mistake made here as in map2;
+    // we are using the methods of Mon, not F
+    // fa.flatMap(
+    //   (a: A) => F[B].unit(f(a))
+    // )
+
+
+    // this: Mon[F]  where F's internal type is anything!
+    // F[Int], F[String], etc
+    this.flatMap(fa){
+      (a: A) => this.unit(f(a))
+    }
+
+  }
   def flatMap[A,B](fa: F[A])(f: A => F[B]): F[B]
-  def map2[A,B,C](fa: F[A], fb: F[B])(f: (A,B) => C): F[C] =
+
+
+  def map2[A,B,C](fa: F[A], fb: F[B])(f: (A,B) => C): F[C] = {
+    // this isn't working because fa and fb are unknown to have flatMap
+    // ***however***, Mon[F[A]] and Mon[F[B]] have flatMap
     // fa.flatMap((a: A) =>
-    //   fb.map((b: B) =>  // use Map, f does not provide functor container
-    //     f(a,b)  // need F[C]
+    //   fb.flatMap((b: B) =>  // use Map, f does not provide functor container
+    //     F[C].unit(f(a,b))
     //   )
     // )
-    fa.flatMap((a: A) =>
-      fb.flatMap((b: B) =>  // use Map, f does not provide functor container
-        F[C].unit(f(a,b))
-      )
-    )
 
+
+
+    // trait
+    // fpinscala.monads.Mon
+    // (companion)
+
+    // trait
+    // fpinscala.monads.Mon[F]
+    // ---------------------------
+    // flatMap		    (F[A]) => (Function1[A, F[B]]) => F[B]
+    // map		    (F[A]) => (Function1[A, B]) => F[B]
+    // map2		    (F[A], F[B]) => (Function2[A, B, C]) => F[C]
+    // unit		    (<byname>[A]) => F[A]
+
+
+
+    // this.flatMap(fa: F[A])(f: Function1[A, F[C]]):
+    // (fpinscala.monads.F[A]) =>   // notice the currying
+    // (scala.Function1[A, F[C]]) => 
+    // fpinscala.monads.F[C]
+
+    /* 
+     Where is our Mon[F[B]] to work with?
+     There is no Mon[F[B]], nor Mon[F[A]]!
+     There is only Mon[F[_]]
+     */
+    this.flatMap(fa){
+      (a: A) => this.map(fb){
+        (b: B) => f(a,b)
+      }
+    }: F[C]
+
+  }
 }
 
 object Mon {
-  def monOption: Mon[Option[A]] =
+  def monOption[A]: Mon[Option[A]] =
     new Mon {
       def unit(a: => A): Option[A] = Some(a)
       def flatMap[B](oa: Option[A])(f: A => Option[B]) =
