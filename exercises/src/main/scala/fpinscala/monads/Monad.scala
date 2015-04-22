@@ -188,8 +188,8 @@ object Functor {
   }
   // List[A] takes no type parameters??
   // def listFunctionAlt[A] = new Functor[List[A]] {
-  def listFunctionAlt[A] = new Functor[List] {
-    def map[B](as: List[A])(f: A => B): List[B] = as map f
+  trait listFunctorAlt[A] extends Functor[List] {
+    override def map[B](as: List[A])(f: A => B): List[B] = as map f
   }
 }
 
@@ -364,9 +364,13 @@ trait Monad[M[_]] extends Functor[M] {
     // Since this is only a warning, I can keep these type annotations
     // for my own clarity
     case (h: M[A])::(t: List[M[A]]) => this.unit{
-      
-    }: M[List[A]]
+      /* 
+       Monad.flatMap has independent parametric types A and B.
+       It's not appropriate to define parametric A in the signature of
+       trait Monad because Monad operates on a Functor of any internal type.
+       */
 
+    }: M[List[A]]
 
 
   }
@@ -375,15 +379,29 @@ trait Monad[M[_]] extends Functor[M] {
 
   def replicateM[A](n: Int, ma: M[A]): M[List[A]] = ???
 
-  def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = ???
-//    (a: A) => f(a).flatMap(g)
+  def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = {
+    /* Implement without flatMap, because flatMap will be implemented
+     with this.
+     An alternative set of primitives are compose and unit.
+     I thought primitive implied "left abstract"...
+     */
 
+
+  }
 
   // Implement in terms of `compose`:
-  def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = ???
+  def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
+//    this.compose(
+  }
 
 
-  def join[A](mma: M[M[A]]): M[A] = ??? //mma.flatMap((ma: M[A]) => 
+  /*
+   A third minimal set of combinators: join, map, and unit
+   */
+  def join[A](mma: M[M[A]]): M[A] = {
+    
+
+  }
 
   // Implement in terms of `join`:
   def __flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = ???
