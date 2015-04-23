@@ -399,7 +399,7 @@ trait Monad[M[_]] extends Functor[M] {
    A third minimal set of combinators: join, map, and unit
    */
   def join[A](mma: M[M[A]]): M[A] = {
-    
+
 
   }
 
