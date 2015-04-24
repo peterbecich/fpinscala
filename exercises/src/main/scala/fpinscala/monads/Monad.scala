@@ -244,6 +244,7 @@ trait Mon[F[_]] {
 
 
 
+
     // this.flatMap(fa: F[A])(f: Function1[A, F[C]]):
     // (fpinscala.monads.F[A]) =>   // notice the currying
     // (scala.Function1[A, F[C]]) => 
@@ -402,6 +403,8 @@ trait Monad[M[_]] extends Functor[M] {
 
 
   }
+
+
 
   // Implement in terms of `join`:
   def __flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = ???
