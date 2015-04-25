@@ -23,10 +23,10 @@ import parallelism.Par._
  Show that Option is a monad
 
  abstract class Option[+T] {
-   def flatMap[U](f: T => Option[U]): Option[U] = this match {
-     case Some(x) => f(x)
-     case None => None
-   }
+ def flatMap[U](f: T => Option[U]): Option[U] = this match {
+ case Some(x) => f(x)
+ case None => None
+ }
  }
 
 
@@ -35,123 +35,123 @@ import parallelism.Par._
  In Option, Unit is Some
 
  Where is it shown that f has signature (T => Option[U])?
-  Some(x) flatMap f
+ Some(x) flatMap f
  =f(x)
 
  Show right unit law:
-  opt flatMap Some
+ opt flatMap Some
  =opt match {
-    case Some(x) => Some(x)
-    case None => None
-  }
+ case Some(x) => Some(x)
+ case None => None
+ }
  =opt
 
  Show associative law:
  
-  opt flatMap f flatMap g
+ opt flatMap f flatMap g
 
-  Prove for both possibilities of parethesis placement ... or not
-  (opt flatMap f) flatMap g
+ Prove for both possibilities of parethesis placement ... or not
+ (opt flatMap f) flatMap g
  =(opt match {
-    case Some(x) => f(x)
-    case None => None
+ case Some(x) => f(x)
+ case None => None
  } ) match {
-    case Some(y) => g(y)
-    case None => None
+ case Some(y) => g(y)
+ case None => None
  }
  =(opt match {
-    case Some(x) => f(x) match {  // Analogous to algebraic distribution?
-      case Some(y) => g(y)
-      case None => None
-    }
-    case None => None match {
-      case Some(y) => g(y)
-      case None => None
-    }
+ case Some(x) => f(x) match {  // Analogous to algebraic distribution?
+ case Some(y) => g(y)
+ case None => None
+ }
+ case None => None match {
+ case Some(y) => g(y)
+ case None => None
+ }
  } 
-) 
-=opt match {
-    case Some(x) => f(x) match {
-      case Some(y) => g(y)
-      case None => None
-    }
-    case None => None
+ ) 
+ =opt match {
+ case Some(x) => f(x) match {
+ case Some(y) => g(y)
+ case None => None
+ }
+ case None => None
  } 
 
-                 aside:  f(x) match {
-                           case Some(y) => g(y)
-                           case None => None
-                         } = (x => f(x) flatMap g)
-=opt match {
-    case Some(x) => f(x) flatMap g
-    case None => None
+ aside:  f(x) match {
+ case Some(y) => g(y)
+ case None => None
+ } = (x => f(x) flatMap g)
+ =opt match {
+ case Some(x) => f(x) flatMap g
+ case None => None
  } 
-=opt flatMap (x => f(x) flatMap g)
+ =opt flatMap (x => f(x) flatMap g)
 
 
 
 
-Consequentially...
+ Consequentially...
 
-Associativity says that one can "inline" nested for-expressions
+ Associativity says that one can "inline" nested for-expressions
 
  for (y <- for (x <- m; y <- f(x)) yield y
-     z <- g(y)) yield z
-=for (x <-m;
-      y <-f(x);
-      z <-g(y)) yield z
+ z <- g(y)) yield z
+ =for (x <-m;
+ y <-f(x);
+ z <-g(y)) yield z
 
-right unit 
+ right unit 
  for (x <- m) yield x
-=m
+ =m
 
-left unit does not have an analogue for for-expressions
+ left unit does not have an analogue for for-expressions
 
 
 
-example
+ example
 
-abstract class Try[+T]
-case class Success[T](x: T) extends Try[T]
-case class Failure(ex: Exception) extends Try[Nothing]
+ abstract class Try[+T]
+ case class Success[T](x: T) extends Try[T]
+ case class Failure(ex: Exception) extends Try[Nothing]
 
-object Try {
-  def apply[T](expr: => T): Try[T] = 
-    try Success(expr)  // uses Java try
-    catch {
-      case NonFatal(ex) => Failure(ex)
-      // fatal exception not necessary to catch
-    }
-
-  def flatMap[U](f: T => Try[U]): Try[U] = this match {
-    case Success(x) => try f(x) catch { case NonFatal(ex) => Failure(ex) }
-    case fail: Failure => fail
-  }
-  def map[U](f: T => U): Try[U] = this match {
-    case Success(x) => Try(f(x))
-    case fail: Failure => fail
-  }
+ object Try {
+ def apply[T](expr: => T): Try[T] = 
+ try Success(expr)  // uses Java try
+ catch {
+ case NonFatal(ex) => Failure(ex)
+ // fatal exception not necessary to catch
  }
 
-is Try a Monad?
+ def flatMap[U](f: T => Try[U]): Try[U] = this match {
+ case Success(x) => try f(x) catch { case NonFatal(ex) => Failure(ex) }
+ case fail: Failure => fail
+ }
+ def map[U](f: T => U): Try[U] = this match {
+ case Success(x) => Try(f(x))
+ case fail: Failure => fail
+ }
+ }
 
-left unit
-show apply(x) flatMap f = f(x)
+ is Try a Monad?
+
+ left unit
+ show apply(x) flatMap f = f(x)
 
 
-   
+ 
  */
 
 
 /* Seeing F[_] confused me as I had assumed any variable outside of brackets could not be
-parametric.
-That is not the case.
+ parametric.
+ That is not the case.
 
-F is the parametric variable, and the variable inside the brackets is a "don't care"
+ F is the parametric variable, and the variable inside the brackets is a "don't care"
 
-F's place can be taken by any parametric type
-List[A] can take F's place
-Int cannot take F's place
+ F's place can be taken by any parametric type
+ List[A] can take F's place
+ Int cannot take F's place
  */
 trait Functor[F[_]] {
   def map[A,B](fa: F[A])(f: A => B): F[B]
@@ -172,7 +172,7 @@ trait Functor[F[_]] {
     val second: F[B] = this.map(fab){
       (abTuple: (A,B)) => abTuple._2
     }
-    // where 'this' is an instance of trait Functor 
+    // where 'this' is an instance of trait Functor
     // with map assumed defined
     (first, second)
   }
@@ -247,10 +247,10 @@ trait Mon[F[_]] {
 
     // this.flatMap(fa: F[A])(f: Function1[A, F[C]]):
     // (fpinscala.monads.F[A]) =>   // notice the currying
-    // (scala.Function1[A, F[C]]) => 
+    // (scala.Function1[A, F[C]]) =>
     // fpinscala.monads.F[C]
 
-    /* 
+    /*
      Where is our Mon[F[B]] to work with?
      There is no Mon[F[B]], nor Mon[F[A]]!
      There is only Mon[F[_]]
@@ -313,8 +313,8 @@ object Mon {
     def unit(a: => A): List[A] = List.apply(a)
     def flatMap[B](oa: List[A])(f: A => List[B]): List[B] =
       oa.flatMap(f): List[B]
-    }
-  /* 
+  }
+  /*
    not all types that we define Mon for 
    will already have flatMap and unit methods defined
    */
@@ -365,13 +365,15 @@ trait Monad[M[_]] extends Functor[M] {
     // Since this is only a warning, I can keep these type annotations
     // for my own clarity
     case (h: M[A])::(t: List[M[A]]) => this.unit{
-      /* 
+      /*
        Monad.flatMap has independent parametric types A and B.
        It's not appropriate to define parametric A in the signature of
        trait Monad because Monad operates on a Functor of any internal type.
        */
 
+
     }: M[List[A]]
+    // case (h: M[A])::(Nil: List[M[A]]) => th
 
 
   }
@@ -390,9 +392,13 @@ trait Monad[M[_]] extends Functor[M] {
 
   }
 
+
+
+
+
   // Implement in terms of `compose`:
   def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
-//    this.compose(
+    //    this.compose(
   }
 
 
@@ -422,7 +428,7 @@ object Monad {
   // val parMonad: Monad[Par] = new Monad[Par] {
   //   def unit[A](a: => A): Par[A] = Par.unit(a)
   //   override def flatMap[A,B](ma: Par[A])(f: A => Par[B]): Par[B] =
-         //need to fix implementation of Par
+  //need to fix implementation of Par
   //     ma flatMap f
   // }
 
