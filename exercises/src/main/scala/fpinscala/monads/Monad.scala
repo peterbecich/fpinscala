@@ -420,7 +420,7 @@ trait Monad[M[_]] extends Functor[M] {
   def mapAbstract[A,B](ma: M[A])(f: A => B): M[B]
 
 
-  // Implement in terms of `join` (and map?):
+  // Implement in terms of `join` (and map and unit?):
   def __flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
     //this.join(mma: M[M[A]])
     // map called on wrong object; map belongs to 'this'
@@ -430,7 +430,7 @@ trait Monad[M[_]] extends Functor[M] {
 
   /* 
    Implement in terms of `compose`
-   You should be able to implement all other combinators
+   You should be able to implement this and all other combinators
    with only `unit` and `compose`.
   
    */
