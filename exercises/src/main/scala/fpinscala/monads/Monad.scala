@@ -373,23 +373,25 @@ trait Monad[M[_]] extends Functor[M] {
 
 
     }: M[List[A]]
-    // case (h: M[A])::(Nil: List[M[A]]) => th
+      // case (h: M[A])::(Nil: List[M[A]]) => th
 
 
   }
 
-  def traverse[A,B](la: List[A])(f: A => M[B]): M[List[B]] = ???
+  def traverse[A,B](la: List[A])(f: A => M[B]): M[List[B]] = {
+    //la.foldRight(z: B)(op: Function2[A, B, B])
+    //    la.foldRight(Monad.listMonad
+  }
 
   def replicateM[A](n: Int, ma: M[A]): M[List[A]] = ???
 
+  /* Implement without flatMap, because flatMap will be implemented
+   with this.
+   An alternative set of primitives are compose and unit.
+   I thought primitive implied "left abstract"...
+   */
   def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = {
-    /* Implement without flatMap, because flatMap will be implemented
-     with this.
-     An alternative set of primitives are compose and unit.
-     I thought primitive implied "left abstract"...
-     */
-
-
+    
   }
 
 
@@ -398,7 +400,8 @@ trait Monad[M[_]] extends Functor[M] {
 
   // Implement in terms of `compose`:
   def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
-    //    this.compose(
+    // C => M[A], A => M[B]
+    this.compose(
   }
 
 
@@ -409,14 +412,42 @@ trait Monad[M[_]] extends Functor[M] {
 
 
   }
+  /* implement without flatMap.
+   I think this is impossible.
+   My understanding of "minimal set" are methods that must be implemented
+   by the monad instance.  Leave them abstract here
+   */
+  def mapAbstract[A,B](ma: M[A])(f: A => B): M[B]
 
 
+  // Implement in terms of `join` (and map?):
+  def __flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
+    //this.join(mma: M[M[A]])
+    // map called on wrong object; map belongs to 'this'
+    //this.join(ma.map(f)) // join(M[M[B]])
+    this.join(this.mapAbstract(ma)(f)) // join(M[M[B]])
+  }
 
-  // Implement in terms of `join`:
-  def __flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = ???
+  /* 
+   Implement in terms of `compose`
+   You should be able to implement all other combinators
+   with only `unit` and `compose`.
+  
+   */
+  def ___flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
+    //this.compose(f: Function1[A, M[B]], g: Function1[B, M[C]]):
+    // A => M[C]
+    // compose( C => M[A], A => M[B] )(c: C)
+    // not necessary to make up type C
+    // what would an instance of C even look like?
+    // I could also use a known instance, like a char or an int
+    //this.compose((_:Int)=>ma, f)(5)
+    this.compose((_:Any)=>ma, f)()
+  }
+
 }
 
-case class Reader[R, A](run: R => A)
+
 
 object Monad {
   val genMonad = new Monad[Gen] {
@@ -438,19 +469,40 @@ object Monad {
 
   val streamMonad: Monad[Stream] = ???
 
-  val listMonad: Monad[List] = ???
+  val listMonad: Monad[List] = new Monad[List] {
+    // remember that the signature of 'unit' is the same between
+    // all monad instances (where the return type is Functor[A]
+    // def unit[A]: List[A] = List.empty
+    def unit[A](a: => A): List[A] = List(a)
+    override def flatMap[A,B](la: List[A])(fa: A => List[B]) =
+      la.flatMap(fa)
+  }
 
   def stateMonad[S] = ???
 
-  val idMonad: Monad[Id] = ???
+  val idMonad: Monad[Id] = new Monad[Id] {
+    override def unit[A](a: => A): Id[A] = Id(a)
+    override def flatMap[A,B](ida: Id[A])(f: A => Id[B]): Id[B] = {
+      ida.flatMap(f)
+    }
+  }
 
-  def readerMonad[R] = ???
+  /*
+   reader monad defined twice to demonstrate inline creation of
+   an "anonymous" type.
+   See anonymous type 'f' below
+   */
+  def readerMonad[R] = new Monad[Reader] {
+    //override def unit[A]
+  }
 }
 
 case class Id[A](value: A) {
-  def map[B](f: A => B): Id[B] = ???
-  def flatMap[B](f: A => Id[B]): Id[B] = ???
+  def map[B](f: A => B): Id[B] = Id(f(value))
+  def flatMap[B](f: A => Id[B]): Id[B] = f(value)
 }
+
+case class Reader[R, A](run: R => A)
 
 object Reader {
   def readerMonad[R] = new Monad[({type f[x] = Reader[R,x]})#f] {
