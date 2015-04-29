@@ -367,24 +367,23 @@ trait Monad[M[_]] extends Functor[M] {
    Because it is so restricted, feel free to use the methods of List,
    which is certainly a concrete type, unlike F or M.
    */
-  def sequence[A](lma: List[M[A]]): M[List[A]] = lma match {
-    // Type erasure issue
-    //http://stackoverflow.com/questions/1094173/how-do-i-get-around-type-erasure-on-scala-or-why-cant-i-get-the-type-paramete
-    // type M[A] of h is ***unenforced***
-    // Since this is only a warning, I can keep these type annotations
-    // for my own clarity
-    case (h: M[A])::(t: List[M[A]]) => this.unit{
-      /*
-       Monad.flatMap has independent parametric types A and B.
-       It's not appropriate to define parametric A in the signature of
-       trait Monad because Monad operates on a Functor of any internal type.
-       */
+  def sequence[A](lma: List[M[A]]): M[List[A]] = {
+    /* Type erasure issue
+     http://stackoverflow.com/questions/1094173/how-do-i-get-around-type-erasure-on-scala-or-why-cant-i-get-the-type-paramete
+     type M[A] of h is ***unenforced***
+     Since this is only a warning, I can keep these type annotations
+     for my own clarity
+     case (h: M[A])::(t: List[M[A]]) => this.unit{
+     
+     Monad.flatMap has independent parametric types A and B.
+     It's not appropriate to define parametric A in the signature of
+     trait Monad because Monad operates on a Functor of any internal type.
+     */
 
-
+    this.traverse(lma){(ma: M[A]) => {
+      ma
+    }: M[A]
     }: M[List[A]]
-      // case (h: M[A])::(Nil: List[M[A]]) => th
-
-
   }
 
   def traverse[A,B](la: List[A])(f: A => M[B]): M[List[B]] = {
@@ -395,20 +394,24 @@ trait Monad[M[_]] extends Functor[M] {
      */
     la.foldRight(this.unit(List[B]())){(a: A, mlb: M[List[B]]) => {
       // (A, M[List[B]]) => M[List[B]]
-      val mb: M[B] = f(a)
-      // this.flatMap(mlb)((lb: List[B]) => {
-      //   // (M[B], M[List[B]]) => M[List[B]]
-      //   this.compose(
-      // }
-      // ): M[List[B]]
+      val composition: A => M[List[B]] = this.compose(f,
+        // (B, M[List[B]]) => M[List[B]]
+        (b: B) => {
+          this.map(mlb){
+            (lb: List[B]) => b::lb
+          }
+        }
+      )
+      composition(a)
+    }: M[List[B]]
+    }: M[List[B]]
+  }: M[List[B]]
 
-    }
 
-    }
-
+  def replicateM[A](n: Int, ma: M[A]): M[List[A]] = {
+    val lma: List[M[A]] = List.fill(n)(ma)
+    this.sequence(lma)
   }
-
-  def replicateM[A](n: Int, ma: M[A]): M[List[A]] = ???
 
   /* Implement without flatMap, because flatMap will be implemented
    with this.
