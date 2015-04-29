@@ -156,6 +156,9 @@ import parallelism.Par._
 trait Functor[F[_]] {
   def map[A,B](fa: F[A])(f: A => B): F[B]
 
+  // Functor lacks flatMap, so cannot implement map2
+  // def map2[A,B,C]
+
   // i.e. fab = List[(Int, String)]
   def distribute[A,B](fab: F[(A, B)]): (F[A], F[B]) = {
     //(map(fab)(_._1), map(fab)(_._2))
@@ -437,6 +440,19 @@ trait Monad[M[_]] extends Functor[M] {
       ma
     }
   }
+
+  def product[A,B](ma: M[A], mb: M[B]): M[(A, B)] =
+    this.map2(ma, mb)((a: A, b: B) => (a,b): Tuple2[A,B])
+
+  /*
+   Imagine the uses of filterM.
+   
+
+   */
+  def filterM[A](ms: List[A])(f: A => M[Boolean]): M[List[A]] = {
+
+
+  }
 }
 
 
@@ -554,28 +570,6 @@ trait MonadC[M[_]] extends Monad[M] {
       mc
     }
   }
-  /*
-   Implement in terms of `compose`
-   You should be able to implement this and all other combinators
-   with only `unit` and `compose`.
-   
-   */
-  override def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
-    /*
-    this.compose(f: Function1[A, M[B]], g: Function1[B, M[C]]):
-    A => M[C]
-    compose( C => M[A], A => M[B] )(c: C)
-    not necessary to make up type C
-    what would an instance of C even look like?
-    I could also use a known instance, like a char or an int
-    this.compose((_:Int)=>ma, f)(5)
-    */
-    this.compose((_:Any)=>ma, f)()
-    // book answer prefers Unit to Any
-  }
-
-
-
 
 }
 
