@@ -48,11 +48,26 @@ case class Gen[A](sample: State[RNG, A]){
     val newState: State[RNG, B] = this.sample.map(f)
     Gen[B](newState)
   }
+
+  def map2[B,C](gb: Gen[B])(f: (A, B) => C): Gen[C] = {
+    this.flatMap((a: A) => {
+      gb.map((b: B) => f(a, b)): Gen[C]
+    }: A => Gen[C]
+    ): Gen[C]
+  }: Gen[C]
+
   def flatMap[B](f: A => Gen[B]): Gen[B] = {
     val newGen = this.sample.flatMap(f)
-
     newGen
   }
+
+  def **[B](g: Gen[B]): Gen[(A, B)] =
+    this.map2(g)({(a: A, b: B) => {
+      (a, b): Tuple2[A, B]
+    }}: (A, B) => Tuple2[A, B]
+    ): Gen[Tuple2[A, B]]
+
+
 }
 
 object Gen {

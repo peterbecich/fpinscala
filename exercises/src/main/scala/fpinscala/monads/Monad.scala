@@ -446,13 +446,17 @@ trait Monad[M[_]] extends Functor[M] {
 
   /*
    Imagine the uses of filterM.
-   
+   ms = List(1,2,3,4)
+   f: A => List[Boolean] = a > 2
+
+   ms = List(1,2,3,4)
+   f: A => Option[Boolean]   ???????
 
    */
-  def filterM[A](ms: List[A])(f: A => M[Boolean]): M[List[A]] = {
+  // def filterM[A](ms: List[A])(f: A => M[Boolean]): M[List[A]] = {
 
 
-  }
+  // }
 }
 
 
