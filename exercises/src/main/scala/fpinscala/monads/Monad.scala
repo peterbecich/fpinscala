@@ -341,6 +341,15 @@ trait Monad[M[_]] extends Functor[M] {
    not this type Monad.
    */
 
+
+  /*
+   Three known sets of primitive methods, left abstract in the Monad trait.  Three potential distinct Monad traits.
+   unit and flatMap
+   unit and compose
+   unit, map, and join
+
+   */
+
   // unit and flatMap left abtract, as they were in Mon
   def unit[A](a: => A): M[A]
 
