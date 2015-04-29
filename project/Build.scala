@@ -4,6 +4,7 @@ import Keys._
 object FPInScalaBuild extends Build {
   val opts = Project.defaultSettings ++ Seq(
     scalaVersion := "2.11.5",
+    scalacOptions ++= Seq("-feature","-deprecation"),
     resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
   )
 

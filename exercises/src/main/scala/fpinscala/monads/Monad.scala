@@ -410,7 +410,7 @@ trait Monad[M[_]] extends Functor[M] {
   // Implement in terms of `compose`:
   def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
     // C => M[A], A => M[B]
-    this.compose(
+    //    this.compose(
   }
 
 
@@ -437,22 +437,6 @@ trait Monad[M[_]] extends Functor[M] {
     this.join(this.mapAbstract(ma)(f)) // join(M[M[B]])
   }
 
-  /* 
-   Implement in terms of `compose`
-   You should be able to implement this and all other combinators
-   with only `unit` and `compose`.
-  
-   */
-  def ___flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
-    //this.compose(f: Function1[A, M[B]], g: Function1[B, M[C]]):
-    // A => M[C]
-    // compose( C => M[A], A => M[B] )(c: C)
-    // not necessary to make up type C
-    // what would an instance of C even look like?
-    // I could also use a known instance, like a char or an int
-    //this.compose((_:Int)=>ma, f)(5)
-    this.compose((_:Any)=>ma, f)()
-  }
 
 }
 
@@ -505,6 +489,95 @@ object Monad {
     //override def unit[A]
   }
 }
+
+
+/*
+ A monad trait based on the second primitive set of methods
+ to be left abstract: unit and compose
+ */
+trait MonadB[M[_]] extends Monad[M] {
+  def unit[A](a: => A): M[A]
+  override def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C]
+
+  override def map[A,B](ma: M[A])(f: A => B): M[B] =
+    this.flatMap(ma)(a => this.unit(f(a)))
+
+  def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
+    this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
+
+
+  /*
+   Implement in terms of `compose`
+   You should be able to implement this and all other combinators
+   with only `unit` and `compose`.
+   
+   */
+  override def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
+    //this.compose(f: Function1[A, M[B]], g: Function1[B, M[C]]):
+    // A => M[C]
+    // compose( C => M[A], A => M[B] )(c: C)
+    // not necessary to make up type C
+    // what would an instance of C even look like?
+    // I could also use a known instance, like a char or an int
+    //this.compose((_:Int)=>ma, f)(5)
+    this.compose((_:Any)=>ma, f)()
+    // book answer prefers Unit to Any
+  }
+
+
+
+
+}
+
+
+/*
+ A monad trait based on the third primitive set of methods
+ to be left abstract: unit, map, and join
+ */
+trait MonadC[M[_]] extends Monad[M] {
+  def unit[A](a: => A): M[A]
+
+  override def map[A,B](ma: M[A])(f: A => B): M[B]
+
+  def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
+    this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
+
+  def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
+    this.join(this.map(ma)(f))
+  }
+
+  override def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = {
+    (a: A) => {
+      val mb = f(a)
+      val mc = this.flatMap(mb)(g)
+      mc
+    }
+  }
+  /*
+   Implement in terms of `compose`
+   You should be able to implement this and all other combinators
+   with only `unit` and `compose`.
+   
+   */
+  override def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
+    /*
+    this.compose(f: Function1[A, M[B]], g: Function1[B, M[C]]):
+    A => M[C]
+    compose( C => M[A], A => M[B] )(c: C)
+    not necessary to make up type C
+    what would an instance of C even look like?
+    I could also use a known instance, like a char or an int
+    this.compose((_:Int)=>ma, f)(5)
+    */
+    this.compose((_:Any)=>ma, f)()
+    // book answer prefers Unit to Any
+  }
+
+
+
+
+}
+
 
 case class Id[A](value: A) {
   def map[B](f: A => B): Id[B] = Id(f(value))
