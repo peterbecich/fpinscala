@@ -388,8 +388,24 @@ trait Monad[M[_]] extends Functor[M] {
   }
 
   def traverse[A,B](la: List[A])(f: A => M[B]): M[List[B]] = {
-    //la.foldRight(z: B)(op: Function2[A, B, B])
-    //    la.foldRight(Monad.listMonad
+    /*
+     Going to use fold methods of List functor
+     la.foldRight(z: B)(op: Function2[A, B, B])
+     There are no fold methods implemented (yet) for Monad
+     */
+    la.foldRight(this.unit(List[B]())){(a: A, mlb: M[List[B]]) => {
+      // (A, M[List[B]]) => M[List[B]]
+      val mb: M[B] = f(a)
+      // this.flatMap(mlb)((lb: List[B]) => {
+      //   // (M[B], M[List[B]]) => M[List[B]]
+      //   this.compose(
+      // }
+      // ): M[List[B]]
+
+    }
+
+    }
+
   }
 
   def replicateM[A](n: Int, ma: M[A]): M[List[A]] = ???
@@ -400,44 +416,24 @@ trait Monad[M[_]] extends Functor[M] {
    I thought primitive implied "left abstract"...
    */
   def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C] = {
-    
+    (a: A) => {
+      this.flatMap(f(a))(g)
+    }
   }
 
 
-
-
-
-  // Implement in terms of `compose`:
-  def _flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
-    // C => M[A], A => M[B]
-    //    this.compose(
-  }
-
-
-  /*
-   A third minimal set of combinators: join, map, and unit
-   */
   def join[A](mma: M[M[A]]): M[A] = {
+    /*
+     need function M[A] => A
+     Or not...
 
-
+     It is easier to eliminate the outer Functor.
+     I initially tried to eliminate the inner Functor.
+     */
+    this.flatMap(mma){(ma: M[A]) =>
+      ma
+    }
   }
-  /* implement without flatMap.
-   I think this is impossible.
-   My understanding of "minimal set" are methods that must be implemented
-   by the monad instance.  Leave them abstract here
-   */
-  def mapAbstract[A,B](ma: M[A])(f: A => B): M[B]
-
-
-  // Implement in terms of `join` (and map and unit?):
-  def __flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
-    //this.join(mma: M[M[A]])
-    // map called on wrong object; map belongs to 'this'
-    //this.join(ma.map(f)) // join(M[M[B]])
-    this.join(this.mapAbstract(ma)(f)) // join(M[M[B]])
-  }
-
-
 }
 
 
@@ -538,6 +534,8 @@ trait MonadC[M[_]] extends Monad[M] {
   def unit[A](a: => A): M[A]
 
   override def map[A,B](ma: M[A])(f: A => B): M[B]
+
+  override def join[A](mma: M[M[A]]): M[A]
 
   def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
     this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
