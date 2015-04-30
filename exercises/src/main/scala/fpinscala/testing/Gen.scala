@@ -21,13 +21,33 @@ trait Prop {
   // cannot define 'check' method like this
   //Prop(this.check && p.check)
   def check: Either[(FailedCase, SuccessCount), SuccessCount]
-  // def &&(p: Prop): Prop = new Prop {
-  //   def check: Either[(FailedCase, SuccessCount), SuccessCount] =
-  //     (this.check, p.check) match {
-  //       case Left((failedCaseString, successCountInt)) => 
-  //       case Right((
-  //       //case (scala.util.Either$RightProjection(sc)
+  def &&(p: Prop): Prop = {
+    val p2Check:
+        Either[(FailedCase, SuccessCount), SuccessCount] =
+    (check, p.check) match {
+      case (Left((failedCase1, succCount1)),
+        Left((failedCase2, succCount2))) => {
+        Left((failedCase1+failedCase2, succCount1+succCount2))
+      }
+      case (Right(succCount1),
+        Left((failedCase2, succCount2))) => {
+        Left((failedCase2, succCount1+succCount2))
+      }
+      case (Left((failedCase1, succCount1)),
+        Right(succCount2)) => {
+        Left((failedCase1, succCount1+succCount2))
+      }
+      case (Right(succCount1), Right(succCount2)) => {
+        Right(succCount1 + succCount2)
+      }
+    }
 
+    new Prop{
+      def check:
+          Either[(FailedCase, SuccessCount), SuccessCount] =
+        p2Check
+    }
+  }
 
 }
 
@@ -61,11 +81,15 @@ case class Gen[A](sample: State[RNG, A]){
     newGen
   }
 
+  // def below considered to be 'apply'
   def **[B](g: Gen[B]): Gen[(A, B)] =
     this.map2(g)({(a: A, b: B) => {
       (a, b): Tuple2[A, B]
     }}: (A, B) => Tuple2[A, B]
     ): Gen[Tuple2[A, B]]
+  object ** {
+    def unapply[A, B](p: (A, B)) = Some(p)
+  }
 
 
 }
