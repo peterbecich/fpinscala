@@ -192,7 +192,7 @@ object Functor {
   // List[A] takes no type parameters??
   // def listFunctionAlt[A] = new Functor[List[A]] {
   trait listFunctorAlt[A] extends Functor[List] {
-    override def map[B](as: List[A])(f: A => B): List[B] = as map f
+    def map[B](as: List[A])(f: A => B): List[B] = as map f
   }
 }
 
@@ -298,10 +298,26 @@ object Mon {
    class
    fpinscala.monads.Mon$$<refinement>
    */
-  def monOptionAsDef[A] = new Mon[Option]{
-    def unit(a: => A): Option[A] = Some(a)
-    def flatMap[B](oa: Option[A])(f: A => Option[B]) =
-      oa.flatMap(f)
+  /*
+
+   /Users/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:301: object creation impossible, since:
+   [error] it has 2 unimplemented members.
+   [error] /** As seen from <$anon: fpinscala.monads.Mon[Option]>, the missing signatures are as follows.
+   [error]  *  For convenience, these are usable as stub implementations.
+   [error]  */
+   [error]   def flatMap[A, B](fa: Option[A])(f: A => Option[B]): Option[B] = ???
+   [error]   def unit[A](a: => A): Option[A] = ???
+   [error]   def monOptionAsDef[A] = new Mon[Option]{
+   [error]                               ^
+   [error] 
+
+   parametric types of methods unit and flatMap
+   need to match up to trait Mon exactly... flatMap[A,B]
+   */
+  def monOptionAsDef = new Mon[Option]{
+    def unit[A](a: => A): Option[A] = Some(a)
+    def flatMap[A,B](fa: Option[A])(f: A => Option[B]): Option[B] =
+      fa.flatMap(f)
   }
 
   // doesn't compile
@@ -521,7 +537,7 @@ trait MonadB[M[_]] extends Monad[M] {
   override def map[A,B](ma: M[A])(f: A => B): M[B] =
     this.flatMap(ma)(a => this.unit(f(a)))
 
-  def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
+  override def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
     this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
 
 
