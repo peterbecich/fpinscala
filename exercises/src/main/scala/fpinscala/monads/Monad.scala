@@ -504,9 +504,9 @@ object Monad {
    an "anonymous" type.
    See anonymous type 'f' below
    */
-  def readerMonad[R] = new Monad[Reader] {
-    //override def unit[A]
-  }
+  // def readerMonad[R] = new Monad[Reader] {
+  //   //override def unit[A]
+  // }
 }
 
 
@@ -560,7 +560,7 @@ trait MonadC[M[_]] extends Monad[M] {
 
   override def join[A](mma: M[M[A]]): M[A]
 
-  def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
+  override def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
     this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
 
   def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {

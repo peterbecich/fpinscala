@@ -4,6 +4,8 @@ import fpinscala.laziness.Stream
 import fpinscala.state._
 import fpinscala.parallelism._
 import fpinscala.parallelism.Par.Par
+import fpinscala.monads.Functor
+import fpinscala.monads.Monad
 import Gen._
 import Prop._
 import java.util.concurrent.{Executors,ExecutorService}
@@ -110,14 +112,17 @@ case class Gen[A](sample: State[RNG, A]){
 }
 
 object Gen {
-  //import fpinscala.testing.Gen
+  val genMonad = Monad.genMonad
+
   def unit[A](a: => A): Gen[A] = new Gen(State.unit(a))
   // def boolean: Gen[Boolean] 
 
   // do it with flatMap
-  def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = 
-    val ll = List[A].f
-
+  def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = {
+    val ll = List.fill(n)(g)
+    // traverse, sequence, or replicate
+    // genMonad.sequence(lma: List[Gen[A]])
+    genMonad.sequence(ll)
   }
   def _listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] = {
     val listState = List.fill(n)(g.sample)
