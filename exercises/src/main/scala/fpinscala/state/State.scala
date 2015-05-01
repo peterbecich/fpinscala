@@ -34,6 +34,15 @@ object RNG {
       (f(a), rng2)
     }
 
+  def chooseInt(rng: RNG)(start: Int, stopExclusive: Int): (Int, RNG) = {
+    val (nextNonNegativeInt, nextRNG) = RNG.nonNegativeInt(rng)
+    val scale = (nextNonNegativeInt/Int.MaxValue)
+    //val nextChosenInt = start + (stopExclusive-start)*scale
+    val nextChosenInt = stopExclusive*scale - (start-1)*scale
+    // is this exclusive on the upper bound?
+    (nextChosenInt, nextRNG)
+  }
+
   def nonNegativeInt(rng: RNG): (Int, RNG) = {
     val (nextInt, nextRNG) = rng.nextInt
     (nextInt.abs, nextRNG)
@@ -49,7 +58,8 @@ object RNG {
 
   def intDouble(rng: RNG): ((Int,Double), RNG) = {
     // val (nextInt, secondRNG) = rng.nextInt
-    // val (nextDouble, thirdRNG) = RNG.double(secondRNG)
+   // val (nextDouble, thirdRNG) = RNG.double(secondRNG)
+
     // ((nextInt, nextDouble), thirdRNG)
     val intDoubleRand: Rand[(Int, Double)] =
       RNG.map2(
@@ -402,10 +412,6 @@ class AddOne extends Function[Int, Int] {
    = (s1: S) => State (
        def run = (dontCare: S) => (Unit, s2)
                       )
-   
-   
-     
-
    */
 
   type Rand[A] = State[RNG, A]
