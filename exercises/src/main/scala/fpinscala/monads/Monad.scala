@@ -493,11 +493,24 @@ object Monad {
   //     ma flatMap f
   // }
 
-  def parserMonad[P[+_]](p: Parsers[P]): Monad[P] = ???
+  // def parserMonad[P[+_]](p: Parsers[P]): Monad[P] = ???
 
-  val optionMonad: Monad[Option] = ???
+  val optionMonad: Monad[Option] = new Monad[Option] {
+    def unit[A](a: => A): Option[A] = Some(a)
+    override def flatMap[A, B](op: Option[A])(f: A => Option[B]): 
+        Option[B] = {
+      op.flatMap(f)
+    }
 
-  val streamMonad: Monad[Stream] = ???
+  }
+
+  // Scala Collections' Stream, not fpinscala's laziness.Stream
+  val streamMonad: Monad[Stream] = new Monad[Stream] {
+    def unit[A](a: => A): Stream[A] = Stream(a)
+    def flatMap[A, B](st: Stream[A])(f: A => Stream[B]): Stream[B] = {
+      st.flatMap(f)
+    }
+  }
 
   val listMonad: Monad[List] = new Monad[List] {
     // remember that the signature of 'unit' is the same between
@@ -564,10 +577,10 @@ object MonadTest {
     val ll = List(1,2,3,4,5,6)
     val ll2 = List(4,5,6,7,8,9)
     val mapped = Monad.listMonad.map(ll)((i: Int) => i + 1)
-    // println(ll)
-    // println(mapped)
-    //val llProduct = Monad.listMonad
-    //.product(ll, ll2)
+    println(ll)
+    println(mapped)
+    val llProduct = Monad.listMonad.product(ll, ll2)
+    println(llProduct)
 
 
   }

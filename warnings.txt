@@ -1,0 +1,300 @@
+[info] Compiling 22 Scala sources to /home/peterbecich/scala/fpinscala/exercises/target/scala-2.11/classes...
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:10: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] This can be achieved by adding the import clause 'import scala.language.higherKinds'
+[warn] or by setting the compiler option -language:higherKinds.
+[warn] See the Scala docs for value scala.language.higherKinds for a discussion
+[warn] why the feature should be explicitly enabled.
+[warn] trait Applicative[F[_]] extends Functor[F] {
+[warn]                   ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:29: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def product[G[_]](G: Applicative[G]): Applicative[({type f[x] = (F[x], G[x])})#f] = ???
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:31: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def compose[G[_]](G: Applicative[G]): Applicative[({type f[x] = F[G[x]]})#f] = ???
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:38: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait Monad[F[_]] extends Applicative[F] {
+[warn]             ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:59: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def composeM[F[_],N[_]](implicit F: Monad[F], N: Monad[N], T: Traverse[N]):
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:59: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def composeM[F[_],N[_]](implicit F: Monad[F], N: Monad[N], T: Traverse[N]):
+[warn]                     ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:87: implicit conversion method monoidApplicative should be enabled
+[warn] by making the implicit value scala.language.implicitConversions visible.
+[warn] This can be achieved by adding the import clause 'import scala.language.implicitConversions'
+[warn] or by setting the compiler option -language:implicitConversions.
+[warn] See the Scala docs for value scala.language.implicitConversions for a discussion
+[warn] why the feature should be explicitly enabled.
+[warn]   implicit def monoidApplicative[M](M: Monoid[M]) =
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:94: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:95: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] =
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:97: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]] =
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:135: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def fuse[G[_],H[_],A,B](fa: F[A])(f: A => G[B], g: A => H[B])
+[warn]            ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:135: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def fuse[G[_],H[_],A,B](fa: F[A])(f: A => G[B], g: A => H[B])
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/applicative/Applicative.scala:138: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def compose[G[_]](implicit G: Traverse[G]): Traverse[({type f[x] = F[G[x]]})#f] = ???
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:136: postfix operator toStream should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn] This can be achieved by adding the import clause 'import scala.language.postfixOps'
+[warn] or by setting the compiler option -language:postfixOps.
+[warn] See the Scala docs for value scala.language.postfixOps for a discussion
+[warn] why the feature should be explicitly enabled.
+[warn]     _ <- foreachM (1 to n toStream) (i => acc.modify(_ * i).skip)
+[warn]                           ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:297: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   sealed trait Free[F[_],A] {
+[warn]                     ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:303: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   case class Return[F[_],A](a: A) extends Free[F, A]
+[warn]                     ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:304: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   case class Suspend[F[_],A](s: F[A]) extends Free[F, A]
+[warn]                      ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:305: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   case class FlatMap[F[_],A,B](s: Free[F, A],
+[warn]                      ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:309: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def freeMonad[F[_]]: Monad[({type f[a] = Free[F,a]})#f] = ???
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:316: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def run[F[_],A](a: Free[F,A])(implicit F: Monad[F]): F[A] = ???
+[warn]           ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:320: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def step[F[_],A](a: Free[F,A]): Free[F,A] = ???
+[warn]            ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:383: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   trait Translate[F[_], G[_]] { def apply[A](f: F[A]): G[A] }
+[warn]                   ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:383: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   trait Translate[F[_], G[_]] { def apply[A](f: F[A]): G[A] }
+[warn]                         ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:385: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   type ~>[F[_], G[_]] = Translate[F,G] // gives us infix syntax `F ~> G` for `Translate[F,G]`
+[warn]           ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:385: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   type ~>[F[_], G[_]] = Translate[F,G] // gives us infix syntax `F ~> G` for `Translate[F,G]`
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:398: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def runFree[F[_],G[_],A](free: Free[F,A])(t: F ~> G)(
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:398: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def runFree[F[_],G[_],A](free: Free[F,A])(t: F ~> G)(
+[warn]                    ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:427: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def translate[F[_],G[_],A](f: Free[F,A])(fg: F ~> G): Free[G,A] = ???
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:427: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def translate[F[_],G[_],A](f: Free[F,A])(fg: F ~> G): Free[G,A] = ???
+[warn]                      ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/Monad.scala:53: implicit conversion method toMonadic should be enabled
+[warn] by making the implicit value scala.language.implicitConversions visible.
+[warn]   implicit def toMonadic[A](a: F[A]): Monadic[F,A] =
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/package.scala:24: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   type Free[F[_], A] = IO3.Free[F, A]
+[warn]             ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:564: Adaptation of argument list by inserting () has been deprecated: this is unlikely to be what you want.
+[warn]         signature: Function1.apply(v1: T1): R
+[warn]   given arguments: <none>
+[warn]  after adaptation: Function1((): Unit)
+[warn]     this.compose((_:Any)=>ma, f)()
+[warn]                                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:156: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait Functor[F[_]] {
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:203: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait Mon[F[_]] {
+[warn]           ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:350: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait Monad[M[_]] extends Functor[M] {
+[warn]             ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:494: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   def parserMonad[P[+_]](p: Parsers[P]): Monad[P] = ???
+[warn]                   ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:539: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait MonadB[M[_]] extends Monad[M] {
+[warn]              ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monads/Monad.scala:578: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait MonadC[M[_]] extends Monad[M] {
+[warn]              ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/monoids/Monoid.scala:163: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait Foldable[F[_]] {
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/parallelism/Nonblocking.scala:164: implicit conversion method toParOps should be enabled
+[warn] by making the implicit value scala.language.implicitConversions visible.
+[warn]     implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
+[warn]                  ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/parallelism/Par.scala:91: implicit conversion method toParOps should be enabled
+[warn] by making the implicit value scala.language.implicitConversions visible.
+[warn]   implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/parallelism/Par.scala:110: implicit conversion method toParInts should be enabled
+[warn] by making the implicit value scala.language.implicitConversions visible.
+[warn]   implicit def toParInts(ints: IndexedSeq[Int]): Par[IndexedSeq[Int]] = 
+[warn]                ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/parsing/Parsers.scala:8: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/MonadCatch.scala:9: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn] trait MonadCatch[F[_]] extends Monad[F] {
+[warn]                  ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:242: implicit conversion method toMonadic should be enabled
+[warn] by making the implicit value scala.language.implicitConversions visible.
+[warn]     implicit def toMonadic[I,O](a: Process[I,O]) = monad[I].toMonadic(a)
+[warn]                  ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:423: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]   trait Process[F[_],O] {
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:604: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     case class Await[F[_],A,O](
+[warn]                      ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:608: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     case class Emit[F[_],O](
+[warn]                     ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:612: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     case class Halt[F[_],O](err: Throwable) extends Process[F,O]
+[warn]                     ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:614: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def emit[F[_],O](
+[warn]              ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:619: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def await[F[_],A,O](req: F[A])(recv: Either[Throwable,A] => Process[F,O]): Process[F,O] =
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:626: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def Try[F[_],O](p: => Process[F,O]): Process[F,O] =
+[warn]             ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:634: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def TryOr[F[_],O](p: => Process[F,O])(cleanup: Process[F,O]): Process[F,O] =
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:642: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def TryAwait[F[_],O](p: => Process[F,O])(fallback: Process[F,O], cleanup: Process[F,O]): Process[F,O] =
+[warn]                  ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:744: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def eval[F[_],A](a: F[A]): Process[F,A] = ???
+[warn]              ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:747: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def eval_[F[_],A,B](a: F[A]): Process[F,B] = ???
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:785: postfix operator repeat should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]       await1[I,O]((i:I) => emit(f(i))) repeat
+[warn]                                        ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:788: postfix operator repeat should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]       await1[I,I](i => if (f(i)) emit(i) else halt1) repeat
+[warn]                                                      ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:868: postfix operator repeat should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]       awaitR        (i2 => emitT(f(i,i2)))) repeat
+[warn]                                             ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:881: postfix operator repeat should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]       awaitR       (i2 => emitT(i) ++ emitT(i2))) repeat
+[warn]                                                   ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:892: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     type Sink[F[_],O] = Process[F, O => Process[F,Unit]]
+[warn]               ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:908: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     def join[F[_],A](p: Process[F,Process[F,A]]): Process[F,A] = ???
+[warn]              ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:932: higher-kinded type should be enabled
+[warn] by making the implicit value scala.language.higherKinds visible.
+[warn]     type Channel[F[_],I,O] = Process[F, I => Process[F,O]]
+[warn]                  ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:983: postfix operator drain should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]     } yield ()) drain
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:993: postfix operator toString should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]            map(_ toString).
+[warn]                  ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:995: postfix operator drain should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]     } yield ()) drain
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:1007: postfix operator toString should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]            map(_ toString).
+[warn]                  ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/StreamingIO.scala:1009: postfix operator drain should be enabled
+[warn] by making the implicit value scala.language.postfixOps visible.
+[warn]     } yield ()) drain
+[warn]                 ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:36: method readLine in trait DeprecatedPredef is deprecated: Use the method in `scala.io.StdIn`
+[warn]     val d = readLine.toDouble
+[warn]             ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:80: method readLine in trait DeprecatedPredef is deprecated: Use the method in `scala.io.StdIn`
+[warn]   def ReadLine: IO[String] = IO { readLine }
+[warn]                                   ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:142: method readLine in trait DeprecatedPredef is deprecated: Use the method in `scala.io.StdIn`
+[warn]     doWhile { IO { readLine } } { line =>
+[warn]                    ^
+[warn] /home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/iomonad/IO.scala:344: method readLine in trait DeprecatedPredef is deprecated: Use the method in `scala.io.StdIn`
+[warn]       try Some(readLine())
+[warn]                ^
+[warn] 72 warnings found
