@@ -7,6 +7,7 @@ import parallelism._
 import state._
 import parallelism.Par._
 
+// http://www.scala-lang.org/api/current/#scala.language$
 import scala.language.higherKinds
 
 /*
