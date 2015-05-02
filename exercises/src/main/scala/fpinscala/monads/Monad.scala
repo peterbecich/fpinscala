@@ -506,13 +506,36 @@ object Monad {
       la.flatMap(fa)
   }
 
+  // see section 11.5.2
   // case class State[S,+A](run: S => (A, S))
   // fpinscala.state.State takes two type parameters,
   // expected: one
-  val stateMonad[S] = new Monad[State[_,Int]] {
-    def unit[S](s: => S): State[S]
-    def flatMap[
+  // val stateMonad[S] = new Monad[State[_,Int]] {
+  //   def unit[S](s: => S): State[S]
+  //   def flatMap[
+  //   }
+
+  type IntState[A] = State[Int, A]
+
+  def intStateMonad[S] = new Monad[IntState] {
+    def unit[A](a: => A): IntState[A] = State.unit(a)
+    def flatMap[A, B](st: IntState[A])(f: A => IntState[B]): 
+        IntState[B] = {
+      st.flatMap(f)
+    }
   }
+
+  // why the funny parenthesis pattern,  ({...})   ?
+  def intStateMonadAlt[S] = 
+    new Monad[({type IntStateAlt[A] = State[Int, A]})#IntStateAlt] {
+    def unit[A](a: => A): State[Int, A] = State.unit(a)
+    def flatMap[A, B](st: State[Int, A])(f: A => State[Int, B]): 
+        State[Int, B] = {
+      st.flatMap(f)
+    }
+  }
+
+
 
   val idMonad: Monad[Id] = new Monad[Id] {
     override def unit[A](a: => A): Id[A] = Id(a)
@@ -529,8 +552,24 @@ object Monad {
   // def readerMonad[R] = new Monad[Reader] {
   //   //override def unit[A]
   // }
-}
 
+}
+object MonadTest {
+  //import fpinscala.monads.Monad
+  def main(args: Array[String]): Unit = {
+    // val ll = (10 to 20).toList
+    // val ll2 = (10 to 20).toList
+    val ll = List(1,2,3,4,5,6)
+    val ll2 = List(4,5,6,7,8,9)
+    val mapped = Monad.listMonad.map(ll)((i: Int) => i + 1)
+    // println(ll)
+    // println(mapped)
+    //val llProduct = Monad.listMonad
+    //.product(ll, ll2)
+
+
+  }
+}
 
 /*
  A monad trait based on the second primitive set of methods
