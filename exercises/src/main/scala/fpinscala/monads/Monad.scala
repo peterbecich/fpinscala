@@ -7,6 +7,7 @@ import parallelism._
 import state._
 import parallelism.Par._
 
+import scala.language.higherKinds
 
 /*
  The three monad laws
@@ -600,7 +601,8 @@ trait MonadB[M[_]] extends Monad[M] {
     // what would an instance of C even look like?
     // I could also use a known instance, like a char or an int
     //this.compose((_:Int)=>ma, f)(5)
-    this.compose((_:Any)=>ma, f)()
+    //this.compose((_:Any)=>ma, f)()
+    this.compose((_: Unit)=>ma, f)()
     // book answer prefers Unit to Any
   }
 
