@@ -506,7 +506,13 @@ object Monad {
       la.flatMap(fa)
   }
 
-  def stateMonad[S] = ???
+  // case class State[S,+A](run: S => (A, S))
+  // fpinscala.state.State takes two type parameters,
+  // expected: one
+  val stateMonad[S] = new Monad[State[_,Int]] {
+    def unit[S](s: => S): State[S]
+    def flatMap[
+  }
 
   val idMonad: Monad[Id] = new Monad[Id] {
     override def unit[A](a: => A): Id[A] = Id(a)
