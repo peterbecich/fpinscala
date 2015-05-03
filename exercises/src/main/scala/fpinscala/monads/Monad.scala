@@ -369,6 +369,9 @@ trait Monad[M[_]] extends Functor[M] {
    unit and compose
    unit, map, and join
 
+   Primitive methods of applicative functor:
+   unit and map2
+
    */
 
   // unit and flatMap left abtract, as they were in Mon
@@ -542,13 +545,20 @@ object Monad {
     def getIntState[S]: State[S,S] = State.get
     def setIntState[S](s: => S): State[S, Unit] = State.set(s)
 
-    def zipWithIndex[A](as: List[A]): List[(Int, A)] =
-      as.foldLeft(this.unit(List[(Int, A)]())){
-        (acc: List[IntState[A]], a: A) => for {
-          xs <- acc
-          n <- getIntState
-          _ <- setIntState(n+1)
-        } yield (n, a) :: xs}.run(0)._1.reverse
+
+    /*
+     This function numbers all the elements in a list using a State action. It keeps a state that’s an Int, which is incremented at each step. We run the whole composite state action starting from 0. We then reverse the result since we constructed it in reverse order.[10] 10 This is asymptotically faster than appending to the list in the loop. Note what’s going on with getState and setState in the for-comprehension. We’re obviously getting variable binding just like in the Id monad—we’re binding the value of each successive state action (getState, acc, and then setState) to variables. But there’s more going on, literally between the lines. At each line in the for-comprehension, the implementation of flatMap is making sure that the current state is available to getState, and that the new state gets propagated to all actions that follow a setState. What does the difference between the action of Id and the action of State tell us about monads in general? We can see that a chain of flatMap calls (or an equivalent for-comprehension) is like an imperative program with statements that assign to variables, and the monad specifies what occurs at statement boundaries. For example, with Id, nothing at all occurs except unwrapping and rewrapping in the Id constructor. With State, the most current state gets passed from one statement to the next. With the Option monad, a statement may return None and terminate the program. With the List monad, a statement may return many results, which causes statements that follow it to potentially run multiple times, once for each result. The Monad contract doesn’t specify what is happening between the lines, only that whatever is happening satisfies the laws of associativity and identity.
+
+
+     */
+
+    // def zipWithIndex[A](as: List[A]): List[(Int, A)] =
+    //   as.foldLeft(this.unit(List[(Int, A)]())){
+    //     (acc: List[IntState[A]], a: A) => for {
+    //       xs <- acc
+    //       n <- getIntState
+    //       _ <- setIntState(n+1)
+    //     } yield (n, a) :: xs}.run(0)._1.reverse
 
   }
 
