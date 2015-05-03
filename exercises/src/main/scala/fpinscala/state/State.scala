@@ -414,6 +414,34 @@ class AddOne extends Function[Int, Int] {
                       )
    */
 
+
+  /*
+   Some notes from Runar
+   https://forums.manning.com/posts/list/34792.page#p86615
+
+   1. The `set` function returns a State action, which is itself a function. The type of `set(f(s))` is `State[S,Unit]`, which under the hood is a function of type `S => (Unit, S)`. The assignment to _ here means "ignore the Unit value".
+
+   2. The for-comprehension is not a loop. It is syntactic sugar for calls to `map` and `flatMap`. So this code:
+
+   for {
+   s <- get
+   _ <- set(f(s))
+   } yield ()
+
+   is equivalent to:
+
+   get.flatMap(s => set(f(s)).map(_ => ()))
+
+   That last call to `map` is actually completely redundant, so we can omit it:
+
+   get.flatMap(s => set(f(s)))
+
+   And in `State`, the implementation of `flatMap` is just a kind of function composition. So ultimately that for-comprehension can be simplified to this:
+
+   State(s => ((), f(s))) 
+
+   */
+
   type Rand[A] = State[RNG, A]
 
 //  def randInt: Rand[Int] = 

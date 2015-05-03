@@ -538,6 +538,18 @@ object Monad {
         IntState[B] = {
       st.flatMap(f)
     }
+
+    def getIntState[S]: State[S,S] = State.get
+    def setIntState[S](s: => S): State[S, Unit] = State.set(s)
+
+    def zipWithIndex[A](as: List[A]): List[(Int, A)] =
+      as.foldLeft(this.unit(List[(Int, A)]())){
+        (acc: List[IntState[A]], a: A) => for {
+          xs <- acc
+          n <- getIntState
+          _ <- setIntState(n+1)
+        } yield (n, a) :: xs}.run(0)._1.reverse
+
   }
 
   // use Rand type declared in State
@@ -596,6 +608,10 @@ object MonadTest {
     println(mapped)
     val llProduct = Monad.listMonad.product(ll, ll2)
     println(llProduct)
+
+
+    println("---------------------------")
+    val F = Monad.intStateMonad
 
 
   }
