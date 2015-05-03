@@ -532,7 +532,7 @@ object Monad {
 
   type IntState[A] = State[Int, A]
 
-  def intStateMonad[S] = new Monad[IntState] {
+  val intStateMonad: Monad[IntState] = new Monad[IntState] {
     def unit[A](a: => A): IntState[A] = State.unit(a)
     def flatMap[A, B](st: IntState[A])(f: A => IntState[B]): 
         IntState[B] = {
@@ -540,6 +540,21 @@ object Monad {
     }
   }
 
+  // use Rand type declared in State
+  val randStateMonad: Monad[State.Rand] = new Monad[State.Rand] {
+    /*
+     State.unit has parametric parameters S and A.  Since S is not
+     made concrete as an argument to method, it is apparenly inferred to 
+     be concretely RNG by the return type State.Rand[A] (==State[RNG, A])
+     */
+    def unit[A](a: => A): State.Rand[A] = State.unit(a)
+    // type inference of State.Rand still works...
+    // def unit[A](a: => A) = State.unit(a)
+    def flatMap[A, B](rs: State.Rand[A])(f: A => State.Rand[B]):
+        State.Rand[B] = {
+      rs.flatMap(f)
+    }
+  }
   // why the funny parenthesis pattern,  ({...})   ?
   def intStateMonadAlt[S] = 
     new Monad[({type IntStateAlt[A] = State[Int, A]})#IntStateAlt] {
