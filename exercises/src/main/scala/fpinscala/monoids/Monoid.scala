@@ -68,9 +68,9 @@ object Monoid {
     def zero: B => B = (in: B) => in
   }
 
-  def orderedMonoid[B]: Monoid[Boolean] = new Monoid[Boolean] {
+  // def orderedMonoid[B]: Monoid[Boolean] = new Monoid[Boolean] {
 
-  }
+  // }
 
   // TODO: Placeholder for `Prop`. Remove once you have implemented the `Prop`
   // data type from Part 2.
@@ -178,8 +178,17 @@ object Monoid {
 
   }
 
-
+  // hint hint...
   import fpinscala.parallelism.Nonblocking._
+
+  /*
+   Two Par implementations
+   fpinscala.parallelism.Par
+   fpinscala.parallelism.Nonblocking.Par
+
+   Not an implementation of Par
+   fpinscala.parallelism.Actor
+   */
 
   def ordered(ints: IndexedSeq[Int]): Boolean =
     sys.error("todo")
@@ -202,10 +211,12 @@ object Monoid {
     def zero: Par[A] = Par.unit(m.zero)
   }
 
-  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
-      Par[B] = {
-    // probably uses Par.fork
-  }
+  // def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
+  //     Par[B] = {
+  //   // probably uses Par.fork
+
+
+  // }
 
   val wcMonoid: Monoid[WC] = sys.error("todo")
 
@@ -227,8 +238,9 @@ object Monoid {
 trait Foldable[F[_]] {
   import Monoid._
 
-  def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B = {
-    as.
+  def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B = ???
+  // {
+  //   as.
 
 
   def foldLeft[A, B](as: F[A])(z: B)(f: (B, A) => B): B =

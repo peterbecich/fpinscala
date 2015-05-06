@@ -1,6 +1,7 @@
 package fpinscala.parallelism
 
 import java.util.concurrent._
+import scala.language.implicitConversions
 
 object Par {
   type Par[A] = ExecutorService => Future[A]
@@ -49,6 +50,9 @@ object Par {
  */
   def map[A,B](pa: Par[A])(f: A => B): Par[B] = 
     map2(pa, unit(()))((a,_) => f(a))
+
+  // does this require blocking?
+  //def flatMap[A, B](pa: Par[A])(f: A => Par[B]): Par[B] =
 
 
   // def sequence[A](ps: List[Par[A]]): Par[List[A]] = {
@@ -100,40 +104,120 @@ object Examples {
   import Par._
 
   // does not use Parallel types
-  def sum(ints: IndexedSeq[Int]): Int = // `IndexedSeq` is a superclass of random-access sequences like `Vector` in the standard library. Unlike lists, these sequences provide an efficient `splitAt` method for dividing them into two parts at a particular index.
+  def sum(ints: IndexedSeq[Int]): Int =
     if (ints.size <= 1)
-      ints.headOption getOrElse 0 // `headOption` is a method defined on all collections in Scala. We saw this function in chapter 3.
+      ints.headOption getOrElse 0
     else { 
-      val (l,r) = ints.splitAt(ints.length/2) // Divide the sequence in half using the `splitAt` function.
-      sum(l) + sum(r) // Recursively sum both halves and add the results together.
+      val (l,r) = ints.splitAt(ints.length/2)
+      sum(l) + sum(r)
     }
   implicit def toParInts(ints: IndexedSeq[Int]): Par[IndexedSeq[Int]] = 
     Par.unit(ints)
 
-  // def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
-  //   (service: ExecutorService) => {
-  //     if (Par.map(parInts)((is: IndexedSeq[Int]) => is.size)(service).get() <= 1)
-  //       Par.map(parInts)((is: IndexedSeq[Int]) => is.headOption.getOrElse(0))(service)
+  def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+    (service: ExecutorService) => {
+      // block to get length of parInts Par[IndexedSeq]
+      // It's a first step that must be waited for
+      // with this method of summation, by recursively splitting
+      val length: Int = Par.map(parInts){
+        (is: IndexedSeq[Int]) => is.size
+      }(service).get()
 
-  //     else {
-  //       val parSplit: Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] = 
-  //         Par.map(parInts)(
-  //           (is: IndexedSeq[Int]) => is.splitAt(
-  //             Par.map(parInts)(_.size / 2)(service).get()
-  //           )
-  //         )
+      if(length <= 1){
+        val parHead: Par[Int] = Par.map(parInts){
+          (is: IndexedSeq[Int]) =>
+          is.headOption.getOrElse(0)
+        }
+
+        /*
+        error made here
+        [error]  found   : fpinscala.parallelism.Par.Par[Int]
+        [error]     (which expands to)  java.util.concurrent.ExecutorService => java.util.concurrent.Future[Int]
+        [error]  required: java.util.concurrent.Future[Int]
+
+        //parHead // fulfills return type, Par[Int]
+
+         inside of scope of (service) => {...},
+         Future required to be returned.  Whoops...
+         Error message leaves you to figure out its scope.
+
+         */
+        parHead(service): Future[Int]
+
+      } else {
+        val halfLength: Int = length / 2
+        /*
+         Use Par's combinators to recurse through the two
+         IndexedSeqs, and then sum them.
+
+         Pipeline:
+         Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] => 
+         Par[Tuple2[Int, Int]] =>
+         Par[Int]
+         
+         */
+
+        val parSplit:
+            Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] =
+          Par.map(parInts){
+            (is: IndexedSeq[Int]) => is.splitAt(halfLength)
+          }
+
+        //println("length: " + length)
+
+        val parSeqLeft: Par[IndexedSeq[Int]] = Par.map(parSplit){
+          (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+          tup._1
+        }
+        val parSeqRight: Par[IndexedSeq[Int]] = Par.map(parSplit){
+          (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+          tup._2
+        }
+
+
+        /*
+         Obviously this would be a big side effect, but we can
+         get away with it.
+
+        */
+        Par.map2(parSeqLeft, parSeqRight){
+          (seqLeft: IndexedSeq[Int],
+            seqRight: IndexedSeq[Int]) => {
+            println("left: "+seqLeft+"\t right: "+seqRight)
+          }
+        }(service) // .get() not necessary
 
 
 
-  //   }
-  // }
+        val parIntLeft: Par[Int] = parSum(parSeqLeft)
+        val parIntRight: Par[Int] = parSum(parSeqRight)
+
+        val parMerged: Par[Int] = Par.map2(
+          parIntLeft, parIntRight
+        ){
+          (intLeft: Int, intRight: Int) => intLeft + intRight
+        }
+
+        parMerged(service): Future[Int]
+      }
+    }
+  }
 
   def main(args: Array[String]): Unit = {
-    println(Examples.sum(1 to 10))
+    //println(Examples.sum(1 to 10))
+
+
+    val service = Executors.newFixedThreadPool(4)
+
 
     // val vec = scala.collection.immutable.Vector(1 to 10)
     val vec = (1 to 10).toVector
-    println(Examples.sum(vec))
+    println("no use of Par: " + Examples.sum(vec))
+
+    val parInt: Par[Int] = Examples.parSum(vec)
+    val runParInt: Future[Int] = Par.run(service)(parInt)
+
+    println("use of Par: " + runParInt.get())
 
 
   }

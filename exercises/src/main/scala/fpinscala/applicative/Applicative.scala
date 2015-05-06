@@ -7,7 +7,7 @@ import State._
 //import StateUtil._ // defined at bottom of this file
 import monoids._
 import scala.language.higherKinds
-
+import scala.language.implicitConversions
 
 
 trait Applicative[F[_]] extends Functor[F] {
