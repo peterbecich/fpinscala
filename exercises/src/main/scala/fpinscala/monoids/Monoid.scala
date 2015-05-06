@@ -3,6 +3,8 @@ package fpinscala.monoids
 import fpinscala.parallelism.Nonblocking._
 import fpinscala.parallelism.Nonblocking.Par.toParOps // infix syntax for `Par.map`, `Par.flatMap`, etc
 
+import scala.language.higherKinds
+
 trait Monoid[A] {
   def op(a1: A, a2: A): A
   def zero: A
@@ -47,37 +49,6 @@ object Monoid {
    Each Option must define these methods
    */
 
-
-/*
-class
-scala.Option[A] doc source
----------------------------
-class		    WithFilter doc
-<init>		    () => Option[A]
-collect		    (PartialFunction[A, B]) => Option[B]
-contains	    (A1) => Boolean
-exists		    (Function1[A, Boolean]) => Boolean
-filter		    (Function1[A, Boolean]) => Option[A]
-filterNot	    (Function1[A, Boolean]) => Option[A]
-flatMap		    (Function1[A, Option[B]]) => Option[B]
-flatten		    (<:<[A, Option[B]]) => Option[B]
-fold		    (<byname>[B]) => (Function1[A, B]) => B
-forall		    (Function1[A, Boolean]) => Boolean
-foreach		    (Function1[A, U]) => Unit
-get		    A
-getOrElse	    (<byname>[B]) => B
-isDefined	    Boolean
-isEmpty		    Boolean
-iterator	    Iterator[A]
-map		    (Function1[A, B]) => Option[B]
-nonEmpty	    Boolean
-orElse		    (<byname>[Option[B]]) => Option[B]
-orNull		    (<:<[Null, A1]) => A1
-toLeft		    (<byname>[X]) => <refinement>
-toList		    List[A]
-toRight		    (<byname>[X]) => <refinement>
-withFilter	    (Function1[A, Boolean]) => WithFilter
- */
   def optionMonoid[B]: Monoid[Option[B]] = new Monoid[Option[B]] {
     def op(a1: Option[B], a2: Option[B]): Option[B] = {
       //a1.flatMap(a2)
@@ -90,12 +61,15 @@ withFilter	    (Function1[A, Boolean]) => WithFilter
     // are a1 and a2 necessarily associative?
     def op(a1: B => B, a2: B => B): B => B = (in: B) => a1(a2(in))
 
-
     // need type signature () => B
     //def zero: B = 
     // not true ... A = (B => B)
 
     def zero: B => B = (in: B) => in
+  }
+
+  def orderedMonoid[B]: Monoid[Boolean] = new Monoid[Boolean] {
+
   }
 
   // TODO: Placeholder for `Prop`. Remove once you have implemented the `Prop`
@@ -113,12 +87,66 @@ withFilter	    (Function1[A, Boolean]) => WithFilter
 
   def trimMonoid(s: String): Monoid[String] = sys.error("todo")
 
-  def concatenate[A](as: List[A], m: Monoid[A]): A =
-    sys.error("todo")
+  def concatenate[A](as: List[A], m: Monoid[A]): A = {
+    as.foldLeft(m.zero)(m.op)
+  }
+  /*
+   But what if our list has an element type that doesn’t have a Monoid instance? Well, we can always map over the list to turn it into a type that does:
+   */
+  def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B = {
+    /*
+     Monoid[B] {
+       def op(b1: B, b2: B): B
+       def zero: B
+     }
+     */
+    val lb = as.map(f)
+    lb.foldLeft(m.zero)(m.op)
+  }
 
-  def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B = ??? //as match {
-//    case h::t
+  // foldMap with no dependency on other fold implementations
+  def _foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B = {
+    /*
+     Monoid[B] {
+       def op(b1: B, b2: B): B
+       def zero: B
+     }
+     */
 
+    // I think this is essentially an implementation of fold right...
+    as match {
+      case Nil => m.zero
+      case (a :: Nil) => {
+        val b = f(a)
+        b
+      }
+      case (a :: tail) => {
+        val b = f(a)
+        val b2 = m.op(b, _foldMap(tail, m)(f))
+        b2
+      }
+    }
+
+  }
+
+
+  /*
+   Implemented by _foldMap; no circular dependency on other
+   fold implementations.
+
+   Assume that the below implementations of foldRight and 
+   foldLeft do not have access to the list monoid --
+   only _foldMap does.
+   */
+
+
+    //lb.foldLeft(m.zero)(m.op)
+    // def fold(list: List[B])(combiner: (B, List[B]) => B): B =
+    //   list match {
+    //     case Nil => m.zero
+    //     case (head::Nil) => 
+    //     case (head::tail) =>
+    // }
 
 
   def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
@@ -127,8 +155,35 @@ withFilter	    (Function1[A, Boolean]) => WithFilter
   def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B): B =
     sys.error("todo")
 
-  def foldMapV[A, B](as: IndexedSeq[A], m: Monoid[B])(f: A => B): B =
-    sys.error("todo")
+  /*
+   Reduces the number of strings allocated and deallocated.
+   Clearly not parallelized, though.
+
+   In some cases, this function will run out of memory
+   where foldLeft would not.  foldLeft is tail recursive.
+
+   Old question answered: even a tail-recursive function
+   can run out of memory.  The output of the fold could be enormous.
+   */
+  def foldMapV[A, B](as: IndexedSeq[A], m: Monoid[B])(f: A => B): B = {
+    val length = as.length
+    val approxHalf = length/2
+    // right bound of slice is exclusive
+    val leftRecursion: B = foldMapV(
+      as.slice(0, approxHalf), m)(f)
+    val rightRecursion: B = foldMapV(
+      as.slice(approxHalf, length), m)(f)
+
+    m.op(leftRecursion, rightRecursion)
+
+  }
+
+
+  import fpinscala.parallelism.Nonblocking._
+  def parMonoid[A](m: Monoid[A]): Monoid[Par[A]]
+
+  def parFoldMap[A, B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B]
+
 
   def ordered(ints: IndexedSeq[Int]): Boolean =
     sys.error("todo")
