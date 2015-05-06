@@ -180,10 +180,6 @@ object Monoid {
 
 
   import fpinscala.parallelism.Nonblocking._
-  def parMonoid[A](m: Monoid[A]): Monoid[Par[A]]
-
-  def parFoldMap[A, B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B]
-
 
   def ordered(ints: IndexedSeq[Int]): Boolean =
     sys.error("todo")
@@ -192,11 +188,24 @@ object Monoid {
   case class Stub(chars: String) extends WC
   case class Part(lStub: String, words: Int, rStub: String) extends WC
 
-  def par[A](m: Monoid[A]): Monoid[Par[A]] = 
-    sys.error("todo")
+  def par[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
+    //  type Par[A] = ExecutorService => Future[A]
+    def op(par1: Par[A], par2: Par[A]): Par[A] = {
+      // This does too much... runs the two Pars
+      // (es: java.util.concurrent.ExecutorService) => {
+      //   // remember you have an op to combine two A values
+      //   val par3 = Par.map2(par1, par2)(m.op): Par[A]
+      //   par3.run(es)
+      // }
+      Par.map2(par1, par2)(m.op): Par[A]
+    }
+    def zero: Par[A] = Par.unit(m.zero)
+  }
 
-  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] = 
-    sys.error("todo") 
+  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
+      Par[B] = {
+    // probably uses Par.fork
+  }
 
   val wcMonoid: Monoid[WC] = sys.error("todo")
 
@@ -218,8 +227,9 @@ object Monoid {
 trait Foldable[F[_]] {
   import Monoid._
 
-  def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B =
-    sys.error("todo")
+  def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B = {
+    as.
+
 
   def foldLeft[A, B](as: F[A])(z: B)(f: (B, A) => B): B =
     sys.error("todo")
@@ -266,10 +276,18 @@ case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
 object TreeFoldable extends Foldable[Tree] {
   override def foldMap[A, B](as: Tree[A])(f: A => B)(mb: Monoid[B]): B =
     sys.error("todo")
-  override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B) =
-    sys.error("todo")
-  override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B) =
-    sys.error("todo")
+  override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B = 
+    as match {
+      case Leaf(value: A) => f(z, value)
+      case Branch(left: Tree[A], right: Tree[A]) => {
+        val leftB: B = foldLeft(left)(z)(f)
+        val rightB: B = foldLeft(right)(leftB)(f)
+        rightB
+      }
+    }
+  // override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B) =
+  //   as match {
+  //     case Leaf(value: A) => f
 }
 
 object OptionFoldable extends Foldable[Option] {

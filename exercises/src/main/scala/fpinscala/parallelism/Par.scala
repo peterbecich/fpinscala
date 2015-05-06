@@ -11,7 +11,7 @@ object Par {
   
   private case class UnitFuture[A](get: A) extends Future[A] {
     def isDone = true 
-    def get(timeout: Long, units: TimeUnit) = get 
+    def get(timeout: Long, units: TimeUnit) = get //Future.get
     def isCancelled = false 
     def cancel(evenIfRunning: Boolean): Boolean = false 
   }
