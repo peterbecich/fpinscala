@@ -197,28 +197,30 @@ object Examples {
         ){
           (intLeft: Int, intRight: Int) => intLeft + intRight
         }
+        /* printing parMerged would require "getting" the 
+         FutureInt.
 
+         For some reason I feel this would be less efficient
+         than our printing of the left and right Indexed Seqs
+         */
         parMerged(service): Future[Int]
       }
     }
   }
 
   def main(args: Array[String]): Unit = {
-    //println(Examples.sum(1 to 10))
 
+    val service = Executors.newFixedThreadPool(2)
 
-    val service = Executors.newFixedThreadPool(4)
-
-
-    // val vec = scala.collection.immutable.Vector(1 to 10)
     val vec = (1 to 10).toVector
     println("no use of Par: " + Examples.sum(vec))
 
     val parInt: Par[Int] = Examples.parSum(vec)
+    // start computation asynchronously
     val runParInt: Future[Int] = Par.run(service)(parInt)
 
+    // block and wait for result with .get
     println("use of Par: " + runParInt.get())
-
 
   }
 
