@@ -4,6 +4,8 @@ import java.util.concurrent.{Callable, CountDownLatch, ExecutorService}
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import scala.language.implicitConversions
+
 
 object Nonblocking {
 
@@ -126,21 +128,56 @@ object Nonblocking {
      * about `t(es)`? What about `t(es)(cb)`?
      */
     def choice[A](p: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
-      es => new Future[A] {
+      (es: ExecutorService) => new Future[A] {
         def apply(cb: A => Unit): Unit =
           p(es) { b =>
             if (b) eval(es) { t(es)(cb) }
             else eval(es) { f(es)(cb) }
-          }
+          }: Unit
       }
 
-    def choiceN[A](p: Par[Int])(ps: List[Par[A]]): Par[A] = ???
+    def choiceN[A](p: Par[Int])(ps: List[Par[A]]): Par[A] = 
+      (es: ExecutorService) => new Future[A] {
+        def apply(cb: A => Unit): Unit = {
+          val futureChosenP: Future[Int] = p(es)
+          futureChosenP.apply{(p: Int) => {
+            eval(es) { 
+              val chosenParA: Par[A] = ps(p)
+              val chosenFutureA: Future[A] = chosenParA(es)
+              chosenFutureA(cb)
+            }: Unit
+          }: Unit
+        }
+        }: Unit
+      }
 
-    def choiceViaChoiceN[A](a: Par[Boolean])(ifTrue: Par[A], ifFalse: Par[A]): Par[A] =
-      ???
+    def choiceViaChoiceN[A](a: Par[Boolean])(ifTrue: Par[A], ifFalse: Par[A]): Par[A] = {
+      val parInt: Par[Int] = Par.map(a){
+        (bool: Boolean) => bool match {
+          case true => 0
+          case false => 1
+        }
+      }
+      choiceN(parInt)(List(ifTrue, ifFalse))
+    }
 
-    def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] =
-      ???
+
+    def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] = {
+      (es: ExecutorService) => {
+        def apply(cb: A => Unit): Unit = {
+          val futureChosenKey: Future[K] = p(es)
+          futureChosenKey.apply{(p: K) => {
+            eval(es) {
+              val chosenOptionParValue: Option[Par[V]] = ps.get(p)
+              chosenOptionParValue.
+              val chosenFutureValue = chosenParValue(es)
+              chosenFutureValue(cb)
+            }
+          }
+          }
+        }
+      }
+    }
 
     // see `Nonblocking.scala` answers file. This function is usually called something else!
     def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
@@ -272,13 +309,13 @@ object Nonblocking {
             (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
             tup._1
           }
-          val parSeqRight: Par[IndexedSeq[Int]] = fork( Par.map(parSplit){
+          val parSeqRight: Par[IndexedSeq[Int]] = Par.fork( Par.map(parSplit){
             (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
             tup._2
           }
           )
 
-          fork(Par.map2(parSeqLeft, parSeqRight){
+          Par.fork(Par.map2(parSeqLeft, parSeqRight){
             (seqLeft: IndexedSeq[Int],
               seqRight: IndexedSeq[Int]) => {
               println("left: "+seqLeft+"\t right: "+seqRight)
@@ -288,7 +325,7 @@ object Nonblocking {
 
 
           val parIntLeft: Par[Int] = parSum3(parSeqLeft)
-          val parIntRight: Par[Int] = fork(parSum3(parSeqRight))
+          val parIntRight: Par[Int] = Par.fork(parSum3(parSeqRight))
 
           val parMerged: Par[Int] = Par.map2(
             parIntLeft, parIntRight
