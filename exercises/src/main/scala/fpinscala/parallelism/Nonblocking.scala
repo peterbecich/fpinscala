@@ -6,13 +6,15 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import scala.language.implicitConversions
 
-import scala.concurrent.Future
-import scala.util.{Success, Failure}
 
 object Nonblocking {
 
   trait Future[+A] {
-    // Unit (side effect) not visible to user of Par
+    /*
+     Unit (side effect) not visible to user of Par.
+     apply method must be made concrete in any instance of 
+     this trait
+     */
     private[parallelism] def apply(k: A => Unit): Unit
   }
 
@@ -30,26 +32,40 @@ object Nonblocking {
     }
 
     def unit[A](a: A): Par[A] =
-      es => new Future[A] {
+      (es: ExecutorService) => new Future[A] {
+        // our Future implementation's callback
         def apply(cb: A => Unit): Unit =
           cb(a)
       }
 
     /** A non-strict version of `unit` */
     def delay[A](a: => A): Par[A] =
-      es => new Future[A] {
+      (es: ExecutorService) => new Future[A] {
         def apply(cb: A => Unit): Unit =
           cb(a)
       }
 
     def fork[A](a: => Par[A]): Par[A] =
-      es => new Future[A] {
+      (es: ExecutorService) => new Future[A] {
         def apply(cb: A => Unit): Unit =
-          eval(es)(a(es)(cb))
+          eval(es){
+            val futureA: Future[A] = a(es)
+            // hopefully this 'unit' does not appear
+            // before being taken into 'eval'
+            //futureA.apply(cb): Unit
+            // I wonder if setting this 'unit' to a val
+            // and passing that val to 'eval' would
+            // defeat the purpose of 'eval'
+            // val cbUnit = futureA.apply(cb)
+            // or...
+            lazy val cbUnit = futureA.apply(cb)
+            cbUnit
+          }
       }
 
     /**
-     * Helper function for constructing `Par` values out of calls to non-blocking continuation-passing-style APIs.
+     * Helper function for constructing `Par` values out of
+     * calls to non-blocking continuation-passing-style APIs.
      * This will come in handy in Chapter 13.
      */
     def async[A](f: (A => Unit) => Unit): Par[A] = es => new Future[A] {
@@ -65,7 +81,7 @@ object Nonblocking {
 
 
     def map2[A,B,C](p: Par[A], p2: Par[B])(f: (A,B) => C): Par[C] =
-      es => new Future[C] {
+      (es: ExecutorService) => new Future[C] {
         def apply(cb: C => Unit): Unit = {
           var ar: Option[A] = None
           var br: Option[B] = None
@@ -164,30 +180,41 @@ object Nonblocking {
     }
 
 
-    // def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] = {
-    //   (es: ExecutorService) => {
-    //     def apply(cb: A => Unit): Unit = {
-    //       val futureChosenKey: Future[K] = p(es)
-    //       futureChosenKey.apply{(p: K) => {
-    //         eval(es) {
-    //           val chosenOptionParValue: Option[Par[V]] = ps.get(p)
-    //           val chosenParValue: Par[V] = chosenOptionParValue match {
-    //             case Some(parV: Par[V]) => parV
-    //             case None => {
-    //               //(es: ExecutorService) => scala.util.Failure
-    //               (es: ExecutorService) => Future.failed()
-    //             }
-    //           }
-    //           val chosenFutureValue: Future[V] = chosenParValue(es)
-    //           chosenFutureValue
+    def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] = {
+      (es: ExecutorService) => new Future[V] {
+        def apply(cb: V => Unit): Unit = {
+          val futureChosenKey: Future[K] = p(es)
+          futureChosenKey.apply{(key: K) => {
+            eval(es) {
+              // map key in hand
+              val psValue: Option[Par[V]] = ps.get(key)
+              val futureValue: Future[V] = psValue match {
+                case Some(parV: Par[V]) => parV(es)
+                case None => new Future[V] {
+                  def apply = (v: V) => ()
+                }
+              }
+              /*
+               Note that working with Units makes everything
+               more complicated...
+               Type checking cannot tell me the difference
+               between the effect of the line above and the
+               line below.
+               The purpose of this eval block is unknown
+               to the compiler.
+               */
+              futureValue(cb)
+            }
+          }
+          }
+        }
+      }
+    }
 
 
-    //         }
-    //       }
-    //       }
-    //     }
-    //   }
-    // }
+
+
+
 
     // see `Nonblocking.scala` answers file. This function is usually called something else!
     def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
@@ -196,7 +223,7 @@ object Nonblocking {
     def flatMap[A,B](p: Par[A])(f: A => Par[B]): Par[B] = 
       (es: ExecutorService) => new Future[B]{
         def apply(cb: B => Unit): Unit = {
-          p(es){a => eval(
+          //p(es){a => eval(
         }
       }
 
