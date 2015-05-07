@@ -2,6 +2,8 @@ package fpinscala.parallelism
 
 import java.util.concurrent.{Callable, CountDownLatch, ExecutorService}
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 object Nonblocking {
 
@@ -20,7 +22,7 @@ object Nonblocking {
       val latch = new CountDownLatch(1) // A latch which, when decremented, implies that `ref` has the result
       p(es) { a => ref.set(a); latch.countDown } // Asynchronously set the result, and decrement the latch
       latch.await // Block until the `latch.countDown` is invoked asynchronously
-      ref.get // Once we've passed the latch, we know `ref` has been set, and return its value
+        ref.get // Once we've passed the latch, we know `ref` has been set, and return its value
     }
 
     def unit[A](a: A): Par[A] =
@@ -171,5 +173,167 @@ object Nonblocking {
       def map2[B,C](b: Par[B])(f: (A,B) => C): Par[C] = Par.map2(p,b)(f)
       def zip[B](b: Par[B]): Par[(A,B)] = p.map2(b)((_,_))
     }
+  }
+
+  object Examples {
+
+    // does not use Parallel types
+    def sum(ints: IndexedSeq[Int]): Int =
+      if (ints.size <= 1)
+        ints.headOption getOrElse 0
+      else {
+        val (l,r) = ints.splitAt(ints.length/2)
+        sum(l) + sum(r)
+      }
+    implicit def toParInts(ints: IndexedSeq[Int]): Par[IndexedSeq[Int]] =
+      Par.unit(ints)
+
+    def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+      (service: ExecutorService) => {
+        println("thread "+Thread.currentThread().getId())
+        // block to get length of parInts Par[IndexedSeq]
+        // It's a first step that must be waited for
+        // with this method of summation, by recursively splitting
+        val length: Int = Par.map(parInts){
+          (is: IndexedSeq[Int]) => is.size
+        }(service).get()
+
+        if(length <= 1){
+          val parHead: Par[Int] = Par.map(parInts){
+            (is: IndexedSeq[Int]) =>
+            is.headOption.getOrElse(0)
+          }
+
+          parHead(service): Future[Int]
+
+        } else {
+          val halfLength: Int = length / 2
+
+          val parSplit:
+              Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] =
+            Par.map(parInts){
+              (is: IndexedSeq[Int]) => is.splitAt(halfLength)
+            }
+
+          val parSeqLeft: Par[IndexedSeq[Int]] = Par.map(parSplit){
+            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+            tup._1
+          }
+          val parSeqRight: Par[IndexedSeq[Int]] = Par.map(parSplit){
+            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+            tup._2
+          }
+
+          Par.map2(parSeqLeft, parSeqRight){
+            (seqLeft: IndexedSeq[Int],
+              seqRight: IndexedSeq[Int]) => {
+              println("left: "+seqLeft+"\t right: "+seqRight)
+            }
+          }(service) // .get() not necessary
+
+          val parIntLeft: Par[Int] = parSum(parSeqLeft)
+          val parIntRight: Par[Int] = parSum(parSeqRight)
+
+          val parMerged: Par[Int] = Par.map2(
+            parIntLeft, parIntRight
+          ){
+            (intLeft: Int, intRight: Int) => intLeft + intRight
+          }
+          parMerged(service): Future[Int]
+        }
+      }
+    }
+
+    // use fork in this method
+    def parSum3(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+      (service: ExecutorService) => {
+        println("thread "+Thread.currentThread().getId())
+        val length: Int = Par.map(parInts){
+          (is: IndexedSeq[Int]) => is.size
+        }(service).get()
+
+        if(length <= 1){
+          val parHead: Par[Int] = Par.map(parInts){
+            (is: IndexedSeq[Int]) =>
+            is.headOption.getOrElse(0)
+          }
+
+          parHead(service): Future[Int]
+
+        } else {
+          val halfLength: Int = length / 2
+          val parSplit:
+              Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] =
+            Par.map(parInts){
+              (is: IndexedSeq[Int]) => is.splitAt(halfLength)
+            }
+
+          val parSeqLeft: Par[IndexedSeq[Int]] = Par.map(parSplit){
+            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+            tup._1
+          }
+          val parSeqRight: Par[IndexedSeq[Int]] = fork( Par.map(parSplit){
+            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+            tup._2
+          }
+          )
+
+          fork(Par.map2(parSeqLeft, parSeqRight){
+            (seqLeft: IndexedSeq[Int],
+              seqRight: IndexedSeq[Int]) => {
+              println("left: "+seqLeft+"\t right: "+seqRight)
+            }
+          }
+          )(service)
+
+
+          val parIntLeft: Par[Int] = parSum3(parSeqLeft)
+          val parIntRight: Par[Int] = fork(parSum3(parSeqRight))
+
+          val parMerged: Par[Int] = Par.map2(
+            parIntLeft, parIntRight
+          ){
+            (intLeft: Int, intRight: Int) => intLeft + intRight
+          }
+
+          parMerged(service): Future[Int]
+        }
+      }
+    }
+
+
+
+    def main(args: Array[String]): Unit = {
+
+      println("non-blocking Par implementation examples")
+      val service = Executors.newFixedThreadPool(5)
+      println(Thread.currentThread())
+      val vec = (1 to 10).toVector
+      println("no use of Par: " + Examples.sum(vec))
+
+      val parInt: Par[Int] = Examples.parSum(vec)
+      // start computation asynchronously
+      val runParInt: Future[Int] = Par.run(service)(parInt)
+
+      // block and wait for result with .get
+      println("use of Par: " + runParInt.get())
+
+      // doesn't freeze with many threads!  The reason is
+      // highly informative...
+
+      val service3 = Executors.newFixedThreadPool(50)
+
+      val parInt3: Par[Int] = Par.fork(Examples.parSum3(vec))
+      // start computation asynchronously
+      val runParInt3: Future[Int] = Par.run(service3)(parInt3)
+
+      // block and wait for result with .get
+      println("use of Par with fork: " + runParInt3.get())
+      // it freezes on this print statement, when all the work
+      // is done!
+
+    }
+
+
   }
 }

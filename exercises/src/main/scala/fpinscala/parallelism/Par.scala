@@ -37,7 +37,7 @@ object Par {
       // not appearing because in separate thread??
       // println(es.toString())
       def call: A = {
-        println(Thread.currentThread())
+        //println(Thread.currentThread())
         a(es).get
       }
     }): Future[A]
@@ -126,7 +126,7 @@ object Examples {
 
   def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
     (service: ExecutorService) => {
-
+      println("thread "+Thread.currentThread().getId())
       // block to get length of parInts Par[IndexedSeq]
       // It's a first step that must be waited for
       // with this method of summation, by recursively splitting
@@ -279,7 +279,7 @@ object Examples {
   // use fork in this method
   def parSum3(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
     (service: ExecutorService) => {
-
+      println("thread "+Thread.currentThread().getId())
       val length: Int = Par.map(parInts){
         (is: IndexedSeq[Int]) => is.size
       }(service).get()
