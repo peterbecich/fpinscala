@@ -6,7 +6,10 @@ import scala.language.implicitConversions
 object Par {
   type Par[A] = ExecutorService => Future[A]
   
-  def run[A](s: ExecutorService)(a: Par[A]): Future[A] = a(s)
+  def run[A](s: ExecutorService)(a: Par[A]): Future[A] = {
+    println("run: "+s.toString())
+    a(s)
+  }
 
   def unit[A](a: A): Par[A] = (es: ExecutorService) => UnitFuture(a) // `unit` is represented as a function that returns a `UnitFuture`, which is a simple implementation of `Future` that just wraps a constant value. It doesn't use the `ExecutorService` at all. It's always done and can't be cancelled. Its `get` method simply returns the value that we gave it.
   
@@ -17,7 +20,7 @@ object Par {
     def cancel(evenIfRunning: Boolean): Boolean = false 
   }
   
-  def map2[A,B,C](a: Par[A], b: Par[B])(f: (A,B) => C): Par[C] = // `map2` doesn't evaluate the call to `f` in a separate logical thread, in accord with our design choice of having `fork` be the sole function in the API for controlling parallelism. We can always do `fork(map2(a,b)(f))` if we want the evaluation of `f` to occur in a separate thread.
+  def map2[A,B,C](a: Par[A], b: Par[B])(f: (A,B) => C): Par[C] = // `map2` doesn't evaluate the call to `f` in a separate logical thread, in accord with our design choice of having **** `fork` be the sole function in the API for controlling parallelism ****. We can always do `fork(map2(a,b)(f))` if we want the evaluation of `f` to occur in a separate thread.
     (es: ExecutorService) => {
       val af = a(es) 
       val bf = b(es)
@@ -29,9 +32,16 @@ object Par {
     }
   
   def fork[A](a: => Par[A]): Par[A] = // This is the simplest and most natural implementation of `fork`, but there are some problems with it--for one, the outer `Callable` will block waiting for the "inner" task to complete. Since this blocking occupies a thread in our thread pool, or whatever resource backs the `ExecutorService`, this implies that we're losing out on some potential parallelism. Essentially, we're using two threads when one should suffice. This is a symptom of a more serious problem with the implementation, and we will discuss this later in the chapter.
-    es => es.submit(new Callable[A] { 
-      def call: A = a(es).get
-    })
+  {
+    (es: ExecutorService) => es.submit(new Callable[A] {
+      // not appearing because in separate thread??
+      // println(es.toString())
+      def call: A = {
+        println(Thread.currentThread())
+        a(es).get
+      }
+    }): Future[A]
+  }: ExecutorService => Future[A]
 
 /*
   Java's library transcribed to Scala
@@ -84,12 +94,12 @@ object Par {
       if (run(es)(cond).get) t(es) // Notice we are blocking on the result of `cond`.
       else f(es)
 
-  // def split[A](par: Par[Tuple2[A,A]]): Tuple2[Par[A],Par[A]] = 
-  //   es => {
-  //     val (leftFuture, rightFuture) = par(es)
-  //     (leftFuture, rightFuture)
-  //   }
-      
+  def split[A](par: Par[Tuple2[A,A]]): Tuple2[Par[A],Par[A]] = {
+    val parLeft: Par[A] = this.map(par)((tpl: Tuple2[A,A]) => tpl._1)
+    val parRight: Par[A] = this.map(par)((tpl: Tuple2[A,A]) => tpl._2)
+    (parLeft, parRight)
+  }
+
 
   /* Gives us infix syntax for `Par`.4 */
   implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
@@ -116,6 +126,7 @@ object Examples {
 
   def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
     (service: ExecutorService) => {
+
       // block to get length of parInts Par[IndexedSeq]
       // It's a first step that must be waited for
       // with this method of summation, by recursively splitting
@@ -163,8 +174,6 @@ object Examples {
             (is: IndexedSeq[Int]) => is.splitAt(halfLength)
           }
 
-        //println("length: " + length)
-
         val parSeqLeft: Par[IndexedSeq[Int]] = Par.map(parSplit){
           (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
           tup._1
@@ -173,6 +182,9 @@ object Examples {
           (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
           tup._2
         }
+
+
+
 
 
         /*
@@ -208,10 +220,125 @@ object Examples {
     }
   }
 
+
+  // def parSum2(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+
+  //   // Instead of extracting length from Par[Seq],
+  //   // figure out how to use combinators to do this
+  //   // val length: Int = Par.map(parInts){
+  //   //   (is: IndexedSeq[Int]) => is.size
+  //   // }(service).get()
+
+  //   val parLength: Par[Int] = Par.map(parInts){
+  //     (is: IndexedSeq[Int]) => is.size
+  //   }
+
+
+  //   /*
+  //    Not possible because inner return type of map2, Int,
+  //    prevents us from recursing with Par!
+
+  //    */
+  //   Par.map2(parInts, parLength){
+  //     (seqInts: IndexedSeq[Int], length: Int) => {
+  //       if (length <= 1){
+  //         seqInts.headOption.getOrElse(0)
+  //       } else {
+  //         val halfLength: Int = length / 2
+  //         val split:
+  //             Tuple2[IndexedSeq[Int], IndexedSeq[Int]] =
+  //             seqInts.splitAt(halfLength)
+
+
+  //         // adding these two together with '+' would
+  //         // defeat the purpose of the exercise
+  //         val seqLeft: IndexedSeq[Int] = split._1
+  //         val seqRight: IndexedSeq[Int] = split._2
+
+
+  //         // uses implicit conversion
+  //         val parIntLeft: Par[Int] = parSum(seqLeft)
+  //         val parIntRight: Par[Int] = parSum(seqRight)
+
+  //         val parMerged: Par[Int] = Par.map2(
+  //           parIntLeft, parIntRight
+  //         ){
+  //           (intLeft: Int, intRight: Int) => intLeft + intRight
+  //         }
+
+  //         //parMerged: Par[Int]
+  //         // I don't think there is a way of getting this value
+  //         // without an implicit (or instantiated) Executor
+  //         // Both are "verboden"
+  //         merged: Int
+  //       }
+  //     }: Int
+  //   }: Par[Int]
+  // }: Par[Int]
+
+  // use fork in this method
+  def parSum3(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+    (service: ExecutorService) => {
+
+      val length: Int = Par.map(parInts){
+        (is: IndexedSeq[Int]) => is.size
+      }(service).get()
+
+      if(length <= 1){
+        val parHead: Par[Int] = Par.map(parInts){
+          (is: IndexedSeq[Int]) =>
+          is.headOption.getOrElse(0)
+        }
+
+        parHead(service): Future[Int]
+
+      } else {
+        val halfLength: Int = length / 2
+        val parSplit:
+            Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] =
+          Par.map(parInts){
+            (is: IndexedSeq[Int]) => is.splitAt(halfLength)
+          }
+
+        val parSeqLeft: Par[IndexedSeq[Int]] = Par.map(parSplit){
+          (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+          tup._1
+        }
+        val parSeqRight: Par[IndexedSeq[Int]] = fork( Par.map(parSplit){
+          (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
+          tup._2
+        }
+        )
+
+        fork(Par.map2(parSeqLeft, parSeqRight){
+          (seqLeft: IndexedSeq[Int],
+            seqRight: IndexedSeq[Int]) => {
+            println("left: "+seqLeft+"\t right: "+seqRight)
+          }
+        }
+        )(service)
+
+
+        val parIntLeft: Par[Int] = parSum3(parSeqLeft)
+        val parIntRight: Par[Int] = fork(parSum3(parSeqRight))
+
+        val parMerged: Par[Int] = Par.map2(
+          parIntLeft, parIntRight
+        ){
+          (intLeft: Int, intRight: Int) => intLeft + intRight
+        }
+
+        parMerged(service): Future[Int]
+      }
+    }
+  }
+
+
+
   def main(args: Array[String]): Unit = {
 
-    val service = Executors.newFixedThreadPool(2)
-
+    val service = Executors.newFixedThreadPool(5)
+    println(Thread.currentThread())
     val vec = (1 to 10).toVector
     println("no use of Par: " + Examples.sum(vec))
 
@@ -221,6 +348,18 @@ object Examples {
 
     // block and wait for result with .get
     println("use of Par: " + runParInt.get())
+
+    // doesn't freeze with many threads!  The reason is
+    // highly informative...
+    val service3 = Executors.newFixedThreadPool(50)
+
+    val parInt3: Par[Int] = Par.fork(Examples.parSum3(vec))
+    // start computation asynchronously
+    val runParInt3: Future[Int] = Par.run(service3)(parInt3)
+
+    // block and wait for result with .get
+    println("use of Par with fork: " + runParInt3.get())
+
 
   }
 
