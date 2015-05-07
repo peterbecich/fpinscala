@@ -351,6 +351,7 @@ object Examples {
 
     // doesn't freeze with many threads!  The reason is
     // highly informative...
+
     val service3 = Executors.newFixedThreadPool(50)
 
     val parInt3: Par[Int] = Par.fork(Examples.parSum3(vec))
@@ -359,7 +360,8 @@ object Examples {
 
     // block and wait for result with .get
     println("use of Par with fork: " + runParInt3.get())
-
+    // it freezes on this print statement, when all the work
+    // is done!
 
   }
 
