@@ -162,7 +162,7 @@ object Nonblocking {
             eval(es) { 
               val chosenParA: Par[A] = ps(p)
               val chosenFutureA: Future[A] = chosenParA(es)
-              chosenFutureA(cb)
+              chosenFutureA.apply(cb): Unit
             }: Unit
           }: Unit
         }
@@ -203,30 +203,35 @@ object Nonblocking {
                The purpose of this eval block is unknown
                to the compiler.
                */
-              futureValue(cb)
-            }
-          }
-          }
-        }
-      }
-    }
+              futureValue.apply(cb): Unit
+            }: Unit
+          }: Unit
+          }: Unit
+        }: Unit
+      }: Future[V]
+    }: Par[V]
 
-
-
-
-
-
-    // see `Nonblocking.scala` answers file. This function is usually called something else!
+    // see `Nonblocking.scala` answers file. This function is usually called something else!  flatMap?
     def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
-      ???
+      this.flatMap(p)(f)
 
     def flatMap[A,B](p: Par[A])(f: A => Par[B]): Par[B] = 
       (es: ExecutorService) => new Future[B]{
         def apply(cb: B => Unit): Unit = {
-          //p(es){a => eval(
-        }
-      }
-
+          val futureA: Future[A] = p(es)
+          /*
+           This is very confusing because of the 'units' involved.
+           The outer type is correct, at least; a Par[B] is returned.
+           Now the side effect must take place inside this Future[B].
+           */
+          futureA.apply{(a: A) => {
+            val parB: Par[B] = f(a)
+            val futureB: Future[B] = parB(es)
+            futureB.apply(cb): Unit
+          }: Unit
+          }: Unit
+        }: Unit
+      }: Future[B]
 
 
     def choiceViaChooser[A](p: Par[Boolean])(f: Par[A], t: Par[A]): Par[A] =
