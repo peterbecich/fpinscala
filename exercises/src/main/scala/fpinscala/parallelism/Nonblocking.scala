@@ -183,8 +183,14 @@ object Nonblocking {
     def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
       ???
 
-    def flatMap[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
-      ???
+    def flatMap[A,B](p: Par[A])(f: A => Par[B]): Par[B] = 
+      (es: ExecutorService) => new Future[B]{
+        def apply(cb: B => Unit): Unit = {
+          p(es){a => eval(
+        }
+      }
+
+
 
     def choiceViaChooser[A](p: Par[Boolean])(f: Par[A], t: Par[A]): Par[A] =
       ???
