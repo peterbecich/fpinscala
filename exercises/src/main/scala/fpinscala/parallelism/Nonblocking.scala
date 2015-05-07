@@ -235,19 +235,55 @@ object Nonblocking {
 
 
     def choiceViaChooser[A](p: Par[Boolean])(f: Par[A], t: Par[A]): Par[A] =
-      ???
+      this.chooser(p){
+        // Boolean => Par[A]
+        (bool: Boolean) => bool match {
+          case false => f
+          case true => t
+        }
+      }: Par[A]
+
 
     def choiceNChooser[A](p: Par[Int])(choices: List[Par[A]]): Par[A] =
-      ???
+      this.chooser(p){
+        // Int => Par[A]
+        (chosenInt: Int) => choices(chosenInt)
+      }: Par[A]
 
     def join[A](p: Par[Par[A]]): Par[A] =
-      ???
+      (es: ExecutorService) => new Future[A] {
+        // val innerParA: Par[A] = p(es)
+        // val innerFutureA: Future[A] = innerParA(es)
+        def apply(cb: A => Unit): Unit = {
+          val futureParA: Future[Par[A]] = p(es)
+          futureParA.apply{
+            (parA: Par[A]) => {
+              val futureA: Future[A] = parA(es)
+              // type
+              //(scala.Function1[A, Unit]) => scala.Unit
+              futureA.apply(cb): Unit
+            }: Unit
+          }: Unit
+        }: Unit
+      }: Future[A]
 
     def joinViaFlatMap[A](a: Par[Par[A]]): Par[A] =
-      ???
+      // outer Par removed, not inner Par
+      flatMap(a){
+        (parA: Par[A]) => parA
+      }: Par[A]
 
-    def flatMapViaJoin[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
-      ???
+
+    def flatMapViaJoin[A,B](p: Par[A])(f: A => Par[B]): Par[B] = {
+      //val parParB = p.apply(f) // f needs to return unit
+      // map not implemented with flatMap so this is not
+      // a circular dependency
+      val parParB: Par[Par[B]] = p.map(f)
+      // join(Par[Par[B]]) => Par[B]
+      val parB: Par[B] = join(parParB)
+      parB
+    }
+      
 
     /* Gives us infix syntax for `Par`. */
     implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
