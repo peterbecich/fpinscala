@@ -6,6 +6,8 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import scala.language.implicitConversions
 
+import scala.concurrent.Future
+import scala.util.{Success, Failure}
 
 object Nonblocking {
 
@@ -162,22 +164,30 @@ object Nonblocking {
     }
 
 
-    def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] = {
-      (es: ExecutorService) => {
-        def apply(cb: A => Unit): Unit = {
-          val futureChosenKey: Future[K] = p(es)
-          futureChosenKey.apply{(p: K) => {
-            eval(es) {
-              val chosenOptionParValue: Option[Par[V]] = ps.get(p)
-              chosenOptionParValue.
-              val chosenFutureValue = chosenParValue(es)
-              chosenFutureValue(cb)
-            }
-          }
-          }
-        }
-      }
-    }
+    // def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] = {
+    //   (es: ExecutorService) => {
+    //     def apply(cb: A => Unit): Unit = {
+    //       val futureChosenKey: Future[K] = p(es)
+    //       futureChosenKey.apply{(p: K) => {
+    //         eval(es) {
+    //           val chosenOptionParValue: Option[Par[V]] = ps.get(p)
+    //           val chosenParValue: Par[V] = chosenOptionParValue match {
+    //             case Some(parV: Par[V]) => parV
+    //             case None => {
+    //               //(es: ExecutorService) => scala.util.Failure
+    //               (es: ExecutorService) => Future.failed()
+    //             }
+    //           }
+    //           val chosenFutureValue: Future[V] = chosenParValue(es)
+    //           chosenFutureValue
+
+
+    //         }
+    //       }
+    //       }
+    //     }
+    //   }
+    // }
 
     // see `Nonblocking.scala` answers file. This function is usually called something else!
     def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
