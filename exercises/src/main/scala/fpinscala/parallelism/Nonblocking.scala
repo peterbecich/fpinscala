@@ -99,11 +99,24 @@ object Nonblocking {
       }
 
     // specialized version of `map`
+    // is this parallelized??
     def map[A,B](p: Par[A])(f: A => B): Par[B] =
       es => new Future[B] {
         def apply(cb: B => Unit): Unit =
           p(es)(a => eval(es) { cb(f(a)) })
       }
+
+    //import scala.collection.IterableLike
+    def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] = {
+      /* Using List[A]'s methods.
+       Confusion similar to Monad methods involving List
+       */
+      val fbs: List[Par[B]] = ps.map(asyncF(f))
+      val parListB: Par[List[B]] = sequence(fbs)
+      parListB
+    }
+
+    //def parFilter[A](as: List[A])(f: A => Boolean): Par[List[A]]
 
     def lazyUnit[A](a: => A): Par[A] =
       fork(unit(a))

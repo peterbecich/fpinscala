@@ -4,6 +4,7 @@ import fpinscala.parallelism.Nonblocking._
 import fpinscala.parallelism.Nonblocking.Par.toParOps // infix syntax for `Par.map`, `Par.flatMap`, etc
 
 import scala.language.higherKinds
+import scala.language.implicitConversions
 
 trait Monoid[A] {
   def op(a1: A, a2: A): A
@@ -212,7 +213,7 @@ object Monoid {
   }
 
   // split down the middle and merge
-  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
+  def _parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
       Par[B] =
     if(v.length==1){
       val head: A = v.head   // I don't know how this is typesafe
@@ -235,6 +236,35 @@ object Monoid {
       parMerged
     }
 
+  // improved
+  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
+      Par[B] = {
+    /*
+     Think of this as
+     Par[IndexedSeq[A]] => Par[B]
+     */
+    //val parSeqA: Par[IndexedSeq[A]] = Par.delay(v)
+    // Par.flatMap(parSeqA){
+    //   // don't use IndexedSeq's map or flatMap methods
+    //   (seqA: IndexedSeq[A]) => {
+    implicit def indexedSeqToList(is: IndexedSeq[A]): List[A] = is.toList
+
+    val parListB: Par[List[B]] = Par.parMap(v)(f)
+    // Par[List[B]] => Par[B]
+    // reduce in parallel
+    val parB: Par[B] = Par.map(parListB){
+      (listB: List[B]) => listB.foldLeft(m.zero)(m.op)
+    }
+
+    parB
+
+
+  }
+
+
+
+
+
   val wcMonoid: Monoid[WC] = sys.error("todo")
 
   def count(s: String): Int = sys.error("todo")
@@ -252,6 +282,20 @@ object Monoid {
     sys.error("todo")
 }
 
+object MonoidTest {
+  import fpinscala.monoids.Monoid._
+  def main(args: Array[String]): Unit = {
+    /*
+     Use int addition monoid and par monoid
+     */
+    val nums = (1 to 100).toList
+    println("nums 1 to 100")
+    val sum1: Int = foldMap(nums, intAddition)((i: Int) => i)
+    println("sum with fold map: "+sum1)
+
+
+  }
+}
 trait Foldable[F[_]] {
   import Monoid._
 
