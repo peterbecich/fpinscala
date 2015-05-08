@@ -512,6 +512,9 @@ object NonblockingExamples {
     // block and wait for result with .get
     println("use of Par: "+sumInt)
 
+    println("unknown freeze...")
+
+    service.shutdown()
     /*
 Works! But figure out why it freezes after the print statement, like in Par...
 

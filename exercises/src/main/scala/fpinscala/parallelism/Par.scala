@@ -349,6 +349,7 @@ object Examples {
     // block and wait for result with .get
     println("use of Par: " + runParInt.get())
 
+    service.shutdown()
     // doesn't freeze with many threads!  The reason is
     // highly informative...
 
@@ -362,6 +363,7 @@ object Examples {
     println("use of Par with fork: " + runParInt3.get())
     // it freezes on this print statement, when all the work
     // is done!
+    service3.shutdown()
 
   }
 
