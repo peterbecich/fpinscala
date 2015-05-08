@@ -474,8 +474,8 @@ object NonblockingExamples {
             val left: IndexedSeq[Int] = intsLeft(split)
             val right: IndexedSeq[Int] = intsRight(split)
 
-            println("thread: "+Thread.currentThread().getId())
-            println("left: "+left+"\t right: "+right)
+            // println("thread: "+Thread.currentThread().getId())
+            // println("left: "+left+"\t right: "+right)
 
             val parLeft = Par.unit(left)
             val parRight = Par.unit(right)
@@ -512,11 +512,10 @@ object NonblockingExamples {
     // block and wait for result with .get
     println("use of Par: "+sumInt)
 
-    println("unknown freeze...")
-
     service.shutdown()
+
     /*
-Works! But figure out why it freezes after the print statement, like in Par...
+Works!
 
 [info] Running fpinscala.parallelism.NonblockingExamples 
 non-blocking Par implementation examples
@@ -541,6 +540,80 @@ left: Vector(8)	 right: Vector(9, 10)
 thread: 65
 left: Vector(9)	 right: Vector(10)
 use of Par: 55
+
+     */
+
+    println("summing 1 to 100")
+    println("service has 2 threads")
+    val service2 = Executors.newFixedThreadPool(2)
+    println(Thread.currentThread())
+    val vec2 = (1 to 100).toVector
+    println("no use of Par: " + NonblockingExamples.sum(vec2))
+
+    val parInt2: Par[Int] = NonblockingExamples.parSum(vec2)
+    // start computation asynchronously
+    val sumInt2: Int = Par.run(service2)(parInt2)
+
+    // block and wait for result with .get
+    println("use of Par: "+sumInt2)
+
+    service2.shutdown()
+
+    println("summing 1 to 1000")
+    println("service has 50 threads")
+    val service3 = Executors.newFixedThreadPool(50)
+    println(Thread.currentThread())
+    val vec3 = (1 to 1000).toVector
+    println("no use of Par: " + NonblockingExamples.sum(vec3))
+
+    val parInt3: Par[Int] = NonblockingExamples.parSum(vec3)
+    // start computation asynchronously
+    val sumInt3: Int = Par.run(service3)(parInt3)
+
+    // block and wait for result with .get
+    println("use of Par: "+sumInt3)
+
+    service3.shutdown()
+
+    /*
+     Remember the summation shortcut to check the answer...
+     sum(1...1000) == 1000*1001/2 == 500500
+     */
+
+    /*
+     .
+     .
+     .
+     .
+     thread: 303
+     thread: 316
+     thread: 283
+     thread: 287
+     thread: 293
+     thread: 294
+     thread: 272
+     thread: 281
+     thread: 290
+     thread: 309
+     thread: 270
+     thread: 276
+     thread: 277
+     thread: 280
+     thread: 279
+     thread: 315
+     thread: 312
+     thread: 274
+     thread: 274
+     thread: 278
+     thread: 318
+     thread: 271
+     thread: 313
+     thread: 305
+     thread: 269
+     thread: 277
+     thread: 272
+     use of Par: 500500
+
 
      */
 
