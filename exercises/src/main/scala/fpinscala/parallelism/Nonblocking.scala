@@ -180,36 +180,68 @@ object Nonblocking {
     }
 
 
-    def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] = {
-      (es: ExecutorService) => new Future[V] {
-        def apply(cb: V => Unit): Unit = {
-          val futureChosenKey: Future[K] = p(es)
-          futureChosenKey.apply{(key: K) => {
-            eval(es) {
-              // map key in hand
-              val psValue: Option[Par[V]] = ps.get(key)
-              val futureValue: Future[V] = psValue match {
-                case Some(parV: Par[V]) => parV(es)
-                case None => new Future[V] {
-                  def apply = (v: V) => ()
-                }
+    def choiceMap[K,V](p: Par[K])(ps: Map[K,Par[V]]): Par[V] =
+      flatMap(p){
+        (key: K) => {
+          /*
+           Correct answer does not attempt to handle map without
+           value for key.  I wonder what would happen
+
+          val optionParValue: Option[Par[V]] = ps.get(key)
+          val parValue: Par[V] = optionParValue match {
+            case Some(parValue) => parValue
+            case None => (es: ExecutorService) => {
+              val blankFuture = new Future[V] {
+                /* Interesting error
+                 object creation impossible, since method apply in trait Future of type (k: V => Unit)Unit is not defined
+                 [error]               val blankFuture = new Future[V] {
+                 [error]                                     
+                 */
+                //def apply: V => Unit = (k: V) => ()
+                // trait
+                // scala.Function1[V, Unit]
+                def apply = (k: V) => ()
               }
-              /*
-               Note that working with Units makes everything
-               more complicated...
-               Type checking cannot tell me the difference
-               between the effect of the line above and the
-               line below.
-               The purpose of this eval block is unknown
-               to the compiler.
-               */
-              futureValue.apply(cb): Unit
-            }: Unit
-          }: Unit
-          }: Unit
-        }: Unit
-      }: Future[V]
-    }: Par[V]
+              blankFuture
+            }
+
+          }
+          parValue
+           */
+          val parValue: Par[V] = ps.apply(key)
+          parValue
+        }
+      }
+    // {
+    //   (es: ExecutorService) => new Future[V] {
+    //     def apply(cb: V => Unit): Unit = {
+    //       val futureChosenKey: Future[K] = p(es)
+    //       futureChosenKey.apply{(key: K) => {
+    //         eval(es) {
+    //           // map key in hand
+    //           val psValue: Option[Par[V]] = ps.get(key)
+    //           val futureValue: Future[V] = psValue match {
+    //             case Some(parV: Par[V]) => parV(es)
+    //             case None => new Future[V] {
+    //               def apply: V => Unit = (v: V) => ()
+    //             }
+    //           }
+    //           /*
+    //            Note that working with Units makes everything
+    //            more complicated...
+    //            Type checking cannot tell me the difference
+    //            between the effect of the line above and the
+    //            line below.
+    //            The purpose of this eval block is unknown
+    //            to the compiler.
+    //            */
+    //           futureValue.apply(cb): Unit
+    //         }: Unit
+    //       }: Unit
+    //       }: Unit
+    //     }: Unit
+    //   }: Future[V]
+    // }: Par[V]
 
     // see `Nonblocking.scala` answers file. This function is usually called something else!  flatMap?
     def chooser[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
@@ -296,7 +328,7 @@ object Nonblocking {
     }
   }
 
-  object Examples {
+  object NonblockingExamples {
 
     // does not use Parallel types
     def sum(ints: IndexedSeq[Int]): Int =
@@ -308,120 +340,149 @@ object Nonblocking {
       }
     implicit def toParInts(ints: IndexedSeq[Int]): Par[IndexedSeq[Int]] =
       Par.unit(ints)
+/*
+
+object
+fpinscala.parallelism.Nonblocking$$Par$
+(companion)
+
+class (via implicit, Ensuring)
+scala.Predef$$Ensuring[A]
+---------------------------
+ensuring	    (Boolean) => Par$
+ensuring	    (Boolean, <byname>[Any]) => Par$
+ensuring	    (Function1[Par$, Boolean]) => Par$
+ensuring	    (Function1[Par$, Boolean], <byname>[Any]) => Par$
+
+
+class (via implicit, ArrowAssoc)
+scala.Predef$$ArrowAssoc[A]
+---------------------------
+->		    (B) => Tuple2[Par$, B]
+→		    (B) => Tuple2[Par$, B]
+
+
+class (via implicit, any2stringadd)
+scala.Predef$$any2stringadd[A]
+---------------------------
++		    (String) => String
+<init>		    (Par$) => any2stringadd[Par$]
+
+
+object
+fpinscala.parallelism.Nonblocking$$Par$
+---------------------------
+class		    ParOps[A]
+<init>		    () => Par$
+async		    (Function1[Function1[A, Unit], Unit]) => Function1[A]
+asyncF		    (Function1[A, B]) => Function1[A, Function1[B]]
+choice		    (Function1[Boolean]) => (Function1[A], Function1[A]) => Function1[A]
+choiceMap	    (Function1[K]) => (Map[K, Function1[V]]) => Function1[V]
+choiceN		    (Function1[Int]) => (List[Function1[A]]) => Function1[A]
+choiceNChooser	    (Function1[Int]) => (List[Function1[A]]) => Function1[A]
+choiceViaChoiceN    (Function1[Boolean]) => (Function1[A], Function1[A]) => Function1[A]
+choiceViaChooser    (Function1[Boolean]) => (Function1[A], Function1[A]) => Function1[A]
+chooser		    (Function1[A]) => (Function1[A, Function1[B]]) => Function1[B]
+delay		    (<byname>[A]) => Function1[A]
+eval		    (ExecutorService) => (<byname>[Unit]) => Unit
+flatMap		    (Function1[A]) => (Function1[A, Function1[B]]) => Function1[B]
+flatMapViaJoin	    (Function1[A]) => (Function1[A, Function1[B]]) => Function1[B]
+fork		    (<byname>[Function1[A]]) => Function1[A]
+join		    (Function1[Function1[A]]) => Function1[A]
+joinViaFlatMap	    (Function1[Function1[A]]) => Function1[A]
+lazyUnit	    (<byname>[A]) => Function1[A]
+map		    (Function1[A]) => (Function1[A, B]) => Function1[B]
+map2		    (Function1[A], Function1[B]) => (Function2[A, B, C]) => Function1[C]
+run		    (ExecutorService) => (Function1[A]) => A
+sequence	    (List[Function1[A]]) => Function1[List[A]]
+sequenceBalanced    (IndexedSeq[Function1[A]]) => Function1[IndexedSeq[A]]
+sequenceRight	    (List[Function1[A]]) => Function1[List[A]]
+toParOps	    (Function1[A]) => ParOps[A]
+unit		    (A) => Function1[A]
+*/
 
     def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
-      (service: ExecutorService) => {
-        println("thread "+Thread.currentThread().getId())
-        // block to get length of parInts Par[IndexedSeq]
-        // It's a first step that must be waited for
-        // with this method of summation, by recursively splitting
-        val length: Int = Par.map(parInts){
-          (is: IndexedSeq[Int]) => is.size
-        }(service).get()
+      val parLength: Par[Int] = Par.map(parInts){
+        (seqInt: IndexedSeq[Int]) => seqInt.length
+      }
 
-        if(length <= 1){
-          val parHead: Par[Int] = Par.map(parInts){
-            (is: IndexedSeq[Int]) =>
-            is.headOption.getOrElse(0)
-          }
+      val parIntsSplit:(Int) => Par[Tuple2[
+        IndexedSeq[Int],
+        IndexedSeq[Int]
+      ]] = (half: Int) => Par.map(parInts){
+        (seqInt: IndexedSeq[Int]) => seqInt.splitAt(half)
+      }
 
-          parHead(service): Future[Int]
 
-        } else {
-          val halfLength: Int = length / 2
+      /*
+       The mistake in writing these commented out functions
+       is informative.  flatMap makes these unnecessary.
+       */
+      // val parIntsLeft: Par[Tuple2[
+      //   IndexedSeq[Int],
+      //   IndexedSeq[Int]
+      // ]] => Par[IndexedSeq[Int]] =
+      //   (parTpl) => Par.map(parTpl)(tpl => tpl._1)
 
-          val parSplit:
-              Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] =
-            Par.map(parInts){
-              (is: IndexedSeq[Int]) => is.splitAt(halfLength)
+      // val parIntsRight: Par[Tuple2[
+      //   IndexedSeq[Int],
+      //   IndexedSeq[Int]
+      // ]] => Par[IndexedSeq[Int]] =
+      //   (parTpl) => Par.map(parTpl)(tpl => tpl._2)
+
+      val intsLeft: Tuple2[
+        IndexedSeq[Int],
+        IndexedSeq[Int]
+      ] => IndexedSeq[Int] = (tup) => tup._1
+
+      val intsRight: Tuple2[
+        IndexedSeq[Int],
+        IndexedSeq[Int]
+      ] => IndexedSeq[Int] = (tup) => tup._2
+
+
+
+      Par.flatMap(parInts){
+        (seqInts: IndexedSeq[Int]) => {
+          Par.flatMap(parLength){
+            (length: Int) =>
+            if(length==1){
+              /*
+               Here turn seqInts of length 1
+               into a Par[Int]
+               */
+              val head = seqInts.headOption.getOrElse(0)
+              val parHead = Par.unit(head)
+
+              parHead
+
+            }else{
+              val half = length/2
+              val split: Tuple2[
+                IndexedSeq[Int],
+                IndexedSeq[Int]
+              ] = seqInts.splitAt(half)
+              val left: IndexedSeq[Int] = intsLeft(split)
+              val right: IndexedSeq[Int] = intsRight(split)
+
+              val parLeft = Par.unit(left)
+              val parRight = Par.unit(right)
+
+              val sumLeft: Par[Int] = Par.fork(parSum(parLeft))
+              val sumRight: Par[Int] = Par.fork(parSum(parRight))
+
+              val sumsMerged: Par[Int] =
+                Par.fork(Par.map2(sumLeft, sumRight){
+                  (left: Int, right: Int) => left+right
+                })
+              sumsMerged
             }
-
-          val parSeqLeft: Par[IndexedSeq[Int]] = Par.map(parSplit){
-            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
-            tup._1
           }
-          val parSeqRight: Par[IndexedSeq[Int]] = Par.map(parSplit){
-            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
-            tup._2
-          }
-
-          Par.map2(parSeqLeft, parSeqRight){
-            (seqLeft: IndexedSeq[Int],
-              seqRight: IndexedSeq[Int]) => {
-              println("left: "+seqLeft+"\t right: "+seqRight)
-            }
-          }(service) // .get() not necessary
-
-          val parIntLeft: Par[Int] = parSum(parSeqLeft)
-          val parIntRight: Par[Int] = parSum(parSeqRight)
-
-          val parMerged: Par[Int] = Par.map2(
-            parIntLeft, parIntRight
-          ){
-            (intLeft: Int, intRight: Int) => intLeft + intRight
-          }
-          parMerged(service): Future[Int]
         }
       }
+
+
     }
-
-    // use fork in this method
-    def parSum3(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
-      (service: ExecutorService) => {
-        println("thread "+Thread.currentThread().getId())
-        val length: Int = Par.map(parInts){
-          (is: IndexedSeq[Int]) => is.size
-        }(service).get()
-
-        if(length <= 1){
-          val parHead: Par[Int] = Par.map(parInts){
-            (is: IndexedSeq[Int]) =>
-            is.headOption.getOrElse(0)
-          }
-
-          parHead(service): Future[Int]
-
-        } else {
-          val halfLength: Int = length / 2
-          val parSplit:
-              Par[Tuple2[IndexedSeq[Int], IndexedSeq[Int]]] =
-            Par.map(parInts){
-              (is: IndexedSeq[Int]) => is.splitAt(halfLength)
-            }
-
-          val parSeqLeft: Par[IndexedSeq[Int]] = Par.map(parSplit){
-            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
-            tup._1
-          }
-          val parSeqRight: Par[IndexedSeq[Int]] = Par.fork( Par.map(parSplit){
-            (tup: Tuple2[IndexedSeq[Int], IndexedSeq[Int]]) =>
-            tup._2
-          }
-          )
-
-          Par.fork(Par.map2(parSeqLeft, parSeqRight){
-            (seqLeft: IndexedSeq[Int],
-              seqRight: IndexedSeq[Int]) => {
-              println("left: "+seqLeft+"\t right: "+seqRight)
-            }
-          }
-          )(service)
-
-
-          val parIntLeft: Par[Int] = parSum3(parSeqLeft)
-          val parIntRight: Par[Int] = Par.fork(parSum3(parSeqRight))
-
-          val parMerged: Par[Int] = Par.map2(
-            parIntLeft, parIntRight
-          ){
-            (intLeft: Int, intRight: Int) => intLeft + intRight
-          }
-
-          parMerged(service): Future[Int]
-        }
-      }
-    }
-
 
 
     def main(args: Array[String]): Unit = {
@@ -430,28 +491,14 @@ object Nonblocking {
       val service = Executors.newFixedThreadPool(5)
       println(Thread.currentThread())
       val vec = (1 to 10).toVector
-      println("no use of Par: " + Examples.sum(vec))
+      println("no use of Par: " + NonblockingExamples.sum(vec))
 
-      val parInt: Par[Int] = Examples.parSum(vec)
+      val parInt: Par[Int] = NonblockingExamples.parSum(vec)
       // start computation asynchronously
-      val runParInt: Future[Int] = Par.run(service)(parInt)
+      val sumInt: Int = Par.run(service)(parInt)
 
       // block and wait for result with .get
-      println("use of Par: " + runParInt.get())
-
-      // doesn't freeze with many threads!  The reason is
-      // highly informative...
-
-      val service3 = Executors.newFixedThreadPool(50)
-
-      val parInt3: Par[Int] = Par.fork(Examples.parSum3(vec))
-      // start computation asynchronously
-      val runParInt3: Future[Int] = Par.run(service3)(parInt3)
-
-      // block and wait for result with .get
-      println("use of Par with fork: " + runParInt3.get())
-      // it freezes on this print statement, when all the work
-      // is done!
+      println("use of Par: "+sumInt)
 
     }
 
