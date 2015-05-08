@@ -211,12 +211,29 @@ object Monoid {
     def zero: Par[A] = Par.unit(m.zero)
   }
 
-  // def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
-  //     Par[B] = {
-  //   // probably uses Par.fork
+  // split down the middle and merge
+  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
+      Par[B] =
+    if(v.length==1){
+      val head: A = v.head   // I don't know how this is typesafe
+                             // for an empty Seq
+      val b: B = f(head)
+      val parB: Par[B] = Par.delay(b)
 
+      parB
+    } else {
+      val middle = v.length / 2
+      val (leftSeq, rightSeq):
+          Tuple2[IndexedSeq[A], IndexedSeq[A]] =
+        v.splitAt(middle)
 
-  // }
+      val parLeft: Par[B] = parFoldMap(leftSeq, m)(f)
+      val parRight: Par[B] = parFoldMap(rightSeq, m)(f)
+
+      val parMerged: Par[B] = Par.map2(parLeft, parRight)(m.op)
+
+      parMerged
+    }
 
   val wcMonoid: Monoid[WC] = sys.error("todo")
 
