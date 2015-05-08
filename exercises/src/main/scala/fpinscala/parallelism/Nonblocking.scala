@@ -443,6 +443,13 @@ object NonblockingExamples {
     ] => IndexedSeq[Int] = (tup) => tup._2
 
 
+    /*
+     The conceptual mistake corrected here also applies to the
+     commented out parSum2 method in parallelism.Par.
+     
+     flatMap was needed there.
+     That Par object has no flatMap method yet, for some reason.
+     */
 
     Par.flatMap(parInts){
       (seqInts: IndexedSeq[Int]) => {
@@ -504,6 +511,35 @@ object NonblockingExamples {
 
     // block and wait for result with .get
     println("use of Par: "+sumInt)
+
+    /*
+Works! But figure out why it freezes after the print statement, like in Par...
+
+[info] Running fpinscala.parallelism.NonblockingExamples 
+non-blocking Par implementation examples
+Thread[run-main-0,5,run-main-group-0]
+no use of Par: 55
+thread: 63
+left: Vector(1, 2, 3, 4, 5)	 right: Vector(6, 7, 8, 9, 10)
+thread: 66
+left: Vector(1, 2)	 right: Vector(3, 4, 5)
+thread: 66
+thread: 64
+left: Vector(1)	 right: Vector(2)
+thread: 67
+left: Vector(3)	 right: Vector(4, 5)
+left: Vector(6, 7)	 right: Vector(8, 9, 10)
+thread: 65
+thread: 67
+left: Vector(4)	 right: Vector(5)
+left: Vector(6)	 right: Vector(7)
+thread: 65
+left: Vector(8)	 right: Vector(9, 10)
+thread: 65
+left: Vector(9)	 right: Vector(10)
+use of Par: 55
+
+     */
 
   }
 
