@@ -75,12 +75,15 @@ object Monoid {
    // ordering for IndexedSeq of any type
 
 
-  def orderedIntMonoid: Monoid[Boolean] = new Monoid[Boolean] {
-    // does not fit Monoid trait 'op = (A,A) => A....
-    // (was Int being implicitly converted to Boolean?  I hope not.
-    //def op(i1: Int, i2: Int): Boolean = i1<i2
-    def op(first: Boolean, following: Boolean): Boolean = 
-      booleanAnd.op(first, following)
+  def orderedIntMonoid = 
+    new Monoid[(Int, Int, Boolean)] {
+    def op(
+      first: (Int, Int, Boolean), 
+      following: (Int, Int, Boolean)
+    ): (Int, Int, Boolean) = {
+
+    }
+
     def zero: Boolean = true
   }
 
@@ -203,8 +206,10 @@ object Monoid {
    fpinscala.parallelism.Actor
    */
 
-  def ordered(ints: IndexedSeq[Int]): Boolean =
-    sys.error("todo")
+  def ordered(ints: IndexedSeq[Int]): Boolean = {
+
+  }
+
 
   sealed trait WC
   case class Stub(chars: String) extends WC
