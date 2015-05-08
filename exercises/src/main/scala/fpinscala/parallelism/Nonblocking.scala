@@ -497,6 +497,73 @@ object NonblockingExamples {
   }
 
 
+
+  def parSumNoFork(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+    val parLength: Par[Int] = Par.map(parInts){
+      (seqInt: IndexedSeq[Int]) => seqInt.length
+    }
+
+    val parIntsSplit:(Int) => Par[Tuple2[
+      IndexedSeq[Int],
+      IndexedSeq[Int]
+    ]] = (half: Int) => Par.map(parInts){
+      (seqInt: IndexedSeq[Int]) => seqInt.splitAt(half)
+    }
+
+    val intsLeft: Tuple2[
+      IndexedSeq[Int],
+      IndexedSeq[Int]
+    ] => IndexedSeq[Int] = (tup) => tup._1
+
+    val intsRight: Tuple2[
+      IndexedSeq[Int],
+      IndexedSeq[Int]
+    ] => IndexedSeq[Int] = (tup) => tup._2
+
+    Par.flatMap(parInts){
+      (seqInts: IndexedSeq[Int]) => {
+        Par.flatMap(parLength){
+          (length: Int) =>
+          if(length==1){
+
+            val head = seqInts.headOption.getOrElse(0)
+            val parHead = Par.unit(head)
+
+            parHead
+          }else{
+            val half = length/2
+            val split: Tuple2[
+              IndexedSeq[Int],
+              IndexedSeq[Int]
+            ] = seqInts.splitAt(half)
+            val left: IndexedSeq[Int] = intsLeft(split)
+            val right: IndexedSeq[Int] = intsRight(split)
+
+            println("thread: "+Thread.currentThread().getId())
+            println("left: "+left+"\t right: "+right)
+
+            val parLeft = Par.delay(left)
+            val parRight = Par.delay(right)
+
+            val sumLeft: Par[Int] = parSumNoFork(parLeft)
+            val sumRight: Par[Int] = parSumNoFork(parRight)
+
+            val sumsMerged: Par[Int] =
+              Par.map2(sumLeft, sumRight){
+                (left: Int, right: Int) => left+right
+              }
+            sumsMerged
+          }
+        }
+      }
+    }
+
+
+  }
+
+
+
+
   def main(args: Array[String]): Unit = {
 
     println("non-blocking Par implementation examples")
@@ -614,6 +681,72 @@ use of Par: 55
      thread: 272
      use of Par: 500500
 
+
+     */
+
+    println("with no forking, but many available threads")
+    println("summing 1 to 10")
+    println("service has 4 threads")
+    val service4 = Executors.newFixedThreadPool(4)
+    println(Thread.currentThread())
+    val vec4 = (1 to 10).toVector
+
+    val parInt4: Par[Int] = NonblockingExamples.parSumNoFork(vec4)
+    // start computation asynchronously
+    val sumInt4: Int = Par.run(service4)(parInt4)
+
+    // block and wait for result with .get
+    println("use of Par: "+sumInt4)
+
+    service4.shutdown()
+    /*
+     with no forking, but many available threads
+     summing 1 to 1000
+     service has 50 threads
+     Thread[run-main-8,5,run-main-group-8]
+     thread: 510
+     thread: 511
+     thread: 512
+     thread: 513
+     thread: 514
+     thread: 515
+     thread: 516
+     thread: 517
+     thread: 518
+     thread: 519
+     thread: 520
+     thread: 521
+     .
+     .
+     .
+
+     */
+
+    /*
+     forking is obviously still occurring...
+     with no forking, but many available threads
+     summing 1 to 10
+     service has 4 threads
+     Thread[run-main-9,5,run-main-group-9]
+     thread: 627
+     left: Vector(1, 2, 3, 4, 5)	 right: Vector(6, 7, 8, 9, 10)
+     thread: 628
+     left: Vector(1, 2)	 right: Vector(3, 4, 5)
+     thread: 629
+     left: Vector(6, 7)	 right: Vector(8, 9, 10)
+     thread: 629
+     thread: 627
+     left: Vector(8)	 right: Vector(9, 10)
+     left: Vector(6)	 right: Vector(7)
+     thread: 629
+     left: Vector(9)	 right: Vector(10)
+     thread: 630
+     left: Vector(1)	 right: Vector(2)
+     thread: 627
+     left: Vector(3)	 right: Vector(4, 5)
+     thread: 627
+     left: Vector(4)	 right: Vector(5)
+     use of Par: 55
 
      */
 
