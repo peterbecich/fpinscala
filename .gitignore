@@ -13,4 +13,5 @@ project.vim
 .metadata/
 .ensime
 .ensime_cache/
+*.db
 *~
