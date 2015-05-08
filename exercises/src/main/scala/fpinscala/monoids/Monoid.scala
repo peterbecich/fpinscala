@@ -69,9 +69,20 @@ object Monoid {
     def zero: B => B = (in: B) => in
   }
 
-  // def orderedMonoid[B]: Monoid[Boolean] = new Monoid[Boolean] {
 
-  // }
+   // Implement only for checking ordering of IndexedSeq[Int].
+   // Could get more complicated to leave comparison abstract and check
+   // ordering for IndexedSeq of any type
+
+
+  def orderedIntMonoid: Monoid[Boolean] = new Monoid[Boolean] {
+    // does not fit Monoid trait 'op = (A,A) => A....
+    // (was Int being implicitly converted to Boolean?  I hope not.
+    //def op(i1: Int, i2: Int): Boolean = i1<i2
+    def op(first: Boolean, following: Boolean): Boolean = 
+      booleanAnd.op(first, following)
+    def zero: Boolean = true
+  }
 
   // TODO: Placeholder for `Prop`. Remove once you have implemented the `Prop`
   // data type from Part 2.
@@ -164,7 +175,8 @@ object Monoid {
    where foldLeft would not.  foldLeft is tail recursive.
 
    Old question answered: even a tail-recursive function
-   can run out of memory.  The output of the fold could be enormous.
+   can run out of memory.  For example,
+   the output of the fold could be enormous.
    */
   def foldMapV[A, B](as: IndexedSeq[A], m: Monoid[B])(f: A => B): B = {
     val length = as.length
@@ -245,7 +257,7 @@ object Monoid {
      */
     //val parSeqA: Par[IndexedSeq[A]] = Par.delay(v)
     // Par.flatMap(parSeqA){
-    //   // don't use IndexedSeq's map or flatMap methods
+    //   // don't use IndexedSeq's map or flatMap emethods
     //   (seqA: IndexedSeq[A]) => {
     implicit def indexedSeqToList(is: IndexedSeq[A]): List[A] = is.toList
 
@@ -284,6 +296,8 @@ object Monoid {
 
 object MonoidTest {
   import fpinscala.monoids.Monoid._
+
+
   def main(args: Array[String]): Unit = {
     /*
      Use int addition monoid and par monoid
