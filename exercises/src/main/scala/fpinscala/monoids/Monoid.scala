@@ -144,6 +144,8 @@ object Monoid {
       }
     }
 
+    aggregator(bs, m.zero)
+
   }
 
 
