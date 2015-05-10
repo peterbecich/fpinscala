@@ -70,23 +70,6 @@ object Monoid {
   }
 
 
-   // Implement only for checking ordering of IndexedSeq[Int].
-   // Could get more complicated to leave comparison abstract and check
-   // ordering for IndexedSeq of any type
-
-
-  def orderedIntMonoid = 
-    new Monoid[(Int, Int, Boolean)] {
-    def op(
-      first: (Int, Int, Boolean), 
-      following: (Int, Int, Boolean)
-    ): (Int, Int, Boolean) = {
-
-    }
-
-    def zero: Boolean = true
-  }
-
   // TODO: Placeholder for `Prop`. Remove once you have implemented the `Prop`
   // data type from Part 2.
   trait Prop {}
@@ -121,24 +104,43 @@ object Monoid {
 
   // foldMap with no dependency on other fold implementations
   def _foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B = {
+    // I think this is essentially an implementation of fold right...
+    // as match {
+    //   case Nil => m.zero
+    //   case (a :: Nil) => {
+    //     val b = f(a)
+    //     b
+    //   }
+    //   case (a :: tail) => {
+    //     val b = f(a)
+    //     val b2 = m.op(b, _foldMap(tail, m)(f))
+    //     b2
+    //   }
+    // }
+    
     /*
-     Monoid[B] {
-       def op(b1: B, b2: B): B
-       def zero: B
-     }
+     No issue with using List's built-in methods, as in the correct
+     answer for par fold map.
+     The pattern-matching solution above used List's built-in
+     unapply method, so even that solution was dependent.
      */
 
-    // I think this is essentially an implementation of fold right...
-    as match {
-      case Nil => m.zero
-      case (a :: Nil) => {
-        val b = f(a)
-        b
-      }
-      case (a :: tail) => {
-        val b = f(a)
-        val b2 = m.op(b, _foldMap(tail, m)(f))
-        b2
+    val bs: List[B] = as.map(f)
+    // foldMapV assumes efficient indexing of sequence/vector
+    // A List does not have efficient indexing.
+    // So just implement this as a fold right
+    //val b: B = foldMapV(bs, m)((b: B)=>b)
+
+    @annotation.tailrec
+    def aggregator(la: List[B], z: B): B = {
+      /*
+       Review fold left and fold right implementations in 
+       fpinscala.datastructures.List, and
+       why one is tail recursive and the other isn't
+       */
+      la match {
+        case ((h: B):: Nil) => m.op(h, z)
+        case ((h: B)::(t: List[B])) => aggregator(t, m.op(z, h))
       }
     }
 
@@ -196,6 +198,26 @@ object Monoid {
 
   // hint hint...
   import fpinscala.parallelism.Nonblocking._
+
+
+
+   // Implement only for checking ordering of IndexedSeq[Int].
+   // Could get more complicated to leave comparison abstract and check
+   // ordering for IndexedSeq of any type
+
+
+  def orderedIntMonoid = 
+    new Monoid[(Int, Int, Boolean)] {
+    def op(
+      first: (Int, Int, Boolean), 
+      following: (Int, Int, Boolean)
+    ): (Int, Int, Boolean) = {
+
+    }
+
+    def zero: Boolean = true
+  }
+
 
   /*
    Two Par implementations
@@ -277,7 +299,23 @@ object Monoid {
 
 
   }
+  /*
+   we perform the mapping and the reducing both in parallel
 
+   def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] =
+   Par.parMap(v)(f).flatMap { bs =>
+      note that foldMapV is not a parallelized function, but
+      is parallelized by flatMap above.
+
+      A single reduction cannot be parallelized, but multiple reductions
+      can happen at the same time.
+
+      val parB: Par[B] = foldMapV(bs, par(m))(b => Par.lazyUnit(b))
+
+      parB
+   }
+
+   */
 
 
 

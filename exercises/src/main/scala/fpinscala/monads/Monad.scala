@@ -9,6 +9,8 @@ import parallelism.Par._
 
 // http://www.scala-lang.org/api/current/#scala.language$
 import scala.language.higherKinds
+import scala.language.implicitConversions
+
 
 /*
  The three monad laws

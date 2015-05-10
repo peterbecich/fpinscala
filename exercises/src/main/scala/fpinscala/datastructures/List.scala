@@ -128,17 +128,20 @@ object List { // `List` companion object. Contains functions for creating and wo
   @annotation.tailrec
   def foldLeft[A,B](l: List[A], z: B)(f: (B, A) => B): B = l match {
     case Cons(h, t) => {
-      // not tail recursive
-      // val z1 = f(z, h)
-      // Cons(z1, foldLeft(t, z1)(f))
+      /*
+       not tail recursive
+       val z1 = f(z, h)
+       Cons(z1, foldLeft(t, z1)(f))
 
-      // apply f before entering next iteration of foldLeft
+       apply f before entering next iteration of foldLeft
 
-      // symbolically, it would appear that every recursion has a tail,
-      // albeit "heavier" or "lighter"
+       symbolically, it would appear that every recursion has a tail,
+       albeit "heavier" or "lighter"
 
-      // apparently, though, the compiler can figure out when a parent foldLeft
-      // never needs to be accessed again
+       apparently, though, the compiler can figure out when a parent foldLeft
+       never needs to be accessed again
+
+       */
       foldLeft(t, f(z, h))(f)
     }
     case Nil => z
