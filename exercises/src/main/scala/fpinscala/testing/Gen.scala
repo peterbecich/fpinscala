@@ -148,7 +148,7 @@ object Gen {
     val stateInt: State.Rand[Int] = State {
       (rng: RNG) => RNG.chooseInt(rng)(start, stopExclusive)
     }
-    val genInt = Gen(stateInt)
+    val genInt: Gen[Int] = Gen(stateInt)
     genInt
   }
 

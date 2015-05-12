@@ -70,18 +70,36 @@ object Monoid {
   }
 
 
-  // TODO: Placeholder for `Prop`. Remove once you have implemented the `Prop`
-  // data type from Part 2.
-  trait Prop {}
-
-  // TODO: Placeholder for `Gen`. Remove once you have implemented the `Gen`
-  // data type from Part 2.
-
   import fpinscala.testing._
   import Prop._
-  def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop = new Prop {
+  import Gen._
+  def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop = {
+    val la0: Gen[List[A]] = Gen.listOfN(3, gen)
+    val associative: Prop = Prop.forAll(la0){
+      (la: List[A]) => {
+        val a0 = la(0)
+        val a1 = la(1)
+        val a2 = la(2)
+        val left = m.op(a0, m.op(a1, a2))
+        val right = m.op(m.op(a0, a1), a2)
+        left == right
+      }
+    }
 
+    val rightIdentity: Prop = Prop.forAll(gen){
+      (a: A) => {
+        // shouldn't be necessary to test left because
+        // associativity is tested above
+        val right = m.op(a, m.zero)
+        right == a
+      }
+    }
+
+    val bothProperties: Prop = associative.&&(rightIdentity)
+
+    bothProperties
   }
+
 
   def trimMonoid(s: String): Monoid[String] = sys.error("todo")
 
