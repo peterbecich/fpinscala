@@ -63,7 +63,7 @@ object Monoid {
     def op(a1: B => B, a2: B => B): B => B = (in: B) => a1(a2(in))
 
     // need type signature () => B
-    //def zero: B = 
+    //def zero: B =
     // not true ... A = (B => B)
 
     def zero: B => B = (in: B) => in
@@ -94,11 +94,12 @@ object Monoid {
   def foldMap[A, B](as: List[A], m: Monoid[B])(f: A => B): B = {
     /*
      Monoid[B] {
-       def op(b1: B, b2: B): B
-       def zero: B
+     def op(b1: B, b2: B): B
+     def zero: B
      }
      */
     val lb = as.map(f)
+    
     lb.foldLeft(m.zero)(m.op)
   }
 
@@ -159,13 +160,13 @@ object Monoid {
    */
 
 
-    //lb.foldLeft(m.zero)(m.op)
-    // def fold(list: List[B])(combiner: (B, List[B]) => B): B =
-    //   list match {
-    //     case Nil => m.zero
-    //     case (head::Nil) => 
-    //     case (head::tail) =>
-    // }
+  //lb.foldLeft(m.zero)(m.op)
+  // def fold(list: List[B])(combiner: (B, List[B]) => B): B =
+  //   list match {
+  //     case Nil => m.zero
+  //     case (head::Nil) =>
+  //     case (head::tail) =>
+  // }
 
 
   def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
@@ -203,22 +204,49 @@ object Monoid {
 
 
 
-   // Implement only for checking ordering of IndexedSeq[Int].
-   // Could get more complicated to leave comparison abstract and check
-   // ordering for IndexedSeq of any type
+  // Implement only for checking ordering of IndexedSeq[Int].
+  // Could get more complicated to leave comparison abstract and check
+  // ordering for IndexedSeq of any type
 
+  /*
+   While order checking will be associative, can be done in any order,
+   that is not to say that the input IndexedSeq will be "scrambled".
+   First and Following
+   */
 
-  def orderedIntMonoid = 
+  def orderedIntMonoid =
     new Monoid[(Int, Int, Boolean)] {
-    def op(
-      first: (Int, Int, Boolean), 
-      following: (Int, Int, Boolean)
-    ): (Int, Int, Boolean) = {
+      def op(
+        first: (Int, Int, Boolean),
+        following: (Int, Int, Boolean)
+      ): (Int, Int, Boolean) = {
+        val (min0, max0, ordered0) = first
+        val (min1, max1, ordered1) = following
 
+        //if ((ordered0 || ordered1) == false):
+        val min2 = min0
+        val max2 = max1
+
+        val ordered2: Boolean =
+          //if ((ordered0 || ordered1)==false) false
+          if (ordered0 && ordered1 && (max0 < min1)) true
+          else if (max0 > min1) false
+          else true
+
+        (min2, max2, ordered2)
+      }
+
+      /*
+       May not be an identity for (Int, Int, Boolean)
+
+       The only requirement is that 
+       op(X, zero)=X, op(zero, X)=X, and op(zero, zero) = zero
+       
+       So there is nothing wrong with using "short circuits"
+       to enforce this Identity.
+       */
+      def zero: (Int, Int, Boolean) = (0,0,true)
     }
-
-    def zero: Boolean = true
-  }
 
 
   /*
@@ -231,7 +259,11 @@ object Monoid {
    */
 
   def ordered(ints: IndexedSeq[Int]): Boolean = {
-
+    val aggregation = foldMapV(ints, orderedIntMonoid){
+      // Int => (Int, Int, Boolean)
+      (i: Int) => (i, i, true)
+    }
+    aggregation._3
   }
 
 
@@ -306,15 +338,15 @@ object Monoid {
 
    def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] =
    Par.parMap(v)(f).flatMap { bs =>
-      note that foldMapV is not a parallelized function, but
-      is parallelized by flatMap above.
+   note that foldMapV is not a parallelized function, but
+   is parallelized by flatMap above.
 
-      A single reduction cannot be parallelized, but multiple reductions
-      can happen at the same time.
+   A single reduction cannot be parallelized, but multiple reductions
+   can happen at the same time.
 
-      val parB: Par[B] = foldMapV(bs, par(m))(b => Par.lazyUnit(b))
+   val parB: Par[B] = foldMapV(bs, par(m))(b => Par.lazyUnit(b))
 
-      parB
+   parB
    }
 
    */
@@ -348,9 +380,13 @@ object MonoidTest {
      Use int addition monoid and par monoid
      */
     val nums = (1 to 100).toList
+    val sq = nums.toIndexedSeq
+    //val sq = IndexedSeq(1 to 100)
     println("nums 1 to 100")
-    val sum1: Int = foldMap(nums, intAddition)((i: Int) => i)
-    println("sum with fold map: "+sum1)
+    // val sum1: Int = foldMap(nums, intAddition)((i: Int) => i)
+    // println("sum with fold map: "+sum1)
+
+    val ordered = Monoid.ordered(sq)
 
 
   }
@@ -408,7 +444,7 @@ case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
 object TreeFoldable extends Foldable[Tree] {
   override def foldMap[A, B](as: Tree[A])(f: A => B)(mb: Monoid[B]): B =
     sys.error("todo")
-  override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B = 
+  override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B =
     as match {
       case Leaf(value: A) => f(z, value)
       case Branch(left: Tree[A], right: Tree[A]) => {
