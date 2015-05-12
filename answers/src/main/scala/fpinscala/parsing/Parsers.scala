@@ -1,9 +1,9 @@
-package fpinscala.parsing
+package fpinscala.answers.parsing
 
 import java.util.regex._
 import scala.util.matching.Regex
-import fpinscala.testing._
-import fpinscala.testing.Prop._
+import fpinscala.answers.testing._
+import fpinscala.answers.testing.Prop._
 
 trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trait
   def run[A](p: Parser[A])(input: String): Either[ParseError,A]

@@ -1,4 +1,4 @@
-package fpinscala.datastructures
+package fpinscala.answers.datastructures
 
 sealed trait Tree[+A]
 case class Leaf[A](value: A) extends Tree[A]
@@ -60,8 +60,8 @@ object Tree {
   Note the type annotation required on the expression `Leaf(f(a))`. Without this annotation, we get an error like this: 
   
   type mismatch;
-    found   : fpinscala.datastructures.Branch[B]
-    required: fpinscala.datastructures.Leaf[B]
+    found   : fpinscala.answers.datastructures.Branch[B]
+    required: fpinscala.answers.datastructures.Leaf[B]
        fold(t)(a => Leaf(f(a)))(Branch(_,_))
                                       ^  
   

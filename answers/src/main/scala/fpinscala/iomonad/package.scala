@@ -1,7 +1,7 @@
 package fpinscala
 
 package object iomonad {
-  import fpinscala.parallelism.Nonblocking._
+  import fpinscala.answers.parallelism.Nonblocking._
 
   type IO[A] = IO3.IO[A]
   def IO[A](a: => A): IO[A] = IO3.IO[A](a)

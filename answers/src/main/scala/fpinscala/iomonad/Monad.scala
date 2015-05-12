@@ -1,4 +1,4 @@
-package fpinscala.iomonad
+package fpinscala.answers.iomonad
 
 import language.higherKinds // Disable warnings for type constructor polymorphism
 

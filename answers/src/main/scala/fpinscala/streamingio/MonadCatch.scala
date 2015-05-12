@@ -1,6 +1,6 @@
-package fpinscala.streamingio
+package fpinscala.answers.streamingio
 
-import fpinscala.iomonad._
+import fpinscala.answers.iomonad._
 
 /*
  * A context in which exceptions can be caught and
