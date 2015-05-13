@@ -79,6 +79,12 @@ object Monoid {
     def zero: B => B = (in: B) => in
   }
 
+  // def functionMonoid[A,B]: Monoid[A=>B] = new Monoid[A=>B] {
+  //   def op(f0: A=>B, f1: A=>B): A=>B = (a: A) => {
+  //   def zero: A => B = (a: A) => ????
+  //   }
+
+
 
   import fpinscala.testing._
   import Prop._
@@ -220,7 +226,7 @@ object Monoid {
     //val g: A =>(B => B) = (a: A) => ((b: B) => f(a,b))
     // trait
     // scala.Function1[A, Function1[B, B]]
-    val g = f.curried
+    val g: A => (B => B) = f.curried
     // Thought that it was incorrect to hide type A => B => B in
     // type A => B...
     _foldMapZ(as, Monoid.endoMonoid)(g)(z)
@@ -236,7 +242,7 @@ object Monoid {
     //   // need A => B
     //   (a: A) => f(bMonoid.zero, a)
     // }
-    val g = f.curried
+    val g: B => (A => B) = f.curried
     _foldMapZ(as, Monoid.endoMonoid)(g)(z)
   }
 
@@ -422,15 +428,72 @@ object Monoid {
 
 
 
-  // val wcMonoid: Monoid[WC] = sys.error("todo")
+  val wcMonoid: Monoid[WC] = new Monoid[WC] {
+    def op(wc0: WC, wc1: WC): WC = {
 
-  // def count(s: String): Int = sys.error("todo")
+      //def (stub: Stub
 
-  // def productMonoid[A,B](A: Monoid[A], B: Monoid[B]): Monoid[(A, B)] =
-  //   sys.error("todo")
+      (wc0, wc1) match {
+        case (Stub(chars0), Stub(chars1)) => {
+          //Part(chars0, 0, chars1)
+          Stub(chars0 + chars1)
+        }
+        case (Stub(chars0),
+          Part(lStub1, words1, rStub1)) =>
+          Part(chars0+lStub1, words1, rStub1)
+        case (Part(lStub0, words0, rStub0),
+          Stub(chars1)) =>
+          Part(lStub0, words0, rStub0+chars1)
+        case (Part(lStub0, words0, rStub0),
+          Part(lStub1, words1, rStub1)) => {
+          // increment count and discard middle
+          Part(lStub0, words0+words1+1, rStub1)
+        }
+      }
+    }
+    def zero: WC = Stub("")
+  }
 
-  // def functionMonoid[A,B](B: Monoid[B]): Monoid[A => B] =
-  //   sys.error("todo")
+  def count(s: String): Int = {
+    val as = s.toCharArray()
+    val ss = as.toIndexedSeq
+
+    // map and reduce:
+    // map each character to a WC
+
+    val sWc: IndexedSeq[WC] = ss.map((c: Char) => Stub(c.toString))
+    // then reduce the WC
+    // IndexedSeq[WC] => Int
+
+  }
+
+  def productMonoid[A,B](A: Monoid[A], B: Monoid[B]): Monoid[(A, B)] =
+    new Monoid[(A, B)] {
+      def op(ab0: (A, B), ab1: (A, B)): (A, B) = {
+        val a0 = ab0._1
+        val a1 = ab1._1
+        val a2 = A.op(a0, a1)
+        val b0 = ab0._2
+        val b1 = ab1._2
+        val b2 = B.op(b0, b1)
+        (a2, b2)
+      }
+      def zero: (A, B) = (A.zero, B.zero)
+    }
+    
+  
+
+  def functionMonoid[A,B](B: Monoid[B]): Monoid[A => B] =
+    new Monoid[A => B] {
+      def op(f0: A=>B, f1: A=>B): A=>B = (a: A) => {
+        val b0 = f0(a)
+        val b1 = f1(a)
+        val b2 = B.op(b0, b1)
+        b2
+      }
+      def zero: A => B = (a: A) => B.zero    // ???
+    }
+
 
   // def mapMergeMonoid[K,V](V: Monoid[V]): Monoid[Map[K, V]] =
   //   sys.error("todo")
