@@ -461,10 +461,17 @@ object Monoid {
     // map and reduce:
     // map each character to a WC
 
-    val sWc: IndexedSeq[WC] = ss.map((c: Char) => Stub(c.toString))
+    //val sWc: IndexedSeq[WC] = ss.map((c: Char) => Stub(c.toString))
     // then reduce the WC
     // IndexedSeq[WC] => Int
 
+    val wc: WC = foldMapV(ss, wcMonoid)((s: String) => Stub(s))
+
+    val counted: Int = wc match {
+      case Stub(_) => 0
+      case Part(_, i, _) => i
+    }
+    counted
   }
 
   def productMonoid[A,B](A: Monoid[A], B: Monoid[B]): Monoid[(A, B)] =
