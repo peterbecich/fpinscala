@@ -64,6 +64,13 @@ object Monoid {
     val zero: Option[B] = None
   }
 
+  // We can get the dual of any monoid just by flipping the `op`.
+  def dual[A](m: Monoid[A]): Monoid[A] = new Monoid[A] {
+    def op(x: A, y: A): A = m.op(y, x)
+    val zero = m.zero
+  }
+
+
   def endoMonoid[B]: Monoid[B => B] = new Monoid[B => B] {
     // are a1 and a2 necessarily associative?
 
@@ -78,13 +85,6 @@ object Monoid {
 
     def zero: B => B = (in: B) => in
   }
-
-  // def functionMonoid[A,B]: Monoid[A=>B] = new Monoid[A=>B] {
-  //   def op(f0: A=>B, f1: A=>B): A=>B = (a: A) => {
-  //   def zero: A => B = (a: A) => ????
-  //   }
-
-
 
   import fpinscala.testing._
   import Prop._
@@ -106,8 +106,10 @@ object Monoid {
       (a: A) => {
         // shouldn't be necessary to test left because
         // associativity is tested above
+        // ^^ that is commutivity, not associativity
         val right = m.op(a, m.zero)
-        right == a
+        val left = m.op(m.zero, a)
+        (right == a) && (left == a)
       }
     }
 
@@ -230,9 +232,16 @@ object Monoid {
     // Thought that it was incorrect to hide type A => B => B in
     // type A => B...
     _foldMapZ(as, Monoid.endoMonoid)(g)(z)
+
+    /*
+     expansion of _foldMapZ
+     bs: List[B=>B]
+
+     */
+
   }
 
-
+  @annotation.tailrec
   def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B): B = {
     // val bMonoid = new Monoid[List[B]] {
     //   def op(b0: B, b1: B)= b0 ++ b1
@@ -243,7 +252,7 @@ object Monoid {
     //   (a: A) => f(bMonoid.zero, a)
     // }
     val g: B => (A => B) = f.curried
-    _foldMapZ(as, Monoid.endoMonoid)(g)(z)
+    _foldMapZ(as, dual(Monoid.endoMonoid))(g)(z)
   }
 
   /*
@@ -259,7 +268,9 @@ object Monoid {
    */
   def foldMapV[A, B](as: IndexedSeq[A], m: Monoid[B])(f: A => B): B = {
     val length = as.length
-    val b = if(length==1) f(as.head)
+    // need to consider length == 0 case
+    val b = if(length==0) m.zero
+    else if (length==1) f(as.head)
     else {
       val approxHalf = length/2
       // right bound of slice is exclusive
@@ -345,7 +356,7 @@ object Monoid {
   case class Stub(chars: String) extends WC
   case class Part(lStub: String, words: Int, rStub: String) extends WC
 
-  def par[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
+  def parMonoid[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
     //  type Par[A] = ExecutorService => Future[A]
     def op(par1: Par[A], par2: Par[A]): Par[A] = {
       // This does too much... runs the two Pars
@@ -362,7 +373,9 @@ object Monoid {
   // split down the middle and merge
   def _parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
       Par[B] =
-    if(v.length==1){
+    if(v.length==0){
+      Par.unit(m.zero)
+    } else if (v.length==1) {
       val head: A = v.head   // I don't know how this is typesafe
                              // for an empty Seq
       val b: B = f(head)
@@ -390,17 +403,17 @@ object Monoid {
      Think of this as
      Par[IndexedSeq[A]] => Par[B]
      */
-    //val parSeqA: Par[IndexedSeq[A]] = Par.delay(v)
-    // Par.flatMap(parSeqA){
-    //   // don't use IndexedSeq's map or flatMap emethods
+    // don't use IndexedSeq's map or flatMap emethods
     //   (seqA: IndexedSeq[A]) => {
-    implicit def indexedSeqToList(is: IndexedSeq[A]): List[A] = is.toList
+    // implicit def indexedSeqToList(is: IndexedSeq[A]): List[A] = is.toList
 
-    val parListB: Par[List[B]] = Par.parMap(v)(f)
+    // eventually figure out how to go use List in place of Sequence
+
+    val parListB: Par[Seq[B]] = Par.parMap(v)(f)
     // Par[List[B]] => Par[B]
     // reduce in parallel
     val parB: Par[B] = Par.map(parListB){
-      (listB: List[B]) => listB.foldLeft(m.zero)(m.op)
+      (listB: Seq[B]) => listB.foldLeft(m.zero)(m.op)
     }
 
     parB
@@ -563,18 +576,21 @@ trait Foldable[F[_]] {
 
 object ListFoldable extends Foldable[List] {
   override def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
-    as match {
-      case (h: A) :: Nil => f(h, z)
-      case (h: A) :: (t: List[A]) => f(h, foldRight(t)(z)(f))
-    }
+    // as match {
+    //   case (h: A) :: Nil => f(h, z)
+    //   case (h: A) :: (t: List[A]) => f(h, foldRight(t)(z)(f))
+    // }
+    as.foldRight(z)(f)
 
   @annotation.tailrec
   def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B) =
-    as match {
-      case (h: A) :: Nil => f(z, h)
-      case (h: A) :: (t: List[A]) => foldLeft(t)(f(z, h))(f)
-    }
+    // as match {
+    //   case (h: A) :: Nil => f(z, h)
+    //   case (h: A) :: (t: List[A]) => foldLeft(t)(f(z, h))(f)
+    // }
+    as.foldLeft(z)(f)
 
+  @annotation.tailrec
   def foldMap[A, B](as: List[A])(f: A => B)(mb: Monoid[B]): B =
     foldLeft(as)(mb.zero){
       (b: B, a: A) => mb.op(b, f(a)): B
@@ -582,25 +598,42 @@ object ListFoldable extends Foldable[List] {
 }
 
 object IndexedSeqFoldable extends Foldable[IndexedSeq] {
-  // override def foldRight[A, B](as: IndexedSeq[A])(z: B)(f: (A, B) => B): B =
+  override def foldRight[A, B](as: IndexedSeq[A])(z: B)(f: (A, B) => B): B = {
+    // val g: A => (B => B) = f.curried
+    // Monoid.foldMapV(as, Monoid.indexedSeqMonoid)(g)
+    as.foldRight(z)(f)
+  }
     
-  // override def foldLeft[A, B](as: IndexedSeq[A])(z: B)(f: (B, A) => B) = {
-  //   val bMonoid = new Monoid[B] {
-  //     def op(b1: B, b2: B): B = 
-  //   foldMap(as)
+  override def foldLeft[A, B](as: IndexedSeq[A])(z: B)(f: (B, A) => B) = {
+    // val bMonoid = new Monoid[B] {
+    //   def op(b0: B, b1: B): B = 
+    //   def zero: B = 
+    // }
+    // val g: A => B = (a: A) => f(z, a)
 
+    // this.foldMap(as)(g)(bMonoid)
 
-  // override def foldMap[A, B](as: IndexedSeq[A])(f: A => B)(mb: Monoid[B]): B =
-  //   Monoid.foldMapV(as, mb)(f)
+    as.foldLeft(z)(f)
+    }
+
+  override def foldMap[A, B](as: IndexedSeq[A])(f: A => B)(mb: Monoid[B]): B = {
+    // map and reduce -- and make use of IndexedSeq's efficient
+    // index lookup.  List's lookup is not efficient.
+    //val bs: IndexedSeq[B] = as.map(f)
+    Monoid.foldMapV(as, mb)(f)
+
+  }
+    
 
 
 }
 
+// presumables Collections' Stream, not our own implementation
 object StreamFoldable extends Foldable[Stream] {
-  // override def foldRight[A, B](as: Stream[A])(z: B)(f: (A, B) => B) =
-  //   sys.error("todo")
-  // override def foldLeft[A, B](as: Stream[A])(z: B)(f: (B, A) => B) =
-  //   sys.error("todo")
+  override def foldRight[A, B](as: Stream[A])(z: B)(f: (A, B) => B) =
+    as.foldRight(z)(f)
+  override def foldLeft[A, B](as: Stream[A])(z: B)(f: (B, A) => B) =
+    as.foldLeft(z)(f)
 }
 
 sealed trait Tree[+A]
@@ -608,8 +641,16 @@ case class Leaf[A](value: A) extends Tree[A]
 case class Branch[A](left: Tree[A], right: Tree[A]) extends Tree[A]
 
 object TreeFoldable extends Foldable[Tree] {
-  // override def foldMap[A, B](as: Tree[A])(f: A => B)(mb: Monoid[B]): B =
-  //   sys.error("todo")
+  override def foldMap[A, B]
+    (as: Tree[A])(f: A => B)(mb: Monoid[B]): B =
+    as match {
+      case Leaf(value) => f(value)
+      case Branch(left, right) => {
+        val leftB: B = foldMap(left)(f)(mb)
+        val rightB: B = foldMap(right)(f)(mb)
+        mb.op(leftB, rightB): B
+      }
+    }
 
 
   override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B =
@@ -627,11 +668,23 @@ object TreeFoldable extends Foldable[Tree] {
 }
 
 object OptionFoldable extends Foldable[Option] {
-  // override def foldMap[A, B](as: Option[A])(f: A => B)(mb: Monoid[B]): B =
-  //   sys.error("todo")
-  // override def foldLeft[A, B](as: Option[A])(z: B)(f: (B, A) => B) =
-  //   sys.error("todo")
-  // override def foldRight[A, B](as: Option[A])(z: B)(f: (A, B) => B) =
-  //   sys.error("todo")
+  override def foldMap[A, B](as: Option[A])(f: A => B)(mb: Monoid[B]): B =
+    as match {
+      case Some(a) => f(a)
+      case None => mb.zero
+    }
+  override def foldLeft[A, B]
+    (as: Option[A])(z: B)(f: (B, A) => B): B =
+    as match {
+      case Some(a) => f(z, a)
+      case None => z
+    }
+    
+  override def foldRight[A, B]
+    (as: Option[A])(z: B)(f: (A, B) => B): B =
+    as match {
+      case Some(a) => f(a, z)
+      case None => z
+    }
 }
 

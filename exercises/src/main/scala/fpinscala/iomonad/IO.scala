@@ -1,4 +1,5 @@
 package fpinscala.iomonad
+import scala.language.higherKinds
 
 object IO0 {
                             /*

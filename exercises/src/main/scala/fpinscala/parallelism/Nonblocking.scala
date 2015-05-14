@@ -107,12 +107,13 @@ object Nonblocking {
       }
 
     //import scala.collection.IterableLike
-    def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] = {
+    //def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] = {
+    def parMap[A, B](ps: scala.collection.Seq[A])(f: A => B): Par[Seq[B]] = {
       /* Using List[A]'s methods.
        Confusion similar to Monad methods involving List
        */
-      val fbs: List[Par[B]] = ps.map(asyncF(f))
-      val parListB: Par[List[B]] = sequence(fbs)
+      val fbs: Seq[Par[B]] = ps.map(asyncF(f))
+      val parListB: Par[Seq[B]] = sequence(fbs)
       parListB
     }
 
@@ -124,11 +125,18 @@ object Nonblocking {
     def asyncF[A,B](f: A => B): A => Par[B] =
       a => lazyUnit(f(a))
 
-    def sequenceRight[A](as: List[Par[A]]): Par[List[A]] =
+    // def sequenceRight[A](as: List[Par[A]]): Par[List[A]] =
+    //   as match {
+    //     case Nil => unit(Nil)
+    //     case h :: t => map2(h, fork(sequence(t)))(_ :: _)
+    //   }
+
+    def sequenceRight[A](as: Seq[Par[A]]): Par[Seq[A]] =
       as match {
         case Nil => unit(Nil)
-        case h :: t => map2(h, fork(sequence(t)))(_ :: _)
+        case h :: t => map2(h, fork(sequence(t)))(_ +:  _)
       }
+
 
     def sequenceBalanced[A](as: IndexedSeq[Par[A]]): Par[IndexedSeq[A]] = fork {
       if (as.isEmpty) unit(Vector())
@@ -139,8 +147,11 @@ object Nonblocking {
       }
     }
 
-    def sequence[A](as: List[Par[A]]): Par[List[A]] =
-      map(sequenceBalanced(as.toIndexedSeq))(_.toList)
+    // def sequence[A](as: List[Par[A]]): Par[List[A]] =
+    //   map(sequenceBalanced(as.toIndexedSeq))(_.toList)
+    
+    def sequence[A](as: Seq[Par[A]]): Par[Seq[A]] =
+      map(sequenceBalanced(as.toIndexedSeq))(_.toIndexedSeq)
 
     // exercise answers
 
