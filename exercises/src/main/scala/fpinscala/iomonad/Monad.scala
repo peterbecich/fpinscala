@@ -2,6 +2,9 @@ package fpinscala.iomonad
 
 import language.higherKinds // Disable warnings for type constructor polymorphism
 
+import scala.language.implicitConversions
+
+
 trait Functor[F[_]] {
   def map[A,B](a: F[A])(f: A => B): F[B]
 }

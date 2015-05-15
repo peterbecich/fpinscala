@@ -1,5 +1,9 @@
 package fpinscala
 
+import scala.language.higherKinds
+import scala.language.implicitConversions
+
+
 package object iomonad {
   import fpinscala.parallelism.Nonblocking._
 

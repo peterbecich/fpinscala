@@ -146,20 +146,8 @@ object Monoid {
   // overloading not allowed in Scala because of potential
   // for currying.  Ambiguous whether currying or overloading.
   def _foldMapZ[A, B](as: List[A], m: Monoid[B])(f: A => B)(z: B): B = {
-    // I think this is essentially an implementation of fold right...
-    // as match {
-    //   case Nil => m.zero
-    //   case (a :: Nil) => {
-    //     val b = f(a)
-    //     b
-    //   }
-    //   case (a :: tail) => {
-    //     val b = f(a)
-    //     val b2 = m.op(b, _foldMap(tail, m)(f))
-    //     b2
-    //   }
-    // }
-    
+    // I think this is essentially an implementation of fold left...
+
     /*
      No issue with using List's built-in methods, as in the correct
      answer for par fold map.
@@ -170,8 +158,7 @@ object Monoid {
     val bs: List[B] = as.map(f)
     // foldMapV assumes efficient indexing of sequence/vector
     // A List does not have efficient indexing.
-    // So just implement this as a fold right
-    //val b: B = foldMapV(bs, m)((b: B)=>b)
+    // So just implement this as a fold left
 
     @annotation.tailrec
     def aggregator(la: List[B], z: B): B = {
@@ -223,25 +210,111 @@ object Monoid {
 
    need monoid for D
    */
-  def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B = {
-    // {(A, B) => B} => {A => B => B}
-    //val g: A =>(B => B) = (a: A) => ((b: B) => f(a,b))
-    // trait
-    // scala.Function1[A, Function1[B, B]]
-    val g: A => (B => B) = f.curried
-    // Thought that it was incorrect to hide type A => B => B in
-    // type A => B...
-    _foldMapZ(as, Monoid.endoMonoid)(g)(z)
+  // def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B = {
+  //   // {(A, B) => B} => {A => B => B}
+  //   //val g: A =>(B => B) = (a: A) => ((b: B) => f(a,b))
+  //   // trait
+  //   // scala.Function1[A, Function1[B, B]]
+  //   val g: A => (B => B) = f.curried
+  //   // Thought that it was incorrect to hide type A => B => B in
+  //   // type A => B...
 
+  //   _foldMapZ(as, Monoid.endoMonoid)(g)((b: B) => z)
+
+  //   /*
+  //    as = List(65, 66, 67)
+  //    z = ""
+  //    f = (num, str) => num.toChar + str
+
+  //    def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B
+  //    def _foldMapZ[C, D]
+  //      (as: List[C], m: Monoid[D])(f: C => D)(z: D): D
+  //    endoMonoid[E => E] {
+  //      op (ee0: (E => E), ee1: (E => E)): (E => E) =
+  //        (e) => ee1(ee0(e))
+  //      zero: (E => E) = e => e
+  //    }
+
+  //    A == C and B=>B == D and B == E
+
+  //    A = Int
+  //    B = String
+
+
+  //    def foldRight[Int, String]
+  //      (as: List[Int])(z: String)(f: (Int, String) => String): String
+  //    def _foldMapZ[Int, String]
+  //      (as: List[Int], m: Monoid[String])(f: Int => String)
+  //      (z: String): String
+  //    endoMonoid[String => String] {
+  //      op (ee0: (String => String), ee1: (String => String)):
+  //        (String => String) =
+  //        (e) => ee1(ee0(e))
+  //      zero: (String => String) = e => e
+  //    }
+
+
+  //    expansion of _foldMapZ
+  //    ___________________________________
+  //    bs: List[String=>String]
+     
+     
+     
+     
+  //    */
+
+  // }
+
+
+  def foldRight[A, B](la: List[A])(z: B)(f: (A, B) => B): B = {
     /*
-     expansion of _foldMapZ
-     bs: List[B=>B]
 
+    def endoMonoid[W]: Monoid[W => W] = 
+      new Monoid[W => W] {
+        def op(b0: W => W, b1: W => W): W => W = 
+          (in: W) => b1(b0(in))
+        def zero: W => W = (in: W) => in
+      }
+
+    def _foldMapZ[X, Y](as: List[X], m: Monoid[Y])(f: X => Y)(z: Y): Y
+    W = B
+    X = A
+    Y = B
+    as: List[A]
+    endoMonoid: Monoid[C] = Monoid[B => B]
+    f: A => B
+    z: B
      */
+    type C = B => B
+    val g: A => C = f.curried
+
+    // fpinscala.monoids.Monoid[Function1[B, B]]
+    val endoMonoidC: Monoid[C] = endoMonoid[B] 
+    /*
+     def op(bb0: (B=>B), bb1: (B=>B)): B=>B
+     def zero: B=>B
+     */
+
+    // how does this return B?
+    // I would have expected C
+    val b: B = foldMap(la, endoMonoidC){
+      // need A => C
+      g
+    }{
+      // need C starting value
+      z
+    }
+
+    b
 
   }
 
-  @annotation.tailrec
+
+
+
+  // tailrec annotation does not apply to calls inside this method;
+  // tailrec annotation should be put on those methods called
+  // @annotation.tailrec
   def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B): B = {
     // val bMonoid = new Monoid[List[B]] {
     //   def op(b0: B, b1: B)= b0 ++ b1
@@ -251,8 +324,32 @@ object Monoid {
     //   // need A => B
     //   (a: A) => f(bMonoid.zero, a)
     // }
-    val g: B => (A => B) = f.curried
-    _foldMapZ(as, dual(Monoid.endoMonoid))(g)(z)
+    //type C = A => B
+    type C = B => B
+    //val g: B => C = (b: B) => {(a: A) => f(b,a)}
+    val g: A => C = (a: A) => {(b: B) => f(b,a)}
+
+    // A=>B would not be an endofunction
+    val endoMonoidC: Monoid[C] = endoMonoid[B] 
+
+    // val b: B = _foldMapZ(as, dual(Monoid.endoMonoid)){
+    //   // need A => C
+    //   g
+    // }{
+    //   // need C starting value
+    //   // B starting value...
+    //   z
+    // }
+    val b: B = foldMap(as, dual(endoMonoidC)){
+      // need A => C
+      g
+    }{
+      // need C starting value
+      // B starting value...
+      z
+    }
+
+    b
   }
 
   /*
@@ -478,7 +575,7 @@ object Monoid {
     // then reduce the WC
     // IndexedSeq[WC] => Int
 
-    val wc: WC = foldMapV(ss, wcMonoid)((s: String) => Stub(s))
+    val wc: WC = foldMapV(ss, wcMonoid)((c: Char) => Stub(c.toString))
 
     val counted: Int = wc match {
       case Stub(_) => 0
@@ -582,7 +679,7 @@ object ListFoldable extends Foldable[List] {
     // }
     as.foldRight(z)(f)
 
-  @annotation.tailrec
+  // @annotation.tailrec
   def foldLeft[A, B](as: List[A])(z: B)(f: (B, A) => B) =
     // as match {
     //   case (h: A) :: Nil => f(z, h)
@@ -590,8 +687,8 @@ object ListFoldable extends Foldable[List] {
     // }
     as.foldLeft(z)(f)
 
-  @annotation.tailrec
-  def foldMap[A, B](as: List[A])(f: A => B)(mb: Monoid[B]): B =
+  // @annotation.tailrec
+  override def foldMap[A, B](as: List[A])(f: A => B)(mb: Monoid[B]): B =
     foldLeft(as)(mb.zero){
       (b: B, a: A) => mb.op(b, f(a)): B
     }: B
@@ -653,6 +750,9 @@ object TreeFoldable extends Foldable[Tree] {
     }
 
 
+  // s/Monoid.scala:753: could not optimize @tailrec annotated method foldLeft: it contains a recursive call not in tail position
+  // [error]     as match {
+  //@annotation.tailrec
   override def foldLeft[A, B](as: Tree[A])(z: B)(f: (B, A) => B): B =
     as match {
       case Leaf(value: A) => f(z, value)
@@ -662,9 +762,22 @@ object TreeFoldable extends Foldable[Tree] {
         rightB
       }
     }
-  // override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B) =
-  //   as match {
-  //     case Leaf(value: A) => f
+
+  //@annotation.tailrec
+  override def foldRight[A, B](as: Tree[A])(z: B)(f: (A, B) => B): B = {
+    // as match {
+    //   case Leaf(value: A) => f(z, value)
+    //   case Branch(left: Tree[A], right: Tree[A]) => {
+    //     val leftB: B = foldRight(left)(z)(f)
+    //     val rightB: B = foldRight(right)(leftB)(f)
+    //     rightB
+    //   }
+    // }
+    val g: (B,A)=>B = (b: B, a: A) => f(a,b)
+    val b: B = this.foldLeft(as)(z)(g)
+    b
+  }
+
 }
 
 object OptionFoldable extends Foldable[Option] {

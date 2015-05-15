@@ -1,5 +1,7 @@
 package fpinscala.iomonad
 import scala.language.higherKinds
+import scala.language.postfixOps
+
 
 object IO0 {
                             /*
