@@ -77,7 +77,7 @@ object Monoid {
     /* note that monoids have no commutative property.
      Order of applications of b1 and b0 matters.
      */
-    def op(b0: B => B, b1: B => B): B => B = (in: B) => b1(b0(in))
+    def op(bb0: B => B, bb1: B => B): B => B = (in: B) => bb1(bb0(in))
 
     // need type signature () => B
     //def zero: B =
@@ -544,18 +544,26 @@ object Monoid {
       //def (stub: Stub
 
       (wc0, wc1) match {
-        case (Stub(chars0), Stub(chars1)) => {
-          //Part(chars0, 0, chars1)
+        case (
+          Stub(chars0), 
+          Stub(chars1)
+        ) => {
           Stub(chars0 + chars1)
         }
-        case (Stub(chars0),
-          Part(lStub1, words1, rStub1)) =>
+        case (
+          Stub(chars0),
+          Part(lStub1, words1, rStub1)
+        ) =>
           Part(chars0+lStub1, words1, rStub1)
-        case (Part(lStub0, words0, rStub0),
-          Stub(chars1)) =>
+        case (
+          Part(lStub0, words0, rStub0),
+          Stub(chars1)
+        ) =>
           Part(lStub0, words0, rStub0+chars1)
-        case (Part(lStub0, words0, rStub0),
-          Part(lStub1, words1, rStub1)) => {
+        case (
+          Part(lStub0, words0, rStub0),
+          Part(lStub1, words1, rStub1)
+        ) => {
           // increment count and discard middle
           Part(lStub0, words0+words1+1, rStub1)
         }
@@ -565,8 +573,8 @@ object Monoid {
   }
 
   def count(s: String): Int = {
-    val as = s.toCharArray()
-    val ss = as.toIndexedSeq
+    val ac = s.toCharArray()
+    val sc = ac.toIndexedSeq
 
     // map and reduce:
     // map each character to a WC
@@ -574,8 +582,15 @@ object Monoid {
     //val sWc: IndexedSeq[WC] = ss.map((c: Char) => Stub(c.toString))
     // then reduce the WC
     // IndexedSeq[WC] => Int
+    println("fold map v input: "+sc)
+    //val wc: WC = foldMapV(ss, wcMonoid)((c: Char) => Stub(c.toString))
 
-    val wc: WC = foldMapV(ss, wcMonoid)((c: Char) => Stub(c.toString))
+    //val sWc: IndexedSeq[WC] = sc.map((c: Char) => Stub(c.toString))
+
+    val wc: WC = Monoid.foldMap(sc, Monoid.wcMonoid){
+      (c: Char)=>Stub(c.toString)
+    }
+    println("fold map output: "+wc)
 
     val counted: Int = wc match {
       case Stub(_) => 0
@@ -641,6 +656,13 @@ object MonoidTest {
 
     val ordered2 = Monoid.ordered(reverse)
     println("ordered: "+ordered2)
+
+    // val str = scala.util.Random.alphanumeric.take(40).
+    // println("sentence: "+str)
+    val str = "the quick brown fox jumps"
+    println("sentence: "+str)
+    val strWords = Monoid.count(str)
+    println("number of words: "+strWords)
 
   }
 }
