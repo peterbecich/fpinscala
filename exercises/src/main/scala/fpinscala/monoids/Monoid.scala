@@ -631,11 +631,16 @@ object MonoidTest {
     val sq = nums.toIndexedSeq
     //val sq = IndexedSeq(1 to 100)
     println("nums 1 to 100")
-    // val sum1: Int = foldMap(nums, intAddition)((i: Int) => i)
-    // println("sum with fold map: "+sum1)
+    val sum1: Int = foldMap(nums, intAddition)((i: Int) => i)
+    println("sum with fold map: "+sum1)
 
     val ordered = Monoid.ordered(sq)
+    println("ordered: "+ordered)
+    val reverse = sq.reverse
+    println("sequence reversed")
 
+    val ordered2 = Monoid.ordered(reverse)
+    println("ordered: "+ordered2)
 
   }
 }
