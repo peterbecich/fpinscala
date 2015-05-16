@@ -69,9 +69,10 @@ object Prop {
  */
 
 // A monad?
-case class Gen[A](sample: State[RNG, A]){
+// case class Gen[A](sample: State[RNG, A]){
+case class Gen[A](sample: State.Rand[A]){
   def map[B](f: A => B): Gen[B] = {
-    val newState: State[RNG, B] = this.sample.map(f)
+    val newState: State.Rand[B] = this.sample.map(f)
     Gen[B](newState)
   }
 

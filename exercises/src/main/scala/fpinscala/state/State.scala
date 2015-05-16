@@ -229,6 +229,17 @@ object RNG {
   }
 }
 
+//type Rand[A] = State[RNG, A]
+
+/*
+case class Rand has case ancestor fpinscala.state.State, but case-to-case inheritance is prohibited. To overcome this limitation, use extractors to pattern match on non-leaf nodes.
+case class Rand[A](run: RNG => (A, RNG)) extends State[RNG, A]
+ */
+
+/*
+ Created by Rand type
+ case class Rand[A](run: RNG => (A, RNG)) extends State
+ */
 case class State[S,+A](run: S => (A, S)) {
   /* IS the case class syntactic sugar for: 
 

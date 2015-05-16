@@ -450,8 +450,8 @@ object Monoid {
 
 
   sealed trait WC
-  case class Stub(chars: String) extends WC
-  case class Part(lStub: String, words: Int, rStub: String) extends WC
+  case class Stub(str: String) extends WC
+  case class Part(lStr: String, words: Int, rStr: String) extends WC
 
   def parMonoid[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
     //  type Par[A] = ExecutorService => Future[A]
@@ -537,6 +537,55 @@ object Monoid {
 
 
 
+  /*
+   Don't implemented WC monoid by turning each character into a stub
+   */
+  // val wcMonoid: Monoid[WC] = new Monoid[WC] {
+  //   def op(wc0: WC, wc1: WC): WC = {
+
+  //     //def (stub: Stub
+
+  //     (wc0, wc1) match {
+  //       case (
+  //         Stub(str0), // left
+  //         Stub(str1) // right
+  //       ) if {
+  //         str0.length()>0 &&
+  //         str1.length()>0
+  //       } == " "=> {
+  //         Stub(str0 + str1)
+  //       }
+  //       case (
+  //         Stub(str0), // left
+  //         Stub(str1) // right
+  //       ) if {
+  //         str0.length()==0 &&
+  //         str1.length()>0
+  //       } == " "=> {
+  //         Stub(str0 + str1)
+  //       }
+  //       case (
+  //         Stub(str0),
+  //         Part(lStub1, words1, rStub1)
+  //       ) =>
+  //         Part(str0+lStub1, words1, rStub1)
+  //       case (
+  //         Part(lStub0, words0, rStub0),
+  //         Stub(str1)
+  //       ) =>
+  //         Part(lStub0, words0, rStub0+str1)
+  //       case (
+  //         Part(lStub0, words0, rStub0),
+  //         Part(lStub1, words1, rStub1)
+  //       ) => {
+  //         // increment count and discard middle
+  //         Part(lStub0, words0+words1+1, rStub1)
+  //       }
+  //     }
+  //   }
+  //   def zero: WC = Stub("")
+  // }
+
 
   val wcMonoid: Monoid[WC] = new Monoid[WC] {
     def op(wc0: WC, wc1: WC): WC = {
@@ -545,21 +594,33 @@ object Monoid {
 
       (wc0, wc1) match {
         case (
-          Stub(chars0), 
-          Stub(chars1)
-        ) => {
-          Stub(chars0 + chars1)
+          Stub(str0), // left
+          Stub(str1) // right
+        ) if {
+          str0.length()>0 &&
+          str1.length()>0
+        } == " "=> {
+          Stub(str0 + str1)
         }
         case (
-          Stub(chars0),
+          Stub(str0), // left
+          Stub(str1) // right
+        ) if {
+          str0.length()==0 &&
+          str1.length()>0
+        } == " "=> {
+          Stub(str0 + str1)
+        }
+        case (
+          Stub(str0),
           Part(lStub1, words1, rStub1)
         ) =>
-          Part(chars0+lStub1, words1, rStub1)
+          Part(str0+lStub1, words1, rStub1)
         case (
           Part(lStub0, words0, rStub0),
-          Stub(chars1)
+          Stub(str1)
         ) =>
-          Part(lStub0, words0, rStub0+chars1)
+          Part(lStub0, words0, rStub0+str1)
         case (
           Part(lStub0, words0, rStub0),
           Part(lStub1, words1, rStub1)
@@ -571,6 +632,8 @@ object Monoid {
     }
     def zero: WC = Stub("")
   }
+
+
 
   def count(s: String): Int = {
     val ac = s.toCharArray()
@@ -586,6 +649,14 @@ object Monoid {
     //val wc: WC = foldMapV(ss, wcMonoid)((c: Char) => Stub(c.toString))
 
     //val sWc: IndexedSeq[WC] = sc.map((c: Char) => Stub(c.toString))
+
+    /*
+    note here that f returns Stub, a subtype of the type
+    in the monoid passed to foldMap: WC.
+    This should simplify when it's figured out how to do this 
+     without turning each char into its own Stub -- there should
+     be a better way...
+     */
 
     val wc: WC = Monoid.foldMap(sc, Monoid.wcMonoid){
       (c: Char)=>Stub(c.toString)
@@ -636,7 +707,24 @@ object Monoid {
 
 object MonoidTest {
   import fpinscala.monoids.Monoid._
+  import fpinscala.state.State
+  import fpinscala.state.RNG
+  import fpinscala.testing.Gen
+  import fpinscala.testing.Prop
 
+
+  val quickFox = "the quick brown fox jumps"
+
+  val randWC: State.Rand[WC] = State{
+    (rng: RNG) => {
+      val (asciiCode: Int, nextRNG: RNG) = (RNG.chooseInt(rng)(65,90))
+      val asciiChar: Char = asciiCode.toChar
+      val asciiString: String = asciiChar.toString
+      (Stub(asciiString), nextRNG)
+    }
+  }
+
+  val genWC: Gen[WC] = Gen(randWC)
 
   def main(args: Array[String]): Unit = {
     /*
@@ -659,10 +747,21 @@ object MonoidTest {
 
     // val str = scala.util.Random.alphanumeric.take(40).
     // println("sentence: "+str)
-    val str = "the quick brown fox jumps"
-    println("sentence: "+str)
-    val strWords = Monoid.count(str)
+    
+    println("sentence: "+quickFox)
+    val strWords = Monoid.count(quickFox)
     println("number of words: "+strWords)
+
+    println("Testing that WC Monoid meets the Monoid laws")
+    println("need Gen of WC")
+    println(genWC)
+    val wcMonoidProp: Prop = 
+      Monoid.monoidLaws(Monoid.wcMonoid, genWC)
+
+    println("wc monoid prop")
+    println(wcMonoidProp)
+    // val checked = wcMonoidProp.check
+    // println(checked)
 
   }
 }
