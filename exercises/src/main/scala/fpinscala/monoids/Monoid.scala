@@ -168,6 +168,7 @@ object Monoid {
        why one is tail recursive and the other isn't
        */
       la match {
+        case Nil => m.zero
         case ((h: B):: Nil) => m.op(h, z)
         case ((h: B)::(t: List[B])) => aggregator(t, m.op(z, h))
       }
@@ -588,47 +589,13 @@ object Monoid {
 
 
   val wcMonoid: Monoid[WC] = new Monoid[WC] {
-    def op(wc0: WC, wc1: WC): WC = {
-
-      //def (stub: Stub
-
-      (wc0, wc1) match {
-        case (
-          Stub(str0), // left
-          Stub(str1) // right
-        ) if {
-          str0.length()>0 &&
-          str1.length()>0
-        } == " "=> {
-          Stub(str0 + str1)
-        }
-        case (
-          Stub(str0), // left
-          Stub(str1) // right
-        ) if {
-          str0.length()==0 &&
-          str1.length()>0
-        } == " "=> {
-          Stub(str0 + str1)
-        }
-        case (
-          Stub(str0),
-          Part(lStub1, words1, rStub1)
-        ) =>
-          Part(str0+lStub1, words1, rStub1)
-        case (
-          Part(lStub0, words0, rStub0),
-          Stub(str1)
-        ) =>
-          Part(lStub0, words0, rStub0+str1)
-        case (
-          Part(lStub0, words0, rStub0),
-          Part(lStub1, words1, rStub1)
-        ) => {
-          // increment count and discard middle
-          Part(lStub0, words0+words1+1, rStub1)
-        }
-      }
+    // copied from answers ... 
+    def op(a: WC, b: WC) = (a, b) match {
+      case (Stub(c), Stub(d)) => Stub(c + d)
+      case (Stub(c), Part(l, w, r)) => Part(c + l, w, r)
+      case (Part(l, w, r), Stub(c)) => Part(l, w, r + c)
+      case (Part(l1, w1, r1), Part(l2, w2, r2)) =>
+        Part(l1, w1 + (if ((r1 + l2).isEmpty) 0 else 1) + w2, r2)
     }
     def zero: WC = Stub("")
   }
@@ -636,8 +603,9 @@ object Monoid {
 
 
   def count(s: String): Int = {
-    val ac = s.toCharArray()
-    val sc = ac.toIndexedSeq
+    //val ac = s.toCharArray()
+    // val sc = ac.toIndexedSeq
+    //val lc = ac.toList
 
     // map and reduce:
     // map each character to a WC
@@ -645,7 +613,7 @@ object Monoid {
     //val sWc: IndexedSeq[WC] = ss.map((c: Char) => Stub(c.toString))
     // then reduce the WC
     // IndexedSeq[WC] => Int
-    println("fold map v input: "+sc)
+    //println("fold map v input: "+lc)
     //val wc: WC = foldMapV(ss, wcMonoid)((c: Char) => Stub(c.toString))
 
     //val sWc: IndexedSeq[WC] = sc.map((c: Char) => Stub(c.toString))
@@ -658,10 +626,41 @@ object Monoid {
      be a better way...
      */
 
-    val wc: WC = Monoid.foldMap(sc, Monoid.wcMonoid){
-      (c: Char)=>Stub(c.toString)
+    /*
+     I don't know of any monoid pattern such that 'op' expands
+     the future work.
+
+     Up until this point, the remaining work decreases
+     with each application of 'op'.  Maybe this would be called
+     a monotonically decreasing workload.
+     
+
+     Can foldMap take a list of length 1, expand it, and then
+     reduce it back to a single object -- in this case, the 
+     Stub or Part containing the final word count?
+
+     I doubt this can be implemented in the Monoid instance 
+     passed to fold Map; 
+     op(B, B): B has no access to the functor (list) containing
+     the B's to be reduced.  B could be a functor (list) itself,
+     and then you would have lists within the list passed to 
+     fold Map.
+
+     */
+
+    // val wc: WC = Monoid.foldMap(s, Monoid.wcMonoid){
+    //   (c: Char)=>Stub(c.toString)
+    // }
+    // val wc: WC = Monoid.foldMap(s, Monoid.wcMonoid){
+    //   (s: String)=>Stub(s)
+    // }
+    // println("fold map output: "+wc)
+
+    val ls: List[String] = List(s) // list of length 1
+    val wc: WC = Monoid.foldMap(ls, Monoid.wcMonoid){
+      (s: String)=>Stub(s)
     }
-    println("fold map output: "+wc)
+
 
     val counted: Int = wc match {
       case Stub(_) => 0
