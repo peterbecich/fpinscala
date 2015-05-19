@@ -188,6 +188,9 @@ trait Functor[F[_]] {
     case Left(fa) => map(fa)(Left(_))
     case Right(fb) => map(fb)(Right(_))
   }
+  // def zip[A,B](fa: F[A], fb: F[B]): F[(A,B)] = {
+  //   fa.flatMap
+  // }
 }
 
 object Functor {
@@ -465,6 +468,7 @@ trait Monad[M[_]] extends Functor[M] {
     }
   }
 
+  // a.k.a. zip
   def product[A,B](ma: M[A], mb: M[B]): M[(A, B)] =
     this.map2(ma, mb)((a: A, b: B) => (a,b): Tuple2[A,B])
 
@@ -523,12 +527,15 @@ object Monad {
     }
 
   // our Stream implementation
-  val streamMonad[Stream]: Monad[Stream] = new Monad[Stream] {
-    def unit[A](a: => A): Stream[A] = 
-      Stream.apply(a)
-    def flatMap[A, B](st: Stream[A])(f: A => Stream[B]): Stream[B] =
-      st.flatMap(f)
-  }
+  val streamMonad: Monad[fpinscala.laziness.Stream] =
+    new Monad[fpinscala.laziness.Stream] {
+      def unit[A](a: => A): fpinscala.laziness.Stream[A] =
+        fpinscala.laziness.Stream.apply(a)
+      def flatMap[A, B](st: fpinscala.laziness.Stream[A])(
+        f: A => fpinscala.laziness.Stream[B]
+      ): fpinscala.laziness.Stream[B] =
+        st.flatMap(f)
+    }
 
   val listMonad: Monad[List] = new Monad[List] {
     // remember that the signature of 'unit' is the same between

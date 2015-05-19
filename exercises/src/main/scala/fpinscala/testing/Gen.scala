@@ -16,7 +16,6 @@ case class Prop(run: ((TestCases, RNG) => Result)) {
   def check(tc: TestCases, rng: RNG): 
       Either[(FailedCase, SuccessCount), SuccessCount] = {
     val result: Result = run((tc, rng))
-    val etr
 
   }
   def &&(otherProp: Prop): Prop = {
