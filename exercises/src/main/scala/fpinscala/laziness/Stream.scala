@@ -12,6 +12,11 @@ trait Stream[+A] {
       case Cons(h,t) => f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
     }
+  def foldLeft[B](z: => B)(f: (=> B, A) => B): B =
+    this match {
+      case Cons(h,t) => t().foldLeft(f(z,h()))(f)
+      case _ => z
+    }
 
   def exists(p: A => Boolean): Boolean = 
     foldRight(false)((a, b) => p(a) || b) // Here `b` is the unevaluated recursive step that folds the tail of the stream. If `p(a)` returns `true`, `b` will never be evaluated and the computation terminates early.
@@ -56,11 +61,29 @@ trait Stream[+A] {
   // use fold right
   // foldRight(=>Stream[B])((A, =>Stream[B])=>Stream[B])
 
-  // def map[B](f: A => B): Stream[B] = foldRight(empty[B])(
-  //   (a, b) => Cons[B](f(a), b.map(f))
-  // )
+  def map[B](f: A => B): Stream[B] = {
+    def g(sb: => Stream[B], a: A) = Cons[B](()=>f(a), sb.map(f))
+    //                                       ^ f(a) not calculated
+    //                                until function called;
+    //                                signature is: () => Stream[B]
+    foldLeft(empty[B])(g)
+  }
+  def append(stream2: Stream[A]): Stream[A] = {
+    def f(sa: => Stream[A], a: A) = cons(a, sa)
+    foldLeft(stream2){
+      //(sa: => Stream[A], a: A) => cons(a, sa)
+      f
+    }
+  }
+  def flatMap[B](f: A => Stream[B]): Stream[B] = {
+    def g(sb: => Stream[B], a: A) = f(a).append(sb)
+    foldLeft(empty[B])(g)
+  }
 
-  def startsWith[B](s: Stream[B]): Boolean = sys.error("todo")
+  def startsWith[B](s: Stream[B]): Boolean = {
+
+
+  }
 }
 case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]

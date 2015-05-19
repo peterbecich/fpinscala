@@ -10,25 +10,19 @@ import Gen._
 import Prop._
 import java.util.concurrent.{Executors,ExecutorService}
 
+//case class Prop(run: ((PropTypes.TestCases, RNG) => PropTypes.Result))
 
-/*
-The library developed in this chapter goes through several iterations. This file is just the
-shell, which you can fill in and modify while working through the chapter.
-*/
+case class Prop(run: ((TestCases, RNG) => Result)) {
+  def check(tc: TestCases, rng: RNG): 
+      Either[(FailedCase, SuccessCount), SuccessCount] = {
+    val result: Result = run((tc, rng))
+    val etr
 
-// A functor?
-trait Prop {
-  // def check: Boolean
-  // def &&(p: Prop): Prop = new Prop {
-  //   def check: Boolean = this.check && p.check
-  // }
-  // cannot define 'check' method like this
-  //Prop(this.check && p.check)
-  def check: Either[(FailedCase, SuccessCount), SuccessCount]
-  def &&(p: Prop): Prop = {
+  }
+  def &&(otherProp: Prop): Prop = {
     val p2Check:
         Either[(FailedCase, SuccessCount), SuccessCount] =
-    (check, p.check) match {
+    (check, otherProp.check) match {
       case (Left((failedCase1, succCount1)),
         Left((failedCase2, succCount2))) => {
         Left((failedCase1+failedCase2, succCount1+succCount2))
@@ -46,23 +40,48 @@ trait Prop {
       }
     }
 
-    new Prop{
+    val mergedProps = new Prop {
       def check:
           Either[(FailedCase, SuccessCount), SuccessCount] =
         p2Check
     }
+    mergedProps
   }
-
 }
 
 object Prop {
-  // makes Either to be constructed interpretable by its type signature
-  // self-commenting code
+  //def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = {
   type SuccessCount = Int
   type FailedCase = String
+  type TestCases = Int
 
-  def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = ???
+  sealed trait Result {
+    def isFalsified: Boolean
+  }
+  case object Passed extends Result {
+    def isFalsified = false
+  }
+  case object Failed extends Result {
+    def isFalsified = true
+  }
 }
+
+// object PropTypes {
+//   type SuccessCount = Int
+//   type FailedCase = String
+//   type TestCases = Int
+
+//   sealed trait Result {
+//     def isFalsified: Boolean
+//   }
+//   case object Passed extends Result {
+//     def isFalsified = false
+//   }
+//   case object Failed extends Result {
+//     def isFalsified = true
+//   }
+
+// }
 
 /*
  case class State[S,A](run: S => (AS))
@@ -96,6 +115,15 @@ case class Gen[A](sample: State.Rand[A]){
           val (b0, rng2): Tuple2[B, RNG] = fOut.sample.run(rng1)
           (b0, rng2)
         }
+      }
+    }
+  }
+  // redundant use of method name, but arguments are different
+  def listOfN(size: Gen[Int]): Gen[List[A]] = {
+    // Int => Gen[List[A]]
+    size.flatMap {
+      (i: Int) => {
+        Gen.listOfN(i, this)
       }
     }
   }
@@ -136,6 +164,13 @@ object Gen {
     genListInt.map((li: List[Int]) => li.toString())
   }
 
+  // no randomness here
+  // Gen is limited to using State[RNG,A]
+  // So it's not possible to create a Gen of State[Int, Int],
+  // to make a counting generator
+  // def counter(start: Int): Gen[Int] = {
+
+  // }
   // generates one integer
   def choose(start: Int, stopExclusive: Int): Gen[Int] = {
     // use Simple RNG
@@ -152,27 +187,62 @@ object Gen {
     val genInt: Gen[Int] = Gen(stateInt)
     genInt
   }
+  def chooseDouble(start: Double, stopExclusive: Double): Gen[Double] = {
+    val stateDouble: State.Rand[Double] = State {
+      (rng: RNG) => RNG.chooseDouble(rng)(start, stopExclusive)
+    }
+    val genDouble: Gen[Double] = Gen(stateDouble)
+    genDouble
+  }
+
+
+  def union[A](g1: Gen[A], g2: Gen[A]): Gen[A] = {
+    // choose int in [0,2)
+    // 0, return g1
+    // 1, return g2
+    val genInt: Gen[Int] = choose(0, 2)
+    val genChosen: Gen[A] = genInt.flatMap {
+      (i: Int) => if(i==0) g1 else g2
+    }
+    genChosen
+  }
+
+  // can weights be negative?
+  // nowhere stated that weights add up to 1.0
+  // lets assume weights are positive...
+  def weighted[A](g1: (Gen[A], Double), g2: (Gen[A], Double)): Gen[A] = {
+    val w1: Double = scala.math.abs(g1._2)
+    val w2: Double = scala.math.abs(g2._2)
+    // val min: Double = scala.math.min(w1, w2)
+    // val max: Double = scala.math.max(w1, w2)
+    val sum: Double = w1+w2
+    val genDouble: Gen[Double] = chooseDouble(0, sum)
+    val genChosen: Gen[A] = genDouble.flatMap {
+      (d: Double) => if(d<w1) g1._1 else g2._1
+    }
+    genChosen
+  }
 
   val ES: ExecutorService = Executors.newCachedThreadPool
-  val p1 = Prop.forAll(Gen.unit(Par.unit(1)))(i =>
-    Par.map(i)(_ + 1)(ES).get == Par.unit(2)(ES).get)
+  /*
+   In this example, Prop.forAll takes in a Gen that will only ever
+   generate one value -- Par.unit(1).
+   How will Prop.forAll handle a generator that generates many Pars?
+   */
+  val parAdditionProp = Prop.forAll(Gen.unit(Par.unit(1))){
+    (pi: Par[Int]) => {
+      Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
+    }
+  }
+  val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
+    (i: Int) => i > 0
+  }
+
+
 }
 
-// trait Gen[A] {
-  // def map[B](f: A => B): Gen[B] = {
-  //   val newState: State[RNG, B] = this.sample.map(f)
-  //   Gen[B](newState)
-  // }
-  // def flatMap[B](f: A => Gen[B]): Gen[B] = {
-  //   val newGen = this.sample.flatMap(f)
-
-  //   newGen
-  // }
-
-
-// }
-
-trait SGen[+A] {
+// sized generator
+case class SGen[+A](forSize: Int => Gen[A]){
 
 }
 

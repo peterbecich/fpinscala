@@ -36,9 +36,9 @@ object RNG {
 
   def chooseInt(rng: RNG)(start: Int, stopExclusive: Int): (Int, RNG) = {
     val (nextNonNegativeInt, nextRNG) = RNG.nonNegativeInt(rng)
-    val scale = (nextNonNegativeInt/Int.MaxValue)
+    val scale: Double = (nextNonNegativeInt.toDouble/Int.MaxValue)
     //val nextChosenInt = start + (stopExclusive-start)*scale
-    val nextChosenInt = stopExclusive*scale - (start-1)*scale
+    val nextChosenInt: Int = (stopExclusive*scale - (start-1)*scale).toInt
     // is this exclusive on the upper bound?
     (nextChosenInt, nextRNG)
   }
@@ -55,6 +55,14 @@ object RNG {
     (nextDouble, nextRNG)
   }
   def randDouble: Rand[Double] = (rng: RNG) => double(rng)
+
+  def chooseDouble(rng0: RNG)(start: Double, stopExclusive: Double): (Double, RNG) = {
+    val (nextNonNegativeInt, rng1): Tuple2[Int, RNG] = RNG.nonNegativeInt(rng0)
+    val scale: Double = (nextNonNegativeInt.toDouble/Double.MaxValue)
+    val nextChosenDouble: Double = (stopExclusive*scale - (start-1)*scale)
+    (nextChosenDouble, rng1)
+
+  }
 
   def intDouble(rng: RNG): ((Int,Double), RNG) = {
     // val (nextInt, secondRNG) = rng.nextInt

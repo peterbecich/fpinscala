@@ -603,9 +603,9 @@ object Monoid {
 
 
   def count(s: String): Int = {
-    //val ac = s.toCharArray()
+    val ac = s.toCharArray()
     // val sc = ac.toIndexedSeq
-    //val lc = ac.toList
+    val lc = ac.toList
 
     // map and reduce:
     // map each character to a WC
@@ -656,9 +656,9 @@ object Monoid {
     // }
     // println("fold map output: "+wc)
 
-    val ls: List[String] = List(s) // list of length 1
-    val wc: WC = Monoid.foldMap(ls, Monoid.wcMonoid){
-      (s: String)=>Stub(s)
+    //val ls: List[String] = List(s) // list of length 1
+    val wc: WC = Monoid.foldMap(lc, Monoid.wcMonoid){
+      (c: Char)=>Stub(c.toString)
     }
 
 
@@ -752,15 +752,15 @@ object MonoidTest {
     println("number of words: "+strWords)
 
     println("Testing that WC Monoid meets the Monoid laws")
-    println("need Gen of WC")
+    println("Generator of WC: ")
     println(genWC)
     val wcMonoidProp: Prop = 
       Monoid.monoidLaws(Monoid.wcMonoid, genWC)
 
-    println("wc monoid prop")
-    println(wcMonoidProp)
-    // val checked = wcMonoidProp.check
-    // println(checked)
+    // println("wc monoid prop")
+    // println(wcMonoidProp)
+    // // val checked = wcMonoidProp.check
+    // // println(checked)
 
   }
 }

@@ -6,6 +6,7 @@ import testing._
 import parallelism._
 import state._
 import parallelism.Par._
+//import laziness.Stream
 
 // http://www.scala-lang.org/api/current/#scala.language$
 import scala.language.higherKinds
@@ -510,11 +511,23 @@ object Monad {
   }
 
   // Scala Collections' Stream, not fpinscala's laziness.Stream
-  val streamMonad: Monad[Stream] = new Monad[Stream] {
-    def unit[A](a: => A): Stream[A] = Stream(a)
-    def flatMap[A, B](st: Stream[A])(f: A => Stream[B]): Stream[B] = {
-      st.flatMap(f)
+  val collectionsStreamMonad: Monad[scala.collection.immutable.Stream] =
+    new Monad[scala.collection.immutable.Stream] {
+      def unit[A](a: => A): scala.collection.immutable.Stream[A] =
+        scala.collection.immutable.Stream(a)
+      def flatMap[A, B](st: scala.collection.immutable.Stream[A])
+        (f: A => scala.collection.immutable.Stream[B]):
+          scala.collection.immutable.Stream[B] = {
+        st.flatMap(f)
+      }
     }
+
+  // our Stream implementation
+  val streamMonad[Stream]: Monad[Stream] = new Monad[Stream] {
+    def unit[A](a: => A): Stream[A] = 
+      Stream.apply(a)
+    def flatMap[A, B](st: Stream[A])(f: A => Stream[B]): Stream[B] =
+      st.flatMap(f)
   }
 
   val listMonad: Monad[List] = new Monad[List] {
