@@ -1,4 +1,7 @@
 package fpinscala.answers.streamingio
+// import scala.language.implicitConversions
+// import scala.language.postfixOps
+import scala.language.higherKinds
 
 /* 
  * A context in which exceptions can be caught and

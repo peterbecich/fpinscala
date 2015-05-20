@@ -1,4 +1,7 @@
 package fpinscala.answers.streamingio
+//import scala.language.implicitConversions
+import scala.language.postfixOps
+//import scala.language.higherKinds
 
 /* Data type representing either A, B, or both A and B. */
 trait These[+A,+B] {

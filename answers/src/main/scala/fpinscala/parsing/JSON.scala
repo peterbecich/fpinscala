@@ -1,4 +1,7 @@
 package fpinscala.answers.parsing
+import scala.language.implicitConversions
+import scala.language.higherKinds
+
 
 trait JSON
 
@@ -9,6 +12,7 @@ object JSON {
   case class JBool(get: Boolean) extends JSON
   case class JArray(get: IndexedSeq[JSON]) extends JSON
   case class JObject(get: Map[String, JSON]) extends JSON
+
 
   def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[JSON] = {
     // we'll hide the string implicit conversion and promote strings to tokens instead

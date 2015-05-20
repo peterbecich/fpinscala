@@ -7,6 +7,11 @@ This source file contains the answers to the last two exercises in the section
 The Gen data type in this file incorporates exhaustive checking of finite domains.
 */
 
+import scala.language.implicitConversions
+import scala.language.postfixOps
+//import scala.language.higherKinds
+
+
 import fpinscala.answers.laziness.{Stream,Cons,Empty}
 import fpinscala.answers.state._
 import fpinscala.answers.parallelism._

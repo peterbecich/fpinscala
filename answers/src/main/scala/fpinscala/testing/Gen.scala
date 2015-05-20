@@ -1,5 +1,9 @@
 package fpinscala.answers.testing
 
+import scala.language.implicitConversions
+import scala.language.postfixOps
+import scala.language.higherKinds
+
 import fpinscala.answers.laziness.Stream
 import fpinscala.answers.state._
 import fpinscala.answers.parallelism._
@@ -285,11 +289,15 @@ object Gen {
 }
 
 case class SGen[+A](g: Int => Gen[A]) {
+  // same issue as with flatMap.
   def apply(n: Int): Gen[A] = g(n)
 
   def map[B](f: A => B): SGen[B] =
     SGen(g andThen (_ map f))
 
+  // how is this a flatMap if Functor is not preserved?
+  // SGen[A] is replaced with Gen[B] by f.
+  // then fix SGen monad.
   def flatMap[B](f: A => Gen[B]): SGen[B] =
     SGen(g andThen (_ flatMap f))
 

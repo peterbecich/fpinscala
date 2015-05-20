@@ -1,7 +1,7 @@
 package fpinscala.answers.parallelism
 
 import java.util.concurrent._
-
+import scala.language.implicitConversions
 object Par {
   type Par[A] = ExecutorService => Future[A]
 

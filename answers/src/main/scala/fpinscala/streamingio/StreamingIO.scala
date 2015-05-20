@@ -1,5 +1,9 @@
 package fpinscala.answers.streamingio
 
+import scala.language.implicitConversions
+import scala.language.postfixOps
+import scala.language.higherKinds
+
 import fpinscala.answers.iomonad.{IO,Monad,Free,unsafePerformIO}
 
 object ImperativeAndLazyIO {

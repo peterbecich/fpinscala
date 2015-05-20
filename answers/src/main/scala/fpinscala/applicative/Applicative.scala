@@ -1,9 +1,13 @@
 package fpinscala.answers.applicative
 
-import monads.Functor
-import state._
+import scala.language.implicitConversions
+import scala.language.postfixOps
+import scala.language.higherKinds
+
+import fpinscala.answers.monads.Functor
+import fpinscala.answers.state._
 import State._
-import monoids._
+import fpinscala.answers.monoids._
 
 trait Applicative[F[_]] extends Functor[F] {
   // `map2` is implemented by first currying `f` so we get a function

@@ -1,10 +1,15 @@
 package fpinscala.answers.monads
 
-import parsing._
-import testing._
-import parallelism._
-import state._
-import parallelism.Par._
+
+// import scala.language.implicitConversions
+// import scala.language.postfixOps
+import scala.language.higherKinds
+
+import fpinscala.answers.parsing._
+import fpinscala.answers.testing._
+import fpinscala.answers.parallelism._
+import fpinscala.answers.state._
+import fpinscala.answers.parallelism.Par._
 
 trait Functor[F[_]] {
   def map[A,B](fa: F[A])(f: A => B): F[B]
@@ -84,6 +89,7 @@ object Monad {
   }
   val sGenMonad = new Monad[SGen] {
     def unit[A](a: => A): SGen[A] = SGen((i: Int) => a)
+    // fix flatMap of SGen
     override def flatMap[A, B](ma: SGen[A])(f: A => SGen[B]): SGen[B] =
       ma.flatMap(f)
   }

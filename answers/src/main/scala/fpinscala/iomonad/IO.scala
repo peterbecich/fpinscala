@@ -1,5 +1,9 @@
 package fpinscala.answers.iomonad
 
+import scala.language.implicitConversions
+import scala.language.postfixOps
+import scala.language.higherKinds
+
 object IO0 {
                             /*
 
