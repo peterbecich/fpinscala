@@ -8,51 +8,129 @@ import fpinscala.monads.Functor
 import fpinscala.monads.Monad
 import Gen._
 import Prop._
+import fpinscala.laziness.Stream
 import java.util.concurrent.{Executors,ExecutorService}
 
 //case class Prop(run: ((PropTypes.TestCases, RNG) => PropTypes.Result))
 
-case class Prop(run: ((TestCases, RNG) => Result)) {
-  def check(tc: TestCases, rng: RNG): 
-      Either[(FailedCase, SuccessCount), SuccessCount] = {
-    val result: Result = run((tc, rng))
+case class Prop (
+  run: (
+    Prop.MaxSize,  // Int
+    Prop.TestCases,  // Int
+    RNG
+  ) => Prop.Result
+){
 
-  }
-  def &&(otherProp: Prop): Prop = {
-    val p2Check:
-        Either[(FailedCase, SuccessCount), SuccessCount] =
-    (check, otherProp.check) match {
-      case (Left((failedCase1, succCount1)),
-        Left((failedCase2, succCount2))) => {
-        Left((failedCase1+failedCase2, succCount1+succCount2))
-      }
-      case (Right(succCount1),
-        Left((failedCase2, succCount2))) => {
-        Left((failedCase2, succCount1+succCount2))
-      }
-      case (Left((failedCase1, succCount1)),
-        Right(succCount2)) => {
-        Left((failedCase1, succCount1+succCount2))
-      }
-      case (Right(succCount1), Right(succCount2)) => {
-        Right(succCount1 + succCount2)
-      }
-    }
 
-    val mergedProps = new Prop {
-      def check:
-          Either[(FailedCase, SuccessCount), SuccessCount] =
-        p2Check
+  def &&(otherProp: Prop): Prop = Prop (
+    (
+      max: Prop.MaxSize,  // Int
+      n: Prop.TestCases,  // Int
+      rng: RNG
+    ) => {
+      val thisResult: Prop.Result = this.run(max, n, rng)
+      val otherResult: Prop.Result = otherProp.run(max, n, rng)
+        //(thisResult, otherResult) match {
+        /*
+         ^^^ Interesting fluke in formatter:
+         tuple above assumed to be application to otherResult,
+         and so is indented incorrectly.
+         */
+      val mergedResult: Prop.Result = (thisResult, otherResult) match {
+        case (Passed, Passed) => Passed
+        case (falsified1: Falsified, Passed) =>
+          falsified1
+        case (Passed, falsified2: Falsified) =>
+          falsified2
+        case (
+          Falsified(failure1, successes1),
+          Falsified(failure2, successes2)
+        ) => Falsified(failure1+", "+failure2, successes1+successes2)
+      }
+      mergedResult
     }
-    mergedProps
-  }
+  )
+  def ||(otherProp: Prop): Prop = Prop (
+    (
+      max: Prop.MaxSize,  // Int
+      n: Prop.TestCases,  // Int
+      rng: RNG
+    ) => {
+      val thisResult: Prop.Result = this.run(max, n, rng)
+      val otherResult: Prop.Result = otherProp.run(max, n, rng)
+      val mergedResult: Prop.Result = (thisResult, otherResult) match {
+        case (Passed, Passed) => Passed
+        case (falsified1: Falsified, Passed) =>
+          Passed
+        case (Passed, falsified2: Falsified) =>
+          Passed
+        case (
+          Falsified(failure1, successes1),
+          Falsified(failure2, successes2)
+        ) => Falsified(failure1+", "+failure2, successes1+successes2)
+      }
+      mergedResult
+    }
+  )
+
 }
 
 object Prop {
-  //def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = {
+  // this method and case class Prop's run method both have the same name,
+  // but are differentiated by their arguments, I think.
+
+
+  def run(p: Prop,
+    maxSize: Int = 100,
+    testCases: Int = 100,
+    rng: RNG = RNG.Simple(System.currentTimeMillis().toLong)
+  ): Unit =
+    p.run(maxSize, testCases, rng) match {
+      case Prop.Falsified(msg, n) =>
+        println(s"Falsified after $n passed tests: \n $msg")
+      case Prop.Passed => println(s"Passed $testCases tests")
+    }
+
+  // forALl for Gen[A] from answers
+  def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop (
+    (max: Int, n: Int, rng: RNG) => randomStream(as)(rng).zip(Stream.from(0)).take(n).map {
+      case (a, i) => try {
+        if (f(a)) Passed else Falsified(a.toString, i)
+      } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
+    }.find(_.isFalsified).getOrElse(Passed)
+  )
+
+
+
+  def forAll[A](sGen: SGen[A])(f: A => Boolean): Prop =
+    forAll(sGen(_))(f)
+
+  def forAll[A](g: Int => Gen[A])(f: A => Boolean): Prop = Prop (
+    (max: MaxSize, n: TestCases, rng: RNG) => {
+      val casesPerSize = (n + (max - 1)) / max
+
+      val props: Stream[Prop] =
+        Stream.from(0).take((n min max) + 1).map {
+          (i: Int) => this.forAll(g(i))(f)
+        }
+
+      val propResults: Stream[Prop] = props.map {
+        (p0: Prop) => Prop { (max, _, rng) =>
+          p0.run(max, casesPerSize, rng)
+        }}
+
+      val reducedProp: Prop = propResults.toList.reduce {
+        (p1: Prop, p2: Prop) => p1.&&(p2)
+      }
+      reducedProp.run(max, n, rng)
+    }
+  )
+
+
   type SuccessCount = Int
   type FailedCase = String
   type TestCases = Int
+  type MaxSize = Int
 
   sealed trait Result {
     def isFalsified: Boolean
@@ -60,9 +138,25 @@ object Prop {
   case object Passed extends Result {
     def isFalsified = false
   }
-  case object Failed extends Result {
+  case class Falsified(
+    failure: FailedCase,
+    successes: SuccessCount
+  ) extends Result {
     def isFalsified = true
   }
+
+  def randomStream[A](g: Gen[A])(rng0: RNG): Stream[A] =
+    Stream.unfold(rng0){
+      (rng1: RNG) => {
+        val (a, rng2): Tuple2[A, RNG] = g.sample.run(rng1)
+        Some((a, rng2))
+      }
+    }
+  def buildMsg[A](a: A, e: Exception): String =
+    s"test case: $a \n" +
+  s"generated an exception: $e \n" +
+  s"stack trace: \n ${e.getStackTrace().mkString("\n")}"
+
 }
 
 // object PropTypes {
@@ -83,7 +177,7 @@ object Prop {
 // }
 
 /*
- case class State[S,A](run: S => (AS))
+ case class State[S,A](run: S => (A, S))
  */
 
 // A monad?
@@ -127,16 +221,18 @@ case class Gen[A](sample: State.Rand[A]){
     }
   }
 
-  // def below considered to be 'apply'
+  // 'def **' is the apply counterpart to 'object **.unapply'
   def **[B](g: Gen[B]): Gen[(A, B)] =
     this.map2(g)({(a: A, b: B) => {
       (a, b): Tuple2[A, B]
     }}: (A, B) => Tuple2[A, B]
     ): Gen[Tuple2[A, B]]
+
   object ** {
     def unapply[A, B](p: (A, B)) = Some(p)
   }
 
+  def unsized: SGen[A] = SGen((i: Int) => this)  // i ignored?
 
 }
 
@@ -222,26 +318,83 @@ object Gen {
     genChosen
   }
 
-  val ES: ExecutorService = Executors.newCachedThreadPool
-  /*
-   In this example, Prop.forAll takes in a Gen that will only ever
-   generate one value -- Par.unit(1).
-   How will Prop.forAll handle a generator that generates many Pars?
-   */
-  val parAdditionProp = Prop.forAll(Gen.unit(Par.unit(1))){
-    (pi: Par[Int]) => {
-      Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
+  def listOf[A](g: Gen[A]): SGen[List[A]] = {
+    SGen((size: Int) => {
+      // A => List[A]
+      val genListA: Gen[List[A]] =
+        Gen.listOfN(size, g)
+      genListA
     }
+    )
   }
-  val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
-    (i: Int) => i > 0
+
+  // val ES: ExecutorService = Executors.newCachedThreadPool
+  // /*
+  //  In this example, Prop.forAll takes in a Gen that will only ever
+  //  generate one value -- Par.unit(1).
+  //  How will Prop.forAll handle a generator that generates many Pars?
+  //  */
+  // val parAdditionProp = Prop.forAll(Gen.unit(Par.unit(1))){
+  //   (pi: Par[Int]) => {
+  //     Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
+  //   }
+  // }
+  // val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
+  //   (i: Int) => i > 0
+  // }
+
+
+}
+
+object PropTests {
+  def main(args: Array[String]): Unit = {
+    val ES: ExecutorService = Executors.newCachedThreadPool
+    /*
+     In this example, Prop.forAll takes in a Gen that will only ever
+     generate one value -- Par.unit(1).
+     How will Prop.forAll handle a generator that generates many Pars?
+     */
+    val parAdditionProp = Prop.forAll(Gen.unit(Par.unit(1))){
+      (pi: Par[Int]) => {
+        Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
+      }
+    }
+    Prop.run(parAdditionProp)
+
+    val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
+      (i: Int) => i > 0
+    }
+    Prop.run(randomsAboveZeroProp)
+
+    val smallInt: Gen[Int] = Gen.choose(-10,10)
+    val smallIntProp: Prop = forAll(Gen.listOf(smallInt)) {
+      (la: List[Int]) => {
+        val max = la.max
+        !la.exists((i: Int) => i>max)
+      }
+    }
+    Prop.run(smallIntProp)
+
+    ES.shutdown()
   }
 
 
 }
 
 // sized generator
-case class SGen[+A](forSize: Int => Gen[A]){
+case class SGen[+A](g: Int => Gen[A]){
+  // from answers...
+  def apply(n: Int): Gen[A] = g(n)
+
+  def map[B](f: A => B): SGen[B] =
+    SGen(g andThen (_ map f))
+
+  def flatMap[B](f: A => Gen[B]): SGen[B] =
+    SGen(g andThen (_ flatMap f))
+
+  def **[B](s2: SGen[B]): SGen[(A,B)] =
+    SGen(n => apply(n) ** s2(n))
+
 
 }
 

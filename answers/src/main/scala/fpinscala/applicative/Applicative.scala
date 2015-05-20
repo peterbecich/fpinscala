@@ -1,5 +1,4 @@
-package fpinscala
-package applicative
+package fpinscala.answers.applicative
 
 import monads.Functor
 import state._

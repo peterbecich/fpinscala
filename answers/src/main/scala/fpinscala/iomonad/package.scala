@@ -1,4 +1,4 @@
-package fpinscala
+package fpinscala.answers
 
 package object iomonad {
   import fpinscala.answers.parallelism.Nonblocking._

@@ -1,5 +1,4 @@
-package fpinscala
-package monads
+package fpinscala.answers.monads
 
 import parsing._
 import testing._
@@ -82,6 +81,11 @@ object Monad {
     def unit[A](a: => A): Gen[A] = Gen.unit(a)
     override def flatMap[A,B](ma: Gen[A])(f: A => Gen[B]): Gen[B] =
       ma flatMap f
+  }
+  val sGenMonad = new Monad[SGen] {
+    def unit[A](a: => A): SGen[A] = SGen((i: Int) => a)
+    override def flatMap[A, B](ma: SGen[A])(f: A => SGen[B]): SGen[B] =
+      ma.flatMap(f)
   }
 
   val parMonad = new Monad[Par] {

@@ -15,11 +15,17 @@ trait Stream[+A] {
       case Cons(h,t) => f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
     }
-  def foldLeft[B](z: => B)(f: (=> B, A) => B): B =
-    this match {
-      case Cons(h,t) => t().foldLeft(f(z,h()))(f)
-      case _ => z
-    }
+
+  /*
+   Think about implementing fold left over a Stream.
+   I think the same downside of List's fold left occurs here -- reversing.
+   But you can't reverse an infinite stream...
+   */
+  // def foldLeft[B](z: => B)(f: (=> B, A) => B): B =
+  //   this match {
+  //     case Cons(h,t) => t().foldLeft(f(z,h()))(f)
+  //     case _ => z
+  //   }
 
   def exists(p: A => Boolean): Boolean = 
     foldRight(false)((a, b) => p(a) || b) // Here `b` is the unevaluated recursive step that folds the tail of the stream. If `p(a)` returns `true`, `b` will never be evaluated and the computation terminates early.
@@ -29,10 +35,10 @@ trait Stream[+A] {
     case Empty => None
     case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
   }
-  // def take(n: Int): Stream[A] = this match {
-  //   case Empty => Stream.empty[A]
-  //   case Cons(h, t) => {
-
+  def take(n: Int): Stream[A] = this match {
+    case Empty => Stream.empty[A]
+    case Cons(h, t) => Cons(h, ()=>take(n-1)) // is laziness preserved here?
+  }
 
   def headOption: Option[A] = find((a: A) => true)
 //  def _headOption: Option[A] = foldRight
@@ -65,25 +71,25 @@ trait Stream[+A] {
   // foldRight(=>Stream[B])((A, =>Stream[B])=>Stream[B])
 
   def map[B](f: A => B): Stream[B] = {
-    def g(sb: => Stream[B], a: A) = Cons[B](()=>f(a), sb.map(f))
+    def g(a: A, sb: => Stream[B]): Stream[B] =
+      Stream.cons(f(a), map(f))
     //                                       ^ f(a) not calculated
     //                                until function called;
     //                                signature is: () => Stream[B]
-    foldLeft(empty[B])(g)
+
+    // 
+    foldRight(empty[B])(g)
   }
   def append(stream2: Stream[A]): Stream[A] = {
-    def f(sa: => Stream[A], a: A) = cons(a, sa)
-    foldLeft(stream2){
-      //(sa: => Stream[A], a: A) => cons(a, sa)
-      f
-    }
+    def f(a: A, sa: => Stream[A]): Stream[A] = Stream.cons(a, sa)
+    foldRight(stream2)(f)
   }
   def flatMap[B](f: A => Stream[B]): Stream[B] = {
-    def g(sb: => Stream[B], a: A) = f(a).append(sb)
-    foldLeft(empty[B])(g)
+    def g(a: A, sb: => Stream[B]) = f(a).append(sb)
+    foldRight(empty[B])(g)
   }
 
-  def startsWith[A](sa2: Stream[A]): Boolean = {
+  def startsWith(sa2: Stream[A]): Boolean = {
     val sa1: Stream[A] = this
     val streamMonad = fpinscala.monads.Monad.streamMonad
     val product: Stream[Tuple2[A,A]] = streamMonad.product(sa1, sa2)
@@ -91,6 +97,15 @@ trait Stream[+A] {
       (tpl: Tuple2[A,A]) => tpl._1 == tpl._2
     }
   }
+
+  def zip[B](sb: Stream[B]): Stream[(A,B)] = {
+    val sa: Stream[A] = this
+    val streamMonad = fpinscala.monads.Monad.streamMonad
+    val product: Stream[Tuple2[A,B]] = streamMonad.product(sa, sb)
+    product
+  }
+
+
 }
 case object Empty extends Stream[Nothing]
 case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
