@@ -80,8 +80,41 @@ trait Stream[+A] {
     // 
     foldRight(empty[B])(g)
   }
+
+
+  /*
+   Learn about covariance, invariance and contravariance.
+
+   With Stream[A]:
+
+   pattern type is incompatible with expected type;
+   found   : fpinscala.laziness.Empty.type
+   required: fpinscala.laziness.Stream[A]
+   Note: Nothing <: A 
+   (and fpinscala.laziness.Empty.type <:
+   fpinscala.laziness.Stream[Nothing]), 
+   but trait Stream is invariant in type A.
+   You may wish to define A as +A instead. (SLS 4.5)
+
+   With Stream[+A]:
+
+   covariant type A occurs in contravariant position in type fpinscala.laziness.Stream[A] of value stream2
+   def append(stream2: Stream[A]): Stream[A] = {
+   ^
+   */
   def append(stream2: Stream[A]): Stream[A] = {
+    // type
+    // (fpinscala.laziness.A, scala.<byname>[Stream[A]]) =>
+    // fpinscala.laziness.Stream[A]
     def f(a: A, sa: => Stream[A]): Stream[A] = Stream.cons(a, sa)
+
+
+    // how is a lazy argument specified in an anonymous function?
+    // val f: (A, => Stream[A]) => Stream[A] = 
+    //   (a: A, sa: => Stream[A]) => Stream.cons(a, sa)
+    // val f: (A, Stream[A]) => Stream[A] = 
+    //   (a: A, sa: Stream[A]) => Stream.cons(a, sa)
+
     foldRight(stream2)(f)
   }
   def flatMap[B](f: A => Stream[B]): Stream[B] = {
