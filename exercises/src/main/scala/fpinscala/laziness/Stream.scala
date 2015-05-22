@@ -35,8 +35,8 @@ trait Stream[+A] {
     case Empty => None
     case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
   }
-  def take(n: Int): Stream[A] = this match {
-    case Empty => Stream.empty[A]
+  def take(n: Int): fpinscala.laziness.Stream[A] = this match {
+    case Empty => fpinscala.laziness.Stream.empty[A]
     case Cons(h, t) => Cons(h, ()=>take(n-1)) // is laziness preserved here?
   }
 
@@ -51,7 +51,7 @@ trait Stream[+A] {
 
 
 
-  def drop(n: Int): Stream[A] = this match {
+  def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
     case Empty => empty[A]
     case Cons(h, t) if n>0 => t().drop(n-1)
     case Cons(h, t) => t()
@@ -68,14 +68,14 @@ trait Stream[+A] {
 
 
   // use fold right
-  // foldRight(=>Stream[B])((A, =>Stream[B])=>Stream[B])
+  // foldRight(=>fpinscala.laziness.Stream[B])((A, =>fpinscala.laziness.Stream[B])=>fpinscala.laziness.Stream[B])
 
-  def map[B](f: A => B): Stream[B] = {
-    def g(a: A, sb: => Stream[B]): Stream[B] =
-      Stream.cons(f(a), map(f))
+  def map[B](f: A => B): fpinscala.laziness.Stream[B] = {
+    def g(a: A, sb: => fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[B] =
+      fpinscala.laziness.Stream.cons(f(a), map(f))
     //                                       ^ f(a) not calculated
     //                                until function called;
-    //                                signature is: () => Stream[B]
+    //                                signature is: () => fpinscala.laziness.Stream[B]
 
     // 
     foldRight(empty[B])(g)
@@ -86,7 +86,7 @@ trait Stream[+A] {
    Learn about covariance, invariance and contravariance.
    An upper type bound T <: A declares that type variable T refers to a subtype of type A. 
 
-   With Stream[A]:
+   With fpinscala.laziness.Stream[A]:
 
    pattern type is incompatible with expected type;
    found   : fpinscala.laziness.Empty.type
@@ -94,43 +94,47 @@ trait Stream[+A] {
    Note: Nothing <: A 
    (and fpinscala.laziness.Empty.type <:
    fpinscala.laziness.Stream[Nothing]), 
-   but trait Stream is invariant in type A.
+   but trait fpinscala.laziness.Stream is invariant in type A.
    You may wish to define A as +A instead. (SLS 4.5)
 
-   With Stream[+A]:
+   With fpinscala.laziness.Stream[+A]:
 
    covariant type A occurs in contravariant position in type fpinscala.laziness.Stream[A] of value stream2
-   def append(stream2: Stream[A]): Stream[A] = {
+   def append(stream2: fpinscala.laziness.Stream[A]): fpinscala.laziness.Stream[A] = {
    ^
    stream2 being contravariant means:
    Given
    A is a supertype of B  (Number is a supertype of Double)
    A >: B
 
-   Stream[A] is a supertype of Stream[B] 
-   (Stream[Number] supertype of Stream[Double])
-   Stream[A] >: Stream[B]
+   fpinscala.laziness.Stream[A] is a supertype of fpinscala.laziness.Stream[B] 
+   (fpinscala.laziness.Stream[Number] supertype of fpinscala.laziness.Stream[Double])
+   fpinscala.laziness.Stream[A] >: fpinscala.laziness.Stream[B]
 
    An error is forcing stream2 to be contravariant
-   stream2: Stream[A] is a ***subtype*** of 
-   stream2: Stream[B]
-   (stream2: Stream[Number] is a subtype of stream2: Stream[Double])
+   stream2: fpinscala.laziness.Stream[A] is a ***subtype*** of 
+   stream2: fpinscala.laziness.Stream[B]
+   (stream2: fpinscala.laziness.Stream[Number] is a subtype of stream2: fpinscala.laziness.Stream[Double])
 
-   stream2: Stream[A] <: stream2: Stream[B]
+   stream2: fpinscala.laziness.Stream[A] <: stream2: fpinscala.laziness.Stream[B]
    
    */
-  def append(stream2: Stream[A]): Stream[A] = {
+  def append(stream2: fpinscala.laziness.Stream[A]):
+      fpinscala.laziness.Stream[A] = {
     // type
-    // (fpinscala.laziness.A, scala.<byname>[Stream[A]]) =>
+    // (fpinscala.laziness.A,
+    // scala.<byname>[fpinscala.laziness.Stream[A]]) =>
     // fpinscala.laziness.Stream[A]
-    def f(a: A, sa: => Stream[A]): Stream[A] = Stream.cons(a, sa)
+    def f(a: A, sa: => fpinscala.laziness.Stream[A]):
+        fpinscala.laziness.Stream[A] = 
+      fpinscala.laziness.Stream.cons(a, sa)
 
     /*
     how is a lazy argument specified in an anonymous function?
-    val f: (A, => Stream[A]) => Stream[A] = 
-      (a: A, sa: => Stream[A]) => Stream.cons(a, sa)
-    val f: (A, Stream[A]) => Stream[A] = 
-      (a: A, sa: Stream[A]) => Stream.cons(a, sa)
+    val f: (A, => fpinscala.laziness.Stream[A]) => fpinscala.laziness.Stream[A] = 
+      (a: A, sa: => fpinscala.laziness.Stream[A]) => fpinscala.laziness.Stream.cons(a, sa)
+    val f: (A, fpinscala.laziness.Stream[A]) => fpinscala.laziness.Stream[A] = 
+      (a: A, sa: fpinscala.laziness.Stream[A]) => fpinscala.laziness.Stream.cons(a, sa)
 
     regarding foldRight below
     type
@@ -140,40 +144,49 @@ trait Stream[+A] {
 
     filled in with actual types
     type
-    (scala.<byname>[Stream[A]]) =>
-    (scala.Function2[A, <byname>[Stream[A]], Stream[A]]) =>
+    (scala.<byname>[fpinscala.laziness.Stream[A]]) =>
+    (scala.Function2[A, <byname>[fpinscala.laziness.Stream[A]], fpinscala.laziness.Stream[A]]) =>
     fpinscala.laziness.Stream[A]
      */
-    foldRight(stream2)(f)
+    val out: fpinscala.laziness.Stream[A] = foldRight(stream2)(f)
+    out
   }
-  def flatMap[B](f: A => Stream[B]): Stream[B] = {
-    def g(a: A, sb: => Stream[B]) = f(a).append(sb)
+  def flatMap[B](f: A => fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[B] = {
+    def g(a: A, sb: => fpinscala.laziness.Stream[B]) = f(a).append(sb)
     foldRight(empty[B])(g)
   }
 
-  def startsWith(sa2: Stream[A]): Boolean = {
-    val sa1: Stream[A] = this
-    val streamMonad = fpinscala.monads.Monad.streamMonad
-    val product: Stream[Tuple2[A,A]] = streamMonad.product(sa1, sa2)
+  def startsWith(sa2: fpinscala.laziness.Stream[A]): Boolean = {
+    val sa1: fpinscala.laziness.Stream[A] = this
+    /* perhaps references to Stream in this object have been intercepted
+     by Collections' Stream:
+     found: fpinscala.monads.Monad[scala.collection.immutable.Stream]  
+     required: fpinscala.monads.Monad[fpinscala.laziness.Stream]
+
+     
+     */
+    val streamMonad: Monad[fpinscala.laziness.Stream] =
+      fpinscala.monads.Monad.streamMonad
+    val product: fpinscala.laziness.Stream[Tuple2[A,A]] = streamMonad.product(sa1, sa2)
     product.forAll{
       (tpl: Tuple2[A,A]) => tpl._1 == tpl._2
     }
   }
 
-  def zip[B](sb: Stream[B]): Stream[(A,B)] = {
-    val sa: Stream[A] = this
+  def zip[B](sb: fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[(A,B)] = {
+    val sa: fpinscala.laziness.Stream[A] = this
     val streamMonad = fpinscala.monads.Monad.streamMonad
-    val product: Stream[Tuple2[A,B]] = streamMonad.product(sa, sb)
+    val product: fpinscala.laziness.Stream[Tuple2[A,B]] = streamMonad.product(sa, sb)
     product
   }
 
 
 }
-case object Empty extends Stream[Nothing]
-case class Cons[+A](h: () => A, t: () => Stream[A]) extends Stream[A]
+case object Empty extends fpinscala.laziness.Stream[Nothing]
+case class Cons[+C](h: () => C, t: () => fpinscala.laziness.Stream[C]) extends fpinscala.laziness.Stream[C]
 
 object Stream {
-  def cons[A](hd: => A, tl: => Stream[A]): Stream[A] = {
+  def cons[C](hd: => C, tl: => fpinscala.laziness.Stream[C]): fpinscala.laziness.Stream[C] = {
     lazy val head = hd
     lazy val tail = tl
     Cons(() => head, () => tail)
@@ -206,32 +219,32 @@ object Stream {
 
    Again, Scala takes care of wrapping the arguments to cons in thunks, so the as.head and apply(as.tail: _*) expressions won’t be evaluated until we force the Stream.
  */
-  def empty[A]: Stream[A] = Empty
+  def empty[C]: fpinscala.laziness.Stream[C] = Empty
 
-  def apply[A](as: A*): Stream[A] =
+  def apply[A](as: A*): fpinscala.laziness.Stream[A] =
     if (as.isEmpty) empty 
     else cons(as.head, apply(as.tail: _*))
 
-  val ones: Stream[Int] = Stream.cons(1, ones)
-  def constant[A](a: A): Stream[A] = Stream.cons(a, constant(a))
-  def from(n: Int): Stream[Int] = Stream.cons(n, from(n+1))
-  def fibs: Stream[Int] = fibs(0,1)
-  def fibs(n0: Int, n1: Int): Stream[Int] = Stream.cons(n0+n1, fibs(n1, n0+n1))
+  val ones: fpinscala.laziness.Stream[Int] = fpinscala.laziness.Stream.cons(1, ones)
+  def constant[A](a: A): fpinscala.laziness.Stream[A] = fpinscala.laziness.Stream.cons(a, constant(a))
+  def from(n: Int): fpinscala.laziness.Stream[Int] = fpinscala.laziness.Stream.cons(n, from(n+1))
+  def fibs: fpinscala.laziness.Stream[Int] = fibs(0,1)
+  def fibs(n0: Int, n1: Int): fpinscala.laziness.Stream[Int] = fpinscala.laziness.Stream.cons(n0+n1, fibs(n1, n0+n1))
 
   // def fibs: Stream[Int] = 
   //   Stream.cons(0,
   //     Stream.cons(1,
  
 
-  def unfold[A, S](z: S)(f: S => Option[(A, S)]): Stream[A] =
+  def unfold[A, S](z: S)(f: S => Option[(A, S)]): fpinscala.laziness.Stream[A] =
     f(z) match {
       case None => empty[A]
-      case Some((a, s)) => Stream.cons(a, unfold(s)(f))
+      case Some((a, s)) => fpinscala.laziness.Stream.cons(a, unfold(s)(f))
     }
 
-  def _constant[A](a: A): Stream[A] = unfold(a)((a1: A) => Some(a1,a1))
-  def _from(n: Int): Stream[Int] = unfold(n)((n0: Int) => Some(n0, n0+1))
-  def _fibs: Stream[Int] = unfold((0,1))(
+  def _constant[A](a: A): fpinscala.laziness.Stream[A] = unfold(a)((a1: A) => Some(a1,a1))
+  def _from(n: Int): fpinscala.laziness.Stream[Int] = unfold(n)((n0: Int) => Some(n0, n0+1))
+  def _fibs: fpinscala.laziness.Stream[Int] = unfold((0,1))(
     (tpl: (Int,Int)) => Some(tpl._1 + tpl._2, (tpl._2, tpl._1 + tpl._2))
   )
 
