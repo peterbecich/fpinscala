@@ -396,7 +396,10 @@ object PropTests {
  or
  (Int => Gen[A]) and (Int => Gen[B]) have no relation
  */
-case class SGen[+A](g: Int => Gen[A]){
+// case class SGen[+A](g: Int => Gen[A]){
+
+
+case class SGen[A](g: Int => Gen[A]){
 // want covariance
 //case class SGen[A >: B](g: Int => Gen[A]){
   // from answers...

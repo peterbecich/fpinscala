@@ -119,14 +119,15 @@ trait Stream[+A] {
    stream2: fpinscala.laziness.Stream[A] <: stream2: fpinscala.laziness.Stream[B]
    
    */
-  def append(stream2: fpinscala.laziness.Stream[A]):
-      fpinscala.laziness.Stream[A] = {
+  //def append(stream2: Stream[A]): Stream[A]
+  def append[B >: A](stream2: fpinscala.laziness.Stream[B]):
+      fpinscala.laziness.Stream[B] = {
     // type
     // (fpinscala.laziness.A,
     // scala.<byname>[fpinscala.laziness.Stream[A]]) =>
     // fpinscala.laziness.Stream[A]
-    def f(a: A, sa: => fpinscala.laziness.Stream[A]):
-        fpinscala.laziness.Stream[A] = 
+    def f(a: A, sa: => fpinscala.laziness.Stream[B]):
+        fpinscala.laziness.Stream[B] = 
       fpinscala.laziness.Stream.cons(a, sa)
 
     /*
@@ -148,7 +149,7 @@ trait Stream[+A] {
     (scala.Function2[A, <byname>[fpinscala.laziness.Stream[A]], fpinscala.laziness.Stream[A]]) =>
     fpinscala.laziness.Stream[A]
      */
-    val out: fpinscala.laziness.Stream[A] = foldRight(stream2)(f)
+    val out: fpinscala.laziness.Stream[B] = foldRight(stream2)(f)
     out
   }
   def flatMap[B](f: A => fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[B] = {
@@ -156,7 +157,26 @@ trait Stream[+A] {
     foldRight(empty[B])(g)
   }
 
-  def startsWith(sa2: fpinscala.laziness.Stream[A]): Boolean = {
+
+  /*
+   covariant type A occurs in contravariant position in type fpinscala.laziness.Stream[A] of value sa2
+
+   Meaning...
+   Given Number >: Double
+   Stream[Number] >: Stream[Double]
+   but
+   sa2: Stream[Number] <: Stream[Double].......
+
+   */
+  //def startsWith[A](sa2: fpinscala.laziness.Stream[A]): Boolean = {
+
+  /*
+   covariant type A occurs in contravariant position in type  <: A of type B
+   */
+  //def startsWith[B <: A](sa2: fpinscala.laziness.Stream[B]): Boolean = {
+
+  // fixed!!
+  def startsWith[B >: A](sa2: fpinscala.laziness.Stream[B]): Boolean = {
     val sa1: fpinscala.laziness.Stream[A] = this
     /* perhaps references to Stream in this object have been intercepted
      by Collections' Stream:
@@ -165,11 +185,11 @@ trait Stream[+A] {
 
      
      */
-    val streamMonad: Monad[fpinscala.laziness.Stream] =
+    val streamMonad: fpinscala.monads.Monad[fpinscala.laziness.Stream] =
       fpinscala.monads.Monad.streamMonad
-    val product: fpinscala.laziness.Stream[Tuple2[A,A]] = streamMonad.product(sa1, sa2)
+    val product: fpinscala.laziness.Stream[Tuple2[A,B]] = streamMonad.product(sa1, sa2)
     product.forAll{
-      (tpl: Tuple2[A,A]) => tpl._1 == tpl._2
+      (tpl: Tuple2[A,B]) => tpl._1 == tpl._2
     }
   }
 
