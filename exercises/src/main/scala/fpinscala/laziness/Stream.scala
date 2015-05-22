@@ -84,6 +84,7 @@ trait Stream[+A] {
 
   /*
    Learn about covariance, invariance and contravariance.
+   An upper type bound T <: A declares that type variable T refers to a subtype of type A. 
 
    With Stream[A]:
 
@@ -101,6 +102,22 @@ trait Stream[+A] {
    covariant type A occurs in contravariant position in type fpinscala.laziness.Stream[A] of value stream2
    def append(stream2: Stream[A]): Stream[A] = {
    ^
+   stream2 being contravariant means:
+   Given
+   A is a supertype of B  (Number is a supertype of Double)
+   A >: B
+
+   Stream[A] is a supertype of Stream[B] 
+   (Stream[Number] supertype of Stream[Double])
+   Stream[A] >: Stream[B]
+
+   An error is forcing stream2 to be contravariant
+   stream2: Stream[A] is a ***subtype*** of 
+   stream2: Stream[B]
+   (stream2: Stream[Number] is a subtype of stream2: Stream[Double])
+
+   stream2: Stream[A] <: stream2: Stream[B]
+   
    */
   def append(stream2: Stream[A]): Stream[A] = {
     // type
@@ -108,13 +125,25 @@ trait Stream[+A] {
     // fpinscala.laziness.Stream[A]
     def f(a: A, sa: => Stream[A]): Stream[A] = Stream.cons(a, sa)
 
+    /*
+    how is a lazy argument specified in an anonymous function?
+    val f: (A, => Stream[A]) => Stream[A] = 
+      (a: A, sa: => Stream[A]) => Stream.cons(a, sa)
+    val f: (A, Stream[A]) => Stream[A] = 
+      (a: A, sa: Stream[A]) => Stream.cons(a, sa)
 
-    // how is a lazy argument specified in an anonymous function?
-    // val f: (A, => Stream[A]) => Stream[A] = 
-    //   (a: A, sa: => Stream[A]) => Stream.cons(a, sa)
-    // val f: (A, Stream[A]) => Stream[A] = 
-    //   (a: A, sa: Stream[A]) => Stream.cons(a, sa)
+    regarding foldRight below
+    type
+    (scala.<byname>[B]) =>
+    (scala.Function2[A, <byname>[B], B]) =>
+    fpinscala.laziness.B
 
+    filled in with actual types
+    type
+    (scala.<byname>[Stream[A]]) =>
+    (scala.Function2[A, <byname>[Stream[A]], Stream[A]]) =>
+    fpinscala.laziness.Stream[A]
+     */
     foldRight(stream2)(f)
   }
   def flatMap[B](f: A => Stream[B]): Stream[B] = {

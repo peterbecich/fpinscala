@@ -382,7 +382,23 @@ object PropTests {
 }
 
 // sized generator
+
+/*
+ covariant type A occurs in invariant position in type 
+ => Int => fpinscala.testing.Gen[A] of value g
+ case class SGen[+A](g: Int => Gen[A]){...
+                     ^
+ Given A >: B  (Number >: Double)
+ SGen[A] >: SGen[B]  (SGen[Number] >: SGen[Double])
+
+ but in function g
+ Gen[A] and Gen[B] have no relation
+ or
+ (Int => Gen[A]) and (Int => Gen[B]) have no relation
+ */
 case class SGen[+A](g: Int => Gen[A]){
+// want covariance
+//case class SGen[A >: B](g: Int => Gen[A]){
   // from answers...
   def apply(n: Int): Gen[A] = g(n)
 
