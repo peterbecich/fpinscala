@@ -44,9 +44,34 @@ trait Stream[+A] {
 //  def _headOption: Option[A] = foldRight
 
   // could easily run forever
+
+
+  /*
+   Understandable...
+   scala> fpinscala.laziness.Stream.from(4).toList
+   java.lang.StackOverflowError
+   at fpinscala.laziness.Stream$$anonfun$from$1.apply(Stream.scala:260)
+   at fpinscala.laziness.Stream$$anonfun$from$1.apply(Stream.scala:260)
+   at fpinscala.laziness.Stream$.head$lzycompute$1(Stream.scala:220)
+   at fpinscala.laziness.Stream$.fpinscala$laziness$Stream$$head$1(Stream.scala:220)
+   at fpinscala.laziness.Stream$$anonfun$cons$1.apply(Stream.scala:222)
+   at fpinscala.laziness.Stream$class.toList(Stream.scala:49)
+   at fpinscala.laziness.Cons.toList(Stream.scala:216)
+   at fpinscala.laziness.Stream$class.toList(Stream.scala:49)
+   */
   def toList: List[A] = this match {
     case Empty => List[A]()
     case Cons(h, t) => h() :: t().toList
+  }
+  def toListFinite(n: Int): List[A] = {
+    // def f(a: A, la: => List[A]): List[A] = a::la
+    // foldRight(List[A]())(f)
+    this match {
+      case Empty => List[A]()
+      case Cons(h, t) if n>0 => h() :: t().toListFinite(n-1)
+      case _ => List[A]()
+    }
+
   }
 
 
