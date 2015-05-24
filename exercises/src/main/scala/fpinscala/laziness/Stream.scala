@@ -218,10 +218,16 @@ trait Stream[+A] {
     }
   }
 
-  def zip[B](sb: fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[(A,B)] = {
+  // runtime error here!
+  def zip[B](sb: fpinscala.laziness.Stream[B]):
+      fpinscala.laziness.Stream[(A,B)] = {
     val sa: fpinscala.laziness.Stream[A] = this
-    val streamMonad = fpinscala.monads.Monad.streamMonad
-    val product: fpinscala.laziness.Stream[Tuple2[A,B]] = streamMonad.product(sa, sb)
+    val streamMonad: Monad[fpinscala.laziness.Stream] =
+      fpinscala.monads.Monad.streamMonad
+    val product: fpinscala.laziness.Stream[Tuple2[A,B]] =
+      streamMonad.product(sa, sb)
+    println("zip product")
+    product.feedback
     product
   }
 
@@ -328,6 +334,10 @@ object StreamTests {
     println(noLetters)
     println("to list of length 20")
     println(noLetters.toListFinite(20))
+
+    println("zipping")
+    val zipped: Stream[(Int,Int)] = Stream.from(1).zip(Stream._fibs)
+
 
 
   }
