@@ -71,9 +71,9 @@ trait Stream[+A] {
       case Cons(h, t) if n>0 => h() :: t().toListFinite(n-1)
       case _ => List[A]()
     }
-
   }
-
+  def feedback: Unit = 
+    println(this.toListFinite(10))
 
 
   def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
@@ -296,3 +296,41 @@ object Stream {
 
 
 }
+
+object StreamTests {
+  def main(args: Array[String]): Unit = {
+    println("some Fibonacci numbers")
+    /*
+     Note that _fibs.toList(10) did not produce a compiler error,
+     even though no function toList(Int) exists.
+     I think this is because the type system assumes (10) is an application
+     to a function that toList will become, at some point.
+     How is this not known to be untrue at compile time?
+     */
+    println(Stream._fibs.toListFinite(10))
+
+    // println("Fibonacci numbers mapped to Chars")
+    // println(Stream._fibs.map((i: Int) => i.toChar).toListFinite(20))
+    // println(Stream.from(1).map(_.toChar).toListFinite(70))
+
+    val asciiNumbers = (65 to 91).toList
+    println("test of unfold")
+    val f: Int => Option[(Char, Int)] = 
+      (i: Int) => if(i>=65 && i<=90) Some((i.toChar, i+1)) else None
+
+    val letters: Stream[Char] = Stream.unfold(65)(f)
+    println(letters)
+    println("to list of length 20")
+    println(letters.toListFinite(20))
+
+    println("no letters")
+    val noLetters: Stream[Char] = Stream.unfold(20)(f)
+    println(noLetters)
+    println("to list of length 20")
+    println(noLetters.toListFinite(20))
+
+
+  }
+
+}
+

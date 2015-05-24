@@ -92,13 +92,43 @@ object Prop {
     }
 
   // forALl for Gen[A] from answers
-  def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop (
-    (max: Int, n: Int, rng: RNG) => randomStream(as)(rng).zip(Stream.from(0)).take(n).map {
-      case (a, i) => try {
-        if (f(a)) Passed else Falsified(a.toString, i)
-      } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
-    }.find(_.isFalsified).getOrElse(Passed)
-  )
+  def forAll[A](as: Gen[A])(f: A => Boolean): Prop = {
+    val g: (MaxSize, TestCases, RNG) => Result = 
+      (max: Int, n: Int, rng: RNG) => {
+        val streamA: Stream[A] = 
+          randomStream(as)(rng)
+        println("Stream[A]")
+        streamA.feedback
+
+        val streamAInt: Stream[(A, Int)] =
+          streamA.zip(Stream.from(0))
+        println("Stream[(A, Int)]")
+        streamAInt.feedback
+
+        // 'take' is, I think, makes a lazy stream strict, up to 'n' nodes
+        val taken: Stream[(A, Int)] = 
+          streamAInt.take(n)
+        println("taken")
+        taken.feedback
+
+        val streamResult: Stream[Result] = 
+          streamAInt.map {
+            case (a, i) => try {
+              if (f(a)) Passed else Falsified(a.toString, i)
+            } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
+        }
+        println("Stream[Result]")
+        streamResult.feedback
+
+        val aggregatedResult: Result =
+          streamResult.find(_.isFalsified).getOrElse(Passed)
+
+        println("Result: "+aggregatedResult)
+        aggregatedResult
+      }
+  
+    Prop(g)
+  }
 
 
 
@@ -282,6 +312,15 @@ object Gen {
     val genInt: Gen[Int] = Gen(stateInt)
     genInt
   }
+
+  // make a generator of incrementing ints
+  // def genInt: Gen[Int] = {
+  //   val stateInt: State.Rand[Int] = State {
+  //     (rng: RNG) => RNG.chooseInt(rng)(start, stopExclusive)
+  //   }
+  //   Gen(stateInt)
+  // }
+
   def chooseDouble(start: Double, stopExclusive: Double): Gen[Double] = {
     val stateDouble: State.Rand[Double] = State {
       (rng: RNG) => RNG.chooseDouble(rng)(start, stopExclusive)
@@ -347,33 +386,99 @@ object Gen {
 }
 
 object PropTests {
+
+  val chooseGenInt: Gen[Int] = Gen.choose(5, 30)
+  val simpleRNG: RNG = RNG.Simple(123)
+
+  val randomIntStream: Stream[Int] =
+    Prop.randomStream(chooseGenInt)(simpleRNG)
+
+  val chosenIntRangeProp: Prop =
+    Prop.forAll(chooseGenInt)((i: Int) => (i>=5 && i<30))
+
+  val simpleProp = Prop(
+    (maxSize: Int, testCases: Int, rng: RNG) => Prop.Passed
+  )
+
   def main(args: Array[String]): Unit = {
     val ES: ExecutorService = Executors.newCachedThreadPool
+
+    /*
+     big runtime error with Stream.
+
+     [error] (run-main-6) java.lang.StackOverflowError
+     java.lang.StackOverflowError
+     at fpinscala.laziness.Stream$.from(Stream.scala:275)
+     at fpinscala.laziness.Stream$$anonfun$from$2.apply(Stream.scala:275)
+     at fpinscala.laziness.Stream$$anonfun$from$2.apply(Stream.scala:275)
+     at fpinscala.laziness.Stream$.tail$lzycompute$1(Stream.scala:236)
+     at fpinscala.laziness.Stream$.fpinscala$laziness$Stream$$tail$1(Stream.scala:236)
+     at fpinscala.laziness.Stream$$anonfun$cons$2.apply(Stream.scala:237)
+     at fpinscala.laziness.Stream$$anonfun$cons$2.apply(Stream.scala:237)
+     at fpinscala.laziness.Stream$$anonfun$foldRight$1.apply(Stream.scala:15)
+     at fpinscala.laziness.Stream$class.g$2(Stream.scala:181)
+     at fpinscala.laziness.Stream$$anonfun$flatMap$2.apply(Stream.scala:182)
+     at fpinscala.laziness.Stream$$anonfun$flatMap$2.apply(Stream.scala:182)
+     at fpinscala.laziness.Stream$class.foldRight(Stream.scala:15)
+     at fpinscala.laziness.Cons.foldRight(Stream.scala:231)
+     at 
+
+
+     */
+
+    /*
+     These don't exist *until* main is run!
+     One of the differences between a def and val.
+
+     scala> PropTests.main(Array[String]()).chooseGenInt
+     <console>:9: error: value chooseGenInt is not a member of Unit
+     PropTests.main(Array[String]()).chooseGenInt
+                                     ^
+     */
+
+    // val chooseGenInt: Gen[Int] = Gen.choose(5, 30)
+    // val simpleRNG: RNG = RNG.Simple(123)
+
+    // val randomIntStream: Stream[Int] = 
+    //   Prop.randomStream(chooseGenInt)(simpleRNG)
+    println("random int stream")
+    println(randomIntStream.toListFinite(15))
+
+    // val chosenIntRangeProp: Prop = 
+    //   Prop.forAll(chooseGenInt)((i: Int) => (i>=5 && i<30))
+
+    // runtime error
+    Prop.run(chosenIntRangeProp)
+
+    // runtime error
+    //val result: Result = chosenIntRangeProp.run(5,5,simpleRNG)
+
+
     /*
      In this example, Prop.forAll takes in a Gen that will only ever
      generate one value -- Par.unit(1).
      How will Prop.forAll handle a generator that generates many Pars?
      */
-    val parAdditionProp = Prop.forAll(Gen.unit(Par.unit(1))){
-      (pi: Par[Int]) => {
-        Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
-      }
-    }
-    Prop.run(parAdditionProp)
+    // val parAdditionProp: Prop = Prop.forAll(Gen.unit(Par.unit(1))){
+    //   (pi: Par[Int]) => {
+    //     Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
+    //   }
+    // }
+    // Prop.run(parAdditionProp)
 
-    val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
-      (i: Int) => i > 0
-    }
-    Prop.run(randomsAboveZeroProp)
+    // val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
+    //   (i: Int) => i > 0
+    // }
+    // Prop.run(randomsAboveZeroProp)
 
-    val smallInt: Gen[Int] = Gen.choose(-10,10)
-    val smallIntProp: Prop = forAll(Gen.listOf(smallInt)) {
-      (la: List[Int]) => {
-        val max = la.max
-        !la.exists((i: Int) => i>max)
-      }
-    }
-    Prop.run(smallIntProp)
+    // val smallInt: Gen[Int] = Gen.choose(-10,10)
+    // val smallIntProp: Prop = forAll(Gen.listOf(smallInt)) {
+    //   (la: List[Int]) => {
+    //     val max = la.max
+    //     !la.exists((i: Int) => i>max)
+    //   }
+    // }
+    // Prop.run(smallIntProp)
 
     ES.shutdown()
   }

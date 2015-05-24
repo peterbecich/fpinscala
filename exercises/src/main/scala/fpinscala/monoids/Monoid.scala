@@ -757,10 +757,30 @@ object MonoidTest {
     val wcMonoidProp: Prop = 
       Monoid.monoidLaws(Monoid.wcMonoid, genWC)
 
-    // println("wc monoid prop")
-    // println(wcMonoidProp)
-    // // val checked = wcMonoidProp.check
-    // // println(checked)
+    println("wc monoid prop")
+    println(wcMonoidProp)
+    // val checked = wcMonoidProp.check
+    // println(checked)
+
+    //val result = Prop.run(wcMonoidProp, 100, 100)
+
+    val countAndSumMonoid: Monoid[(Int, Int)] = Monoid.productMonoid(
+      Monoid.intAddition, Monoid.intAddition
+    )
+    val countAndSum: (Int, Int) = 
+      ListFoldable.foldMap(nums){
+        (i: Int) => (1,i): Tuple2[Int,Int]
+      }(countAndSumMonoid)
+    println("length of nums: "+countAndSum._1)
+    println("sum of nums: "+countAndSum._2)
+
+    // count and sum with no use of List Foldable
+    val countAndSumPrimitive: (Int, Int) = 
+      Monoid._foldMap(nums, countAndSumMonoid){(i: Int) => (1,i)}
+    println("same result from Monoid's own _foldMap method.")
+    println("length of nums: "+countAndSumPrimitive._1)
+    println("sum of nums: "+countAndSumPrimitive._2)
+
 
   }
 }

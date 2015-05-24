@@ -35,10 +35,18 @@ object RNG {
     }
 
   def chooseInt(rng: RNG)(start: Int, stopExclusive: Int): (Int, RNG) = {
+    //println(start + " to " + stopExclusive)
     val (nextNonNegativeInt, nextRNG) = RNG.nonNegativeInt(rng)
     val scale: Double = (nextNonNegativeInt.toDouble/Int.MaxValue)
-    //val nextChosenInt = start + (stopExclusive-start)*scale
-    val nextChosenInt: Int = (stopExclusive*scale - (start-1)*scale).toInt
+    //println("scale: "+scale)
+    //val nextChosenInt: Int = (start + (stopExclusive-start)*scale).toInt
+    val nextChosenInt: Int = 
+      (start + stopExclusive*scale - start*scale).toInt
+
+    // probably a casting necessary somewhere in here
+    // val nextChosenInt: Int = 
+    //   (stopExclusive*scale - (start-1)*scale).toInt
+    //println(nextChosenInt)
     // is this exclusive on the upper bound?
     (nextChosenInt, nextRNG)
   }
