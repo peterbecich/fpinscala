@@ -188,9 +188,9 @@ trait Functor[F[_]] {
     case Left(fa) => map(fa)(Left(_))
     case Right(fb) => map(fb)(Right(_))
   }
-  // def zip[A,B](fa: F[A], fb: F[B]): F[(A,B)] = {
-  //   fa.flatMap
-  // }
+
+  // How to do this without flatMap??  Functor has no flatMap.
+  //def zip[A,B](fa: F[A], fb: F[B]): F[(A,B)]
 }
 
 object Functor {
@@ -468,9 +468,30 @@ trait Monad[M[_]] extends Functor[M] {
     }
   }
 
-  // a.k.a. zip
+  /*
+   'product' is *not* 'zip'
+   It is the Cartesion product
+   */
   def product[A,B](ma: M[A], mb: M[B]): M[(A, B)] =
     this.map2(ma, mb)((a: A, b: B) => (a,b): Tuple2[A,B])
+
+
+  def zip[A,B](fa: M[A], fb: M[B]): M[(A,B)] = {
+/*
+ This is also the Cartesian product...
+ Want List(1,2,3,4,5).zip(List(a,b,c)) = List((1,a),(2,b),(3,c))
+
+    this.flatMap(fa){(a: A) => {
+      this.map(fb){(b: B) => {
+        (a,b)
+      }
+      }
+    }
+*/
+
+    }//: M[Tuple2[A,B]]
+  }
+
 
   /*
    Imagine the uses of filterM.
@@ -638,6 +659,7 @@ object MonadTest {
     val mapped = Monad.listMonad.map(ll)((i: Int) => i + 1)
     println(ll)
     println(mapped)
+    println("product")
     val llProduct = Monad.listMonad.product(ll, ll2)
     println(llProduct)
 

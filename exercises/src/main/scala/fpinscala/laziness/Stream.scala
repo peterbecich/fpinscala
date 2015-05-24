@@ -212,8 +212,9 @@ trait Stream[+A] {
      */
     val streamMonad: fpinscala.monads.Monad[fpinscala.laziness.Stream] =
       fpinscala.monads.Monad.streamMonad
-    val product: fpinscala.laziness.Stream[Tuple2[A,B]] = streamMonad.product(sa1, sa2)
-    product.forAll{
+    val zipped: fpinscala.laziness.Stream[Tuple2[A,B]] =
+      streamMonad.zip(sa1, sa2)
+    zipped.forAll{
       (tpl: Tuple2[A,B]) => tpl._1 == tpl._2
     }
   }
@@ -224,11 +225,11 @@ trait Stream[+A] {
     val sa: fpinscala.laziness.Stream[A] = this
     val streamMonad: Monad[fpinscala.laziness.Stream] =
       fpinscala.monads.Monad.streamMonad
-    val product: fpinscala.laziness.Stream[Tuple2[A,B]] =
-      streamMonad.product(sa, sb)
-    println("zip product")
-    product.feedback
-    product
+    val zipped: fpinscala.laziness.Stream[Tuple2[A,B]] =
+      streamMonad.zip(sa, sb)
+    println("zipped")
+    zipped.feedback
+    zipped
   }
 
 
