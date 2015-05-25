@@ -287,6 +287,7 @@ object Mon {
    trait
    fpinscala.monads.Mon$$monOption[A]
    */
+  // Collection's Option
   trait monOption[A] extends Mon[Option] {
     def unit(a: => A): Option[A] = Some(a)
     def flatMap[B](oa: Option[A])(f: A => Option[B]) =
@@ -382,6 +383,9 @@ trait Monad[M[_]] extends Functor[M] {
 
   // unit and flatMap left abtract, as they were in Mon
   def unit[A](a: => A): M[A]
+  // object unit {
+  //   def unapply[A](ma: M[A]): A
+  // }
 
   def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B]
 
@@ -476,22 +480,36 @@ trait Monad[M[_]] extends Functor[M] {
     this.map2(ma, mb)((a: A, b: B) => (a,b): Tuple2[A,B])
 
 
-  def zip[A,B](fa: M[A], fb: M[B]): M[(A,B)] = {
-/*
- This is also the Cartesian product...
- Want List(1,2,3,4,5).zip(List(a,b,c)) = List((1,a),(2,b),(3,c))
+  // def zip[A,B](fa: M[A], fb: M[B]): M[(A,B)] = {
+    /*
+     M[A], M[B] => M[(A,B)]
+     type is identical to 'product', but not the effect
+     Want List(1,2,3,4,5).zip(List(a,b,c)) = List((1,a),(2,b),(3,c))
+     Or Option(1).zip(Option("a")) = Option((1,"a"))
+     */
+    // this.flatMap(fa){(a: A) => {
+    //   this.flatMap(fb){(b: B) => {
+    //     this.unit((a,b))
+    //   }
+    //   }
+    // }
+    // }
+    // ensures output list is of correct length (may be list of lists)
+    // this.map(fa){(a: A) => {
 
-    this.flatMap(fa){(a: A) => {
-      this.map(fb){(b: B) => {
-        (a,b)
-      }
-      }
-    }
-*/
 
-    }//: M[Tuple2[A,B]]
-  }
+    /*
+     This is also the Cartesian product...
+     
 
+     this.flatMap(fa){(a: A) => {
+     this.map(fb){(b: B) => {
+     (a,b)
+     }
+     }
+     }
+     */
+  // }
 
   /*
    Imagine the uses of filterM.
@@ -656,12 +674,17 @@ object MonadTest {
     // val ll2 = (10 to 20).toList
     val ll = List(1,2,3,4,5,6)
     val ll2 = List(4,5,6,7,8,9)
+    val oi: Option[Int] = Some(4)
+    val os: Option[String] = Some("foobar")
     val mapped = Monad.listMonad.map(ll)((i: Int) => i + 1)
     println(ll)
     println(mapped)
     println("product")
     val llProduct = Monad.listMonad.product(ll, ll2)
     println(llProduct)
+    println("zipped")
+    println(Monad.listMonad.zip(ll,ll2))
+    println(Monad.optionMonad.zip(oi,os))
 
 
     println("---------------------------")

@@ -223,12 +223,19 @@ trait Stream[+A] {
   def zip[B](sb: fpinscala.laziness.Stream[B]):
       fpinscala.laziness.Stream[(A,B)] = {
     val sa: fpinscala.laziness.Stream[A] = this
-    val streamMonad: Monad[fpinscala.laziness.Stream] =
-      fpinscala.monads.Monad.streamMonad
-    val zipped: fpinscala.laziness.Stream[Tuple2[A,B]] =
-      streamMonad.zip(sa, sb)
-    println("zipped")
-    zipped.feedback
+    // Monad has no zip method
+    // val streamMonad: Monad[fpinscala.laziness.Stream] =
+    //   fpinscala.monads.Monad.streamMonad
+    // val zipped: fpinscala.laziness.Stream[Tuple2[A,B]] =
+    //   streamMonad.zip(sa, sb)
+    // println("zipped")
+    // zipped.feedback
+    def zipHelper(streamA: Stream[A], streamB: Stream[B]): 
+        Stream[(A,B)] = {
+      (streamA, streamB) match {
+        Cons
+    }
+
     zipped
   }
 
