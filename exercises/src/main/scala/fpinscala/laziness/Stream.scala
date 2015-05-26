@@ -10,7 +10,7 @@ trait Stream[+A] {
   //foo
   //bar
 
-  def foldRight[B](z: => B)(f: (A, => B) => B): B = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
+  def foldRight[B, C>:B](z: => B)(f: (A, => C) => C): C = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match {
       case Cons(h,t) => f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
@@ -30,14 +30,39 @@ trait Stream[+A] {
   def exists(p: A => Boolean): Boolean = 
     foldRight(false)((a, b) => p(a) || b) // Here `b` is the unevaluated recursive step that folds the tail of the stream. If `p(a)` returns `true`, `b` will never be evaluated and the computation terminates early.
 
-  @annotation.tailrec
-  final def find(f: A => Boolean): Option[A] = this match {
-    case Empty => None
-    case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
-  }
+  // @annotation.tailrec
+  final def find(f: A => Boolean): Option[A] =
+    foldRight(None){(a: A, oa: Option[A]) => oa match {
+      case Some(a) => Some(a)
+      case None => if(f(a)==true) Some(a) else None
+    }
+    }
+
+  // this match {
+  //   case fpinscala.laziness.Stream.cons(h, t) if f(h)==true => {
+  //     println("true")
+  //     Some(h)
+  //   }
+  //   case fpinscala.laziness.Stream.cons(h, t) if f(h)==false => {
+  //     println("false")
+  //     t.find(f)
+  //   }
+  //   case _ => None
+  // }
   def take(n: Int): fpinscala.laziness.Stream[A] = this match {
-    case Empty => fpinscala.laziness.Stream.empty[A]
-    case Cons(h, t) => Cons(h, ()=>take(n-1)) // is laziness preserved here?
+    // case Empty => fpinscala.laziness.Stream.empty[A]
+    // case Cons(h, t) => Cons(h, ()=>take(n-1)) // is laziness preserved 
+    //  here?
+    case fpinscala.laziness.Stream.cons(h, t) =>
+      fpinscala.laziness.Stream.cons(h, t.take(n-1))
+    case _ => fpinscala.laziness.Stream.empty
+  }
+  def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
+    case fpinscala.laziness.Stream.cons(h, t) if n>0 =>
+      t.drop(n-1)
+    case fpinscala.laziness.Stream.cons(h, t) if n==0 =>
+      fpinscala.laziness.Stream.cons(h, t)
+    case _ => fpinscala.laziness.Stream.empty
   }
 
   def headOption: Option[A] = find((a: A) => true)
@@ -76,11 +101,11 @@ trait Stream[+A] {
     println(this.toListFinite(10))
 
 
-  def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
-    case Empty => empty[A]
-    case Cons(h, t) if n>0 => t().drop(n-1)
-    case Cons(h, t) => t()
-  }
+  // def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
+  //   case Empty => empty[A]
+  //   case Cons(h, t) if n>0 => t().drop(n-1)
+  //   case Cons(h, t) => t()
+  // }
 
 
 

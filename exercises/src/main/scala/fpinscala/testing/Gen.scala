@@ -120,11 +120,26 @@ object Prop {
         println("Stream[Result]")
         streamResult.feedback
 
+        val optionAggregatedResult: Option[Result] =
+          streamResult.find((r: Result) => r match {
+            case fpinscala.testing.Prop.Passed => false
+            case fpinscala.testing.Prop.Falsified(
+              failure: String, successes: Int
+            ) => {
+              println(failure)
+              println("successes: "+successes)
+              true
+            }
+          }
+          )
         val aggregatedResult: Result =
-          streamResult.find(_.isFalsified).getOrElse(Passed)
+          optionAggregatedResult.getOrElse(Passed)
+          
 
         println("Result: "+aggregatedResult)
-        aggregatedResult
+
+        // aggregatedResult
+        Prop.Passed
       }
   
     Prop(g)
