@@ -93,11 +93,11 @@ object Monoid {
     val la0: Gen[List[A]] = Gen.listOfN(3, gen)
     val associative: Prop = Prop.forAll(la0){
       (la: List[A]) => {
-        val a0 = la(0)
-        val a1 = la(1)
-        val a2 = la(2)
-        val left = m.op(a0, m.op(a1, a2))
-        val right = m.op(m.op(a0, a1), a2)
+        val a0: A = la(0)
+        val a1: A = la(1)
+        val a2: A = la(2)
+        val left: A = m.op(a0, m.op(a1, a2))
+        val right: A = m.op(m.op(a0, a1), a2)
         left == right
       }
     }
@@ -107,8 +107,8 @@ object Monoid {
         // shouldn't be necessary to test left because
         // associativity is tested above
         // ^^ that is commutivity, not associativity
-        val right = m.op(a, m.zero)
-        val left = m.op(m.zero, a)
+        val right: A = m.op(a, m.zero)
+        val left: A = m.op(m.zero, a)
         (right == a) && (left == a)
       }
     }
@@ -762,7 +762,9 @@ object MonoidTest {
     // val checked = wcMonoidProp.check
     // println(checked)
 
-    //val result = Prop.run(wcMonoidProp, 100, 100)
+    val result = Prop.run(wcMonoidProp, 10, 10)
+    println("wc monoid prop")
+    println(result)
 
     val countAndSumMonoid: Monoid[(Int, Int)] = Monoid.productMonoid(
       Monoid.intAddition, Monoid.intAddition

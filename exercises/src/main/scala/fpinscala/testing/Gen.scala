@@ -114,31 +114,36 @@ object Prop {
         taken.feedback
 
         val streamResult: Stream[Result] = 
-          streamAInt.map {
-            case (a, i) => try {
+          taken.map {(tpl: Tuple2[A,Int]) => {
+            val a: A = tpl._1
+            val i: Int = tpl._2
+            println(i)
+            val result: Result = try {
               if (f(a)) Passed else Falsified(a.toString, i)
             } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
-        }
+            result
+          }: Result
+          }: Stream[Result]
         println("Stream[Result]")
         streamResult.feedback
 
-        val optionAggregatedResult: Option[Result] =
-          streamResult.find((r: Result) => r match {
-            case fpinscala.testing.Prop.Passed => false
-            case fpinscala.testing.Prop.Falsified(
-              failure: String, successes: Int
-            ) => {
-              println(failure)
-              println("successes: "+successes)
-              true
-            }
-          }
-          )
-        val aggregatedResult: Result =
-          optionAggregatedResult.getOrElse(Passed)
+        // val optionAggregatedResult: Option[Result] =
+        //   streamResult.find((r: Result) => r match {
+        //     case fpinscala.testing.Prop.Passed => false
+        //     case fpinscala.testing.Prop.Falsified(
+        //       failure: String, successes: Int
+        //     ) => {
+        //       println(failure)
+        //       println("successes: "+successes)
+        //       true
+        //     }
+        //   }
+        //   )
+        // val aggregatedResult: Result =
+        //   optionAggregatedResult.getOrElse(Passed)
           
 
-        println("Result: "+aggregatedResult)
+        // println("Result: "+aggregatedResult)
 
         // aggregatedResult
         Prop.Passed

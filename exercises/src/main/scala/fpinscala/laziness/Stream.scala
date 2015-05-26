@@ -33,32 +33,40 @@ trait Stream[+A] {
   def exists(p: A => Boolean): Boolean = 
     foldRight(false)((a, b) => p(a) || b) // Here `b` is the unevaluated recursive step that folds the tail of the stream. If `p(a)` returns `true`, `b` will never be evaluated and the computation terminates early.
 
-  // @annotation.tailrec
-  final def find(f: A => Boolean): Option[A] =
-    foldRight(None){(a: A, oa: Option[A]) => oa match {
-      case Some(a) => Some(a)
-      case None => if(f(a)==true) Some(a) else None
-    }
-    }
 
-  // this match {
-  //   case fpinscala.laziness.Stream.cons(h, t) if f(h)==true => {
-  //     println("true")
-  //     Some(h)
+  // {
+  //   def g(a: A, oa: Option[A]): Option[A] = oa match {
+  //     case Some(a) => Some(a)
+  //     case None => if(f(a)==true) Some(a) else None
   //   }
-  //   case fpinscala.laziness.Stream.cons(h, t) if f(h)==false => {
-  //     println("false")
-  //     t.find(f)
-  //   }
-  //   case _ => None
+  //   foldRight()(g)
   // }
+
+  /*
+   Tail is being evaluated strictly, leading to endless loop,
+   I think
+   */
+  //@annotation.tailrec
+  final def find(f: A => Boolean): Option[A] = this match {
+    case Stream.cons(h, t) => {
+      println("h: "+h)
+      val found: Option[A] = if(f(h)==true) Some(h) else t.find(f)
+      found
+    }
+    case _ => None
+  }
+
+  /*
+   The purpose of 'take' is to insert a Stream.empty at the nth node.
+   */
   def take(n: Int): fpinscala.laziness.Stream[A] = this match {
     // case Empty => fpinscala.laziness.Stream.empty[A]
     // case Cons(h, t) => Cons(h, ()=>take(n-1)) // is laziness preserved 
     //  here?
-    case fpinscala.laziness.Stream.cons(h, t) =>
+    case fpinscala.laziness.Stream.cons(h, t) if n>0 =>
       fpinscala.laziness.Stream.cons(h, t.take(n-1))
-    case _ => fpinscala.laziness.Stream.empty
+    case _ if n==0 => Stream.empty
+    case _ => Stream.empty
   }
   def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
     case fpinscala.laziness.Stream.cons(h, t) if n>0 =>
@@ -102,7 +110,7 @@ trait Stream[+A] {
     }
   }
   def feedback: Unit = 
-    println(this.toListFinite(10))
+    println(this.toListFinite(150))
 
 
   // def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
@@ -127,7 +135,7 @@ trait Stream[+A] {
   def map[B](f: A => B): fpinscala.laziness.Stream[B] = {
     def g(a: A, sb: => fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[B] =
       fpinscala.laziness.Stream.cons(f(a), map(f))
-    //                                       ^ f(a) not calculated
+    //                               ^ f(a) not calculated
     //                                until function called;
     //                                signature is: () => fpinscala.laziness.Stream[B]
 
@@ -208,7 +216,7 @@ trait Stream[+A] {
   }
   def flatMap[B](f: A => fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[B] = {
     def g(a: A, sb: => fpinscala.laziness.Stream[B]) = f(a).append(sb)
-    foldRight(empty[B])(g)
+    foldRight(Stream.empty[B])(g)
   }
 
 
@@ -381,7 +389,9 @@ object StreamTests {
 
     // println("Fibonacci numbers mapped to Chars")
     // println(Stream._fibs.map((i: Int) => i.toChar).toListFinite(20))
-    // println(Stream.from(1).map(_.toChar).toListFinite(70))
+
+    println("numbers to ASCII")
+    println(Stream.from(1).map(_.toChar).toListFinite(70))
 
     val asciiNumbers = (65 to 91).toList
     println("test of unfold")
@@ -418,6 +428,11 @@ object StreamTests {
     println(Stream._fibs.toListFinite(10))
     println(letters.startsWith(Stream._fibs))
 
+    println("find char M")
+    println(letters.find((c: Char) => {c=='&'}))
+
+    println("find number 100")
+    println(Stream.from(105).find((i: Int) => {i==100}))
 
 
   }
