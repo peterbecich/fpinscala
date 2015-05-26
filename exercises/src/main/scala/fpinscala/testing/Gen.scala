@@ -99,54 +99,54 @@ object Prop {
       (max: Int, n: Int, rng: RNG) => {
         val streamA: Stream[A] = 
           randomStream(as)(rng)
-        println("Stream[A]")
-        streamA.feedback
+        // println("Stream[A]")
+        //streamA.feedback
 
         val streamAInt: Stream[(A, Int)] =
           streamA.zip(Stream.from(0))
-        println("Stream[(A, Int)]")
-        streamAInt.feedback
+        // println("Stream[(A, Int)]")
+        //streamAInt.feedback
 
         // 'take' is, I think, makes a lazy stream strict, up to 'n' nodes
         val taken: Stream[(A, Int)] = 
           streamAInt.take(n)
-        println("taken")
-        taken.feedback
+        // println("taken")
+        //taken.feedback
 
         val streamResult: Stream[Result] = 
           taken.map {(tpl: Tuple2[A,Int]) => {
             val a: A = tpl._1
             val i: Int = tpl._2
-            println(i)
+            // println(i)
             val result: Result = try {
               if (f(a)) Passed else Falsified(a.toString, i)
             } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
             result
           }: Result
           }: Stream[Result]
-        println("Stream[Result]")
-        streamResult.feedback
+        // println("Stream[Result]")
+        //streamResult.feedback
 
-        // val optionAggregatedResult: Option[Result] =
-        //   streamResult.find((r: Result) => r match {
-        //     case fpinscala.testing.Prop.Passed => false
-        //     case fpinscala.testing.Prop.Falsified(
-        //       failure: String, successes: Int
-        //     ) => {
-        //       println(failure)
-        //       println("successes: "+successes)
-        //       true
-        //     }
-        //   }
-        //   )
-        // val aggregatedResult: Result =
-        //   optionAggregatedResult.getOrElse(Passed)
+        val optionAggregatedResult: Option[Result] =
+          streamResult.find((r: Result) => r match {
+            case fpinscala.testing.Prop.Passed => false
+            case fpinscala.testing.Prop.Falsified(
+              failure: String, successes: Int
+            ) => {
+              // println(failure)
+              // println("successes: "+successes)
+              true
+            }
+          }
+          )
+        val aggregatedResult: Result =
+          optionAggregatedResult.getOrElse(Passed)
           
 
         // println("Result: "+aggregatedResult)
 
-        // aggregatedResult
-        Prop.Passed
+        aggregatedResult
+        // Prop.Passed
       }
   
     Prop(g)

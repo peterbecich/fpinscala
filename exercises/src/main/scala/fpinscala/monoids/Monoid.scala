@@ -762,9 +762,8 @@ object MonoidTest {
     // val checked = wcMonoidProp.check
     // println(checked)
 
-    val result = Prop.run(wcMonoidProp, 10, 10)
-    println("wc monoid prop")
-    println(result)
+    Prop.run(wcMonoidProp, 10, 10)
+
 
     val countAndSumMonoid: Monoid[(Int, Int)] = Monoid.productMonoid(
       Monoid.intAddition, Monoid.intAddition

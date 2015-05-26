@@ -49,7 +49,7 @@ trait Stream[+A] {
   //@annotation.tailrec
   final def find(f: A => Boolean): Option[A] = this match {
     case Stream.cons(h, t) => {
-      println("h: "+h)
+      // println("h: "+h)
       val found: Option[A] = if(f(h)==true) Some(h) else t.find(f)
       found
     }
@@ -133,13 +133,13 @@ trait Stream[+A] {
   // foldRight(=>fpinscala.laziness.Stream[B])((A, =>fpinscala.laziness.Stream[B])=>fpinscala.laziness.Stream[B])
 
   def map[B](f: A => B): fpinscala.laziness.Stream[B] = {
-    def g(a: A, sb: => fpinscala.laziness.Stream[B]): fpinscala.laziness.Stream[B] =
-      fpinscala.laziness.Stream.cons(f(a), map(f))
-    //                               ^ f(a) not calculated
-    //                                until function called;
-    //                                signature is: () => fpinscala.laziness.Stream[B]
+    def g(a: A, sb: => fpinscala.laziness.Stream[B]):
+        fpinscala.laziness.Stream[B] =
+      fpinscala.laziness.Stream.cons(f(a), sb)
+    //                                     ^
+    // Big mistake to call the next iteration of 'map' here.
+    // That shows a misunderstanding of the use of 'fold', left or right
 
-    // 
     foldRight(Stream.empty[B])(g)
   }
 
@@ -414,6 +414,8 @@ object StreamTests {
     println(zipped.toListFinite(20))
 
     val zippedletters: Stream[(Int,Char)] = Stream.from(1).zip(letters)
+
+    println("zipped letters")
     println(zippedletters.toListFinite(20))
 
     println("starts with")
@@ -431,8 +433,8 @@ object StreamTests {
     println("find char M")
     println(letters.find((c: Char) => {c=='&'}))
 
-    println("find number 100")
-    println(Stream.from(105).find((i: Int) => {i==100}))
+    // println("find number 100")
+    // println(Stream.from(105).find((i: Int) => {i==100}))
 
 
   }
