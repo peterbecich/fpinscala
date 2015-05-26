@@ -11,6 +11,8 @@ import Prop._
 import fpinscala.laziness.Stream
 import java.util.concurrent.{Executors,ExecutorService}
 
+import scala.collection.immutable.{Stream => _}
+
 //case class Prop(run: ((PropTypes.TestCases, RNG) => PropTypes.Result))
 
 case class Prop (

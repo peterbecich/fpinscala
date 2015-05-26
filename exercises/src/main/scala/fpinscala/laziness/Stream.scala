@@ -1,8 +1,11 @@
 package fpinscala.laziness
 
-import Stream._
+//import Stream._
 import fpinscala.monads.Monad
 import fpinscala.monads.Functor
+
+import scala.collection.immutable.{Stream => _}
+
 
 trait Stream[+A] {
 
@@ -10,9 +13,9 @@ trait Stream[+A] {
   //foo
   //bar
 
-  def foldRight[B, C>:B](z: => B)(f: (A, => C) => C): C = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
+  def foldRight[C, B<:C](z: => B)(f: (A, => C) => C): C = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match {
-      case Cons(h,t) => f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
+      case Stream.cons(h,t) => f(h, t.foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
     }
 
@@ -85,15 +88,16 @@ trait Stream[+A] {
    at fpinscala.laziness.Stream$class.toList(Stream.scala:49)
    */
   def toList: List[A] = this match {
-    case Empty => List[A]()
-    case Cons(h, t) => h() :: t().toList
+    //case Stream.empty => List[A]()
+    case Stream.cons(h, t) => h :: t.toList
+    case _ => List[A]()
   }
   def toListFinite(n: Int): List[A] = {
     // def f(a: A, la: => List[A]): List[A] = a::la
     // foldRight(List[A]())(f)
     this match {
-      case Empty => List[A]()
-      case Cons(h, t) if n>0 => h() :: t().toListFinite(n-1)
+      //case Empty => List[A]()
+      case Stream.cons(h, t) if n>0 => h :: t.toListFinite(n-1)
       case _ => List[A]()
     }
   }
@@ -128,7 +132,7 @@ trait Stream[+A] {
     //                                signature is: () => fpinscala.laziness.Stream[B]
 
     // 
-    foldRight(empty[B])(g)
+    foldRight(Stream.empty[B])(g)
   }
 
 
