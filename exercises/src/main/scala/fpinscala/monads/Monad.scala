@@ -682,9 +682,9 @@ object MonadTest {
     println("product")
     val llProduct = Monad.listMonad.product(ll, ll2)
     println(llProduct)
-    println("zipped")
-    println(Monad.listMonad.zip(ll,ll2))
-    println(Monad.optionMonad.zip(oi,os))
+    // println("zipped")
+    // println(Monad.listMonad.zip(ll,ll2))
+    // println(Monad.optionMonad.zip(oi,os))
 
 
     println("---------------------------")

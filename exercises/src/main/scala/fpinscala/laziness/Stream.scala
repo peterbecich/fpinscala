@@ -215,7 +215,7 @@ trait Stream[+A] {
     // val zipped: fpinscala.laziness.Stream[Tuple2[A,B]] =
     //   streamMonad.zip(sa1, sa2)
 
-    val zipped: Stream[(A,A)] = sa1.zip(sa2)
+    val zipped: Stream[(A,B)] = sa1.zip(sa2)
     zipped.forAll{
       (tpl: Tuple2[A,B]) => tpl._1 == tpl._2
     }
@@ -241,20 +241,17 @@ trait Stream[+A] {
           fpinscala.laziness.Stream.cons(h1,t1),
           fpinscala.laziness.Stream.cons(h2,t2)
         ) => fpinscala.laziness.Stream.cons(
-          ()=>(h1,h2), ()=>zipHelper(t1,t2)
+          (h1,h2), zipHelper(t1,t2)
         )
         case (
-          fpinscala.laziness.Empty,
-          fpinscala.laziness.Cons(h2,t2)
+          _,
+          fpinscala.laziness.Stream.cons(h2,t2)
         ) => fpinscala.laziness.Stream.empty
         case (
-          fpinscala.laziness.Cons(h1,t1),
-          fpinscala.laziness.Empty
+          fpinscala.laziness.Stream.cons(h1,t1),
+          _
         ) => fpinscala.laziness.Stream.empty
-        case (
-          fpinscala.laziness.Empty,
-          fpinscala.laziness.Empty
-        ) => fpinscala.laziness.Stream.empty
+        case (_,_) => fpinscala.laziness.Stream.empty
       }
 
     zipHelper(sa,sb)
@@ -267,12 +264,18 @@ case object Empty extends fpinscala.laziness.Stream[Nothing]
 case class Cons[+C](h: () => C, t: () => fpinscala.laziness.Stream[C]) extends fpinscala.laziness.Stream[C]
 
 object Stream {
-  def cons[C](hd: => C, tl: => fpinscala.laziness.Stream[C]): fpinscala.laziness.Stream[C] = {
+  // def cons[C](hd: => C, tl: => fpinscala.laziness.Stream[C]): fpinscala.laziness.Stream[C] = {
+  //   lazy val head = hd
+  //   lazy val tail = tl
+  //   Cons(() => head, () => tail)
+  // }
+  object cons {
+    def apply[C](hd: => C, tl: => fpinscala.laziness.Stream[C]): fpinscala.laziness.Stream[C] = {
     lazy val head = hd
     lazy val tail = tl
-    Cons(() => head, () => tail)
+    fpinscala.laziness.Cons(() => head, () => tail)
   }
-  object cons {
+
     def unapply[C](cs: fpinscala.laziness.Cons[C]):
         Option[Tuple2[C,fpinscala.laziness.Stream[C]]] =
       Some((cs.h(), cs.t()))
@@ -321,7 +324,7 @@ object Stream {
   //   Stream.cons(0,
   //     Stream.cons(1,
  
-
+v
   def unfold[A, S](z: S)(f: S => Option[(A, S)]): fpinscala.laziness.Stream[A] =
     f(z) match {
       case None => empty[A]
@@ -372,6 +375,10 @@ object StreamTests {
 
     println("zipping")
     val zipped: Stream[(Int,Int)] = Stream.from(1).zip(Stream._fibs)
+    println(zipped.toListFinite(20))
+
+    val zippedletters: Stream[(Int,Char)] = Stream.from(1).zip(letters)
+    println(zippedletters.toListFinite(20))
 
 
 
