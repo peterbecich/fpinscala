@@ -193,14 +193,11 @@ trait Stream[+A] {
    sa2: Stream[Number] <: Stream[Double].......
 
    */
-  //def startsWith[A](sa2: fpinscala.laziness.Stream[A]): Boolean = {
 
   /*
    covariant type A occurs in contravariant position in type  <: A of type B
    */
-  //def startsWith[B <: A](sa2: fpinscala.laziness.Stream[B]): Boolean = {
 
-  // fixed!!
   def startsWith[B >: A](sa2: fpinscala.laziness.Stream[B]): Boolean = {
     val sa1: fpinscala.laziness.Stream[A] = this
     /* perhaps references to Stream in this object have been intercepted
@@ -324,7 +321,7 @@ object Stream {
   //   Stream.cons(0,
   //     Stream.cons(1,
  
-v
+
   def unfold[A, S](z: S)(f: S => Option[(A, S)]): fpinscala.laziness.Stream[A] =
     f(z) match {
       case None => empty[A]
@@ -379,6 +376,18 @@ object StreamTests {
 
     val zippedletters: Stream[(Int,Char)] = Stream.from(1).zip(letters)
     println(zippedletters.toListFinite(20))
+
+    println("starts with")
+    println(letters.toListFinite(10))
+    println("and")
+    println(letters.toListFinite(10))
+    println(letters.startsWith(letters))
+
+    println("starts with")
+    println(letters.toListFinite(10))
+    println("and")
+    println(Stream._fibs.toListFinite(10))
+    println(letters.startsWith(Stream._fibs))
 
 
 
