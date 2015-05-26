@@ -13,7 +13,7 @@ trait Stream[+A] {
   //foo
   //bar
 
-  def foldRight[C, B<:C](z: => B)(f: (A, => C) => C): C = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
+  def foldRight[C, B<:C](z: => B)(f: (A, => B) => B): C = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match {
       case Stream.cons(h,t) => f(h, t.foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
