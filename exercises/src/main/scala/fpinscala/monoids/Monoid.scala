@@ -596,12 +596,20 @@ object Monoid {
 
   val wcMonoid: Monoid[WC] = new Monoid[WC] {
     // copied from answers ... 
-    def op(a: WC, b: WC) = (a, b) match {
-      case (Stub(c), Stub(d)) => Stub(c + d)
-      case (Stub(c), Part(l, w, r)) => Part(c + l, w, r)
-      case (Part(l, w, r), Stub(c)) => Part(l, w, r + c)
-      case (Part(l1, w1, r1), Part(l2, w2, r2)) =>
-        Part(l1, w1 + (if ((r1 + l2).isEmpty) 0 else 1) + w2, r2)
+    def op(a: WC, b: WC) = {
+      println("a: "+a+"\t b:"+b)
+      (a, b) match {
+        case (Stub(c), Stub(d)) => Stub(c + d)
+        case (Stub(c), Part(l, w, r)) => Part(c + l, w, r)
+        case (Part(l, w, r), Stub(c)) => Part(l, w, r + c)
+        case (
+          Part(l1, w1, r1),
+          Part(l2, w2, r2)
+        ) => {
+          val middleSpace = (if ((r1 + l2).isEmpty) 1 else 0) // 0 if middle space
+          Part(l1, w1 + middleSpace + w2, r2)
+        }
+      }
     }
     def zero: WC = Stub("")
   }
@@ -662,10 +670,14 @@ object Monoid {
     // }
     // println("fold map output: "+wc)
 
-    //val ls: List[String] = List(s) // list of length 1
+    val ls: List[String] = List(s) // list of length 1
     val wc: WC = Monoid.foldMap(lc, Monoid.wcMonoid){
-      (c: Char)=>Stub(c.toString)
+      (c: Char)=>Part("", 0, c.toString)
+      //(c: Char)=>Stub(c.toString)
     }
+    // val wc: WC = Monoid.foldMap(ls, Monoid.wcMonoid){
+    //   (st: String)=>Part(st, 0, "")
+    // }
 
 
     val counted: Int = wc match {
@@ -805,12 +817,14 @@ object MonoidTest {
     val countProp: Prop =
       Prop.forAll(genSentence){(sentence: String) => {
         val length = Monoid.count(sentence)
+        println("length: "+length)
         length >= 4 && length <= 14
       }
       }
     Prop.run(countProp, 10, 10)
 
-
+    println("Count and Sum monoid")
+    println(nums)
 
     val countAndSumMonoid: Monoid[(Int, Int)] = Monoid.productMonoid(
       Monoid.intAddition, Monoid.intAddition
