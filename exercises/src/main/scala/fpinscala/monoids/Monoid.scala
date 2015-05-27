@@ -471,7 +471,7 @@ object Monoid {
       //   val par3 = Par.map2(par1, par2)(m.op): Par[A]
       //   par3.run(es)
       // }
-      Par.map2(par1, par2)(m.op): Par[A]
+      Par.fork(Par.map2(par1, par2)(m.op)): Par[A]
     }
     def zero: Par[A] = Par.unit(m.zero)
   }
@@ -788,8 +788,11 @@ object Monoid {
     // }
 
     val singleParBag: Par[Map[A, Int]] =
-      IndexedSeqFoldable.foldMap(as){(a: A) =>
-        Par.unit(Map(a -> 1))
+      IndexedSeqFoldable.foldMap(as){(a: A) => {
+        //Par.unit(Map(a -> 1))
+        println("thread: "+Thread.currentThread().getId())
+        Par.fork(Par.unit(Map(a -> 1)))
+      }
       }(Monoid.parBagMergeMonoid)
 
     singleParBag

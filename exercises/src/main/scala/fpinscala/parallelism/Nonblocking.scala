@@ -434,6 +434,9 @@ object NonblockingExamples {
    */
 
   def parSum(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+
+    //println("parallel sum, with fork calls")
+    //
     val parLength: Par[Int] = Par.map(parInts){
       (seqInt: IndexedSeq[Int]) => seqInt.length
     }
@@ -504,8 +507,8 @@ object NonblockingExamples {
             val left: IndexedSeq[Int] = intsLeft(split)
             val right: IndexedSeq[Int] = intsRight(split)
 
-            // println("thread: "+Thread.currentThread().getId())
-            // println("left: "+left+"\t right: "+right)
+            println("thread: "+Thread.currentThread().getId())
+            println("left: "+left+"\t right: "+right)
 
             val parLeft = Par.unit(left)
             val parRight = Par.unit(right)
@@ -529,6 +532,8 @@ object NonblockingExamples {
 
 
   def parSumNoFork(parInts: Par[IndexedSeq[Int]]): Par[Int] = {
+
+    //println("parallel sum, no fork calls")
     val parLength: Par[Int] = Par.map(parInts){
       (seqInt: IndexedSeq[Int]) => seqInt.length
     }
@@ -602,6 +607,9 @@ object NonblockingExamples {
     val vec = (1 to 10).toVector
     println("no use of Par: " + NonblockingExamples.sum(vec))
 
+    println("---------------------------------------------")
+    println("with forking: parSum")
+
     val parInt: Par[Int] = NonblockingExamples.parSum(vec)
     // start computation asynchronously
     val sumInt: Int = Par.run(service)(parInt)
@@ -640,37 +648,37 @@ use of Par: 55
 
      */
 
-    println("summing 1 to 100")
-    println("service has 2 threads")
-    val service2 = Executors.newFixedThreadPool(2)
-    println(Thread.currentThread())
-    val vec2 = (1 to 100).toVector
-    println("no use of Par: " + NonblockingExamples.sum(vec2))
+    // println("summing 1 to 100")
+    // println("service has 2 threads")
+    // val service2 = Executors.newFixedThreadPool(2)
+    // println(Thread.currentThread())
+    // val vec2 = (1 to 100).toVector
+    // println("no use of Par: " + NonblockingExamples.sum(vec2))
 
-    val parInt2: Par[Int] = NonblockingExamples.parSum(vec2)
-    // start computation asynchronously
-    val sumInt2: Int = Par.run(service2)(parInt2)
+    // val parInt2: Par[Int] = NonblockingExamples.parSum(vec2)
+    // // start computation asynchronously
+    // val sumInt2: Int = Par.run(service2)(parInt2)
 
-    // block and wait for result with .get
-    println("use of Par: "+sumInt2)
+    // // block and wait for result with .get
+    // println("use of Par: "+sumInt2)
 
-    service2.shutdown()
+    // service2.shutdown()
 
-    println("summing 1 to 1000")
-    println("service has 50 threads")
-    val service3 = Executors.newFixedThreadPool(50)
-    println(Thread.currentThread())
-    val vec3 = (1 to 1000).toVector
-    println("no use of Par: " + NonblockingExamples.sum(vec3))
+    // println("summing 1 to 1000")
+    // println("service has 50 threads")
+    // val service3 = Executors.newFixedThreadPool(50)
+    // println(Thread.currentThread())
+    // val vec3 = (1 to 1000).toVector
+    // println("no use of Par: " + NonblockingExamples.sum(vec3))
 
-    val parInt3: Par[Int] = NonblockingExamples.parSum(vec3)
-    // start computation asynchronously
-    val sumInt3: Int = Par.run(service3)(parInt3)
+    // val parInt3: Par[Int] = NonblockingExamples.parSum(vec3)
+    // // start computation asynchronously
+    // val sumInt3: Int = Par.run(service3)(parInt3)
 
-    // block and wait for result with .get
-    println("use of Par: "+sumInt3)
+    // // block and wait for result with .get
+    // println("use of Par: "+sumInt3)
 
-    service3.shutdown()
+    // service3.shutdown()
 
     /*
      Remember the summation shortcut to check the answer...
@@ -713,8 +721,8 @@ use of Par: 55
 
 
      */
-
-    println("with no forking, but many available threads")
+    println("---------------------------------------------")
+    println("with no forking, but many available threads: parSumNoFork")
     println("summing 1 to 10")
     println("service has 4 threads")
     val service4 = Executors.newFixedThreadPool(4)
