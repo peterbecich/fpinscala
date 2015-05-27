@@ -740,10 +740,35 @@ object Monoid {
         }
         mergedMap
       }
-
-      // def bag[A](as: IndexedSeq[A]): Map[A, Int] =
-      //   sys.error("todo")
     }
+
+  /*
+   A bag is like a set, except that it’s represented by a map that contains one entry per element with that element as the key, and the value under that key is the number of times the element appears in the bag. 
+
+   For example: 
+   scala> bag(Vector("a", "rose", "is", "a", "rose")) 
+   res0: Map[String,Int] = Map(a -> 2, rose -> 2, is -> 1) 
+
+   Use monoids to compute a “bag” from an IndexedSeq.
+   */
+
+  /*
+   Think of it as merging of bags.  Each element in 'as' has its
+   own bag initially, which are merged with the map merge monoid.
+   */
+
+  def bag[A](as: IndexedSeq[A]): Map[A, Int] = {
+    val bagMergeMonoid: Monoid[Map[A, Int]] = 
+      Monoid.mapMergeMonoid(Monoid.intAddition)
+
+    val singleBag: Map[A, Int] = IndexedSeqFoldable.foldMap(as){(a: A) => 
+      Map(a -> 1)
+    }(bagMergeMonoid)
+
+    singleBag
+
+  }
+
 }
 
 object MonoidTest {
@@ -755,6 +780,7 @@ object MonoidTest {
 
 
   val quickFox = "the quick brown fox jumps"
+  val quickFoxSeq: IndexedSeq[Char] = quickFox.toCharArray().toIndexedSeq
 
   val randWC: State.Rand[WC] = State{
     (rng: RNG) => {
@@ -890,6 +916,16 @@ object MonoidTest {
     println(map2)
     println("merged")
     println(map3)
+
+    println("bagging")
+    println("sentence: "+quickFoxSeq)
+    val bagged: Map[Char,Int] = Monoid.bag(quickFoxSeq)
+    //println("bag: "+bagged)
+
+    for(k<-bagged.keys){
+      println(k+":\t"+bagged(k))
+    }
+
   }
 }
 trait Foldable[F[_]] {
