@@ -6,6 +6,11 @@ import fpinscala.parallelism.Nonblocking.Par.toParOps // infix syntax for `Par.m
 import scala.language.higherKinds
 import scala.language.implicitConversions
 
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+
+
+
 trait Monoid[A] {
   def op(a1: A, a2: A): A
   def zero: A
@@ -489,8 +494,8 @@ object Monoid {
           Tuple2[IndexedSeq[A], IndexedSeq[A]] =
         v.splitAt(middle)
 
-      val parLeft: Par[B] = parFoldMap(leftSeq, m)(f)
-      val parRight: Par[B] = parFoldMap(rightSeq, m)(f)
+      val parLeft: Par[B] = _parFoldMap(leftSeq, m)(f)
+      val parRight: Par[B] = _parFoldMap(rightSeq, m)(f)
 
       val parMerged: Par[B] = Par.map2(parLeft, parRight)(m.op)
 
@@ -511,16 +516,15 @@ object Monoid {
 
   def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
       Par[B] = {
-    val parListB: Par[Seq[B]] = Par.parMap(v)(f)
+    val parListB: Par[IndexedSeq[B]] = Par.parMap(v)(f)
+
     // Par[List[B]] => Par[B]
     // reduce in parallel
     val parB: Par[B] = Par.map(parListB){
-      (listB: Seq[B]) => listB.foldLeft(m.zero)(m.op)
+      (listB: IndexedSeq[B]) => listB.foldLeft(m.zero)(m.op)
     }
 
     parB
-
-
   }
   /*
    we perform the mapping and the reducing both in parallel
@@ -757,17 +761,42 @@ object Monoid {
    own bag initially, which are merged with the map merge monoid.
    */
 
-  def bag[A](as: IndexedSeq[A]): Map[A, Int] = {
-    val bagMergeMonoid: Monoid[Map[A, Int]] = 
-      Monoid.mapMergeMonoid(Monoid.intAddition)
+  def bagMergeMonoid[A]: Monoid[Map[A, Int]] =
+    Monoid.mapMergeMonoid(Monoid.intAddition)
 
+  def parBagMergeMonoid[A]: Monoid[Par[Map[A, Int]]] = 
+    parMonoid(bagMergeMonoid)
+
+
+  def bag[A](as: IndexedSeq[A]): Map[A, Int] = {
     val singleBag: Map[A, Int] = IndexedSeqFoldable.foldMap(as){(a: A) => 
       Map(a -> 1)
-    }(bagMergeMonoid)
+    }(Monoid.bagMergeMonoid)
 
     singleBag
 
   }
+
+  def parBag[A](as: IndexedSeq[A]): Par[Map[A, Int]] = {
+    /*
+     This may approach the problem from the wrong angle.
+     Compose the Par monoid and the bag merge monoid instead.
+     */
+    // val singleBag: Par[Map[A, Int]] = 
+    //   Monoid.parFoldMap(as, bagMergeMonoid){(a: A) =>
+    //   Map(a -> 1)
+    // }
+
+    val singleParBag: Par[Map[A, Int]] =
+      IndexedSeqFoldable.foldMap(as){(a: A) =>
+        Par.unit(Map(a -> 1))
+      }(Monoid.parBagMergeMonoid)
+
+    singleParBag
+    
+
+  }
+
 
 }
 
@@ -919,12 +948,29 @@ object MonoidTest {
 
     println("bagging")
     println("sentence: "+quickFoxSeq)
-    val bagged: Map[Char,Int] = Monoid.bag(quickFoxSeq)
+    val bagged1: Map[Char,Int] = Monoid.bag(quickFoxSeq)
     //println("bag: "+bagged)
 
-    for(k<-bagged.keys){
-      println(k+":\t"+bagged(k))
+    for(k<-bagged1.keys){
+      println(k+":\t"+bagged1(k))
     }
+
+    println("parallelized bagging")
+    println("non-blocking Par implementation examples")
+    val service = Executors.newFixedThreadPool(5)
+    println("service: "+service)
+
+    val parBagged: Par[Map[Char, Int]] = Monoid.parBag(quickFoxSeq)
+
+    val bagged2: Map[Char, Int] = Par.run(service)(parBagged)
+
+    for(k<-bagged2.keys){
+      println(k+":\t"+bagged2(k))
+    }
+
+
+    service.shutdown()
+
 
   }
 }

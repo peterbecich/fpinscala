@@ -1,6 +1,6 @@
 package fpinscala.parallelism
 
-import java.util.concurrent.{Callable, CountDownLatch, ExecutorService}
+import java.util.concurrent.{Callable, CountDownLatch}
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -83,6 +83,8 @@ object Nonblocking {
     def map2[A,B,C](p: Par[A], p2: Par[B])(f: (A,B) => C): Par[C] =
       (es: ExecutorService) => new Future[C] {
         def apply(cb: C => Unit): Unit = {
+          println("Par.map2 merging "+p+" and "+p2)
+          println("thread: "+Thread.currentThread().getId())
           var ar: Option[A] = None
           var br: Option[B] = None
           val combiner = Actor[Either[A,B]](es) {
@@ -108,12 +110,12 @@ object Nonblocking {
 
     //import scala.collection.IterableLike
     //def parMap[A, B](ps: List[A])(f: A => B): Par[List[B]] = {
-    def parMap[A, B](ps: scala.collection.Seq[A])(f: A => B): Par[Seq[B]] = {
+    def parMap[A, B](ps: scala.collection.IndexedSeq[A])(f: A => B): Par[IndexedSeq[B]] = {
       /* Using List[A]'s methods.
        Confusion similar to Monad methods involving List
        */
-      val fbs: Seq[Par[B]] = ps.map(asyncF(f))
-      val parListB: Par[Seq[B]] = sequence(fbs)
+      val fbs: IndexedSeq[Par[B]] = ps.map(asyncF(f))
+      val parListB: Par[IndexedSeq[B]] = indexedSequence(fbs)
       parListB
     }
 
@@ -152,6 +154,10 @@ object Nonblocking {
     
     def sequence[A](as: Seq[Par[A]]): Par[Seq[A]] =
       map(sequenceBalanced(as.toIndexedSeq))(_.toIndexedSeq)
+
+    def indexedSequence[A](as: IndexedSeq[Par[A]]): Par[IndexedSeq[A]] =
+      map(sequenceBalanced(as.toIndexedSeq))(_.toIndexedSeq)
+
 
     // exercise answers
 
