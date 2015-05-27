@@ -135,6 +135,7 @@ object Monoid {
      }
      */
     val lb = as.map(f)
+    println("Monoid.foldMap.lb: "+lb)
     
     lb.foldLeft(m.zero)(m.op)
   }
@@ -598,7 +599,7 @@ object Monoid {
     // copied from answers ... 
     def op(a: WC, b: WC) = {
       println("a: "+a+"\t b:"+b)
-      (a, b) match {
+      val merged: WC = (a, b) match {
         case (Stub(c), Stub(d)) => Stub(c + d)
         case (Stub(c), Part(l, w, r)) => Part(c + l, w, r)
         case (Part(l, w, r), Stub(c)) => Part(l, w, r + c)
@@ -606,10 +607,14 @@ object Monoid {
           Part(l1, w1, r1),
           Part(l2, w2, r2)
         ) => {
-          val middleSpace = (if ((r1 + l2).isEmpty) 1 else 0) // 0 if middle space
-          Part(l1, w1 + middleSpace + w2, r2)
+          //def middleSpace = (if ((r1 + l2).isEmpty) 1 else 0) // 0 if middle space
+          //Part(l1, w1 + middleSpace + w2, r2)
+          // from answers...
+          Part(l1, w1 + (if (r1 == "" || l2 == "") 1 else 0) + w2, r2)
         }
       }
+      println("merged: "+merged)
+      merged
     }
     def zero: WC = Stub("")
   }
@@ -670,17 +675,24 @@ object Monoid {
     // }
     // println("fold map output: "+wc)
 
-    val ls: List[String] = List(s) // list of length 1
-    val wc: WC = Monoid.foldMap(lc, Monoid.wcMonoid){
-      (c: Char)=>Part("", 0, c.toString)
-      //(c: Char)=>Stub(c.toString)
+    //val ls: List[String] = List(s) // list of length 1
+    println("count words in: "+lc)
+    val wcMerged: WC = Monoid.foldMap(lc, Monoid.wcMonoid){
+      (c: Char) => 
+      if(c==' ') Part("", 0, "")
+      else Stub(c.toString)
     }
     // val wc: WC = Monoid.foldMap(ls, Monoid.wcMonoid){
     //   (st: String)=>Part(st, 0, "")
     // }
 
 
-    val counted: Int = wc match {
+    // val counted: Int = wcMerged match {
+    //   case Stub(_) => 0
+    //   case Part(_, i, _) => i
+    // }
+    println(wcMerged)
+    val counted: Int = wcMerged match {
       case Stub(_) => 0
       case Part(_, i, _) => i
     }
