@@ -44,6 +44,7 @@ object Monoid {
     val zero = true
   }
 
+
   // Notice that we have a choice in how we implement `op`.
   // We can compose the options in either order. Both of those implementations
   // satisfy the monoid laws, but they are not equivalent.

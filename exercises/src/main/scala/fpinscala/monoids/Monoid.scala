@@ -49,6 +49,9 @@ object Monoid {
     val zero: Boolean = true
   }
 
+  val intMonoids: List[Monoid[Int]] = List(intAddition, intMultiplication)
+
+
   /*
    scala.Option, not fpinscala...option
    
@@ -259,10 +262,10 @@ object Monoid {
   //    expansion of _foldMapZ
   //    ___________________________________
   //    bs: List[String=>String]
-     
-     
-     
-     
+  
+  
+  
+  
   //    */
 
   // }
@@ -271,27 +274,20 @@ object Monoid {
   def foldRight[A, B](la: List[A])(z: B)(f: (A, B) => B): B = {
     /*
 
-    def endoMonoid[W]: Monoid[W => W] = 
-      new Monoid[W => W] {
-        def op(b0: W => W, b1: W => W): W => W = 
-          (in: W) => b1(b0(in))
-        def zero: W => W = (in: W) => in
-      }
-
-    def _foldMapZ[X, Y](as: List[X], m: Monoid[Y])(f: X => Y)(z: Y): Y
-    W = B
-    X = A
-    Y = B
-    as: List[A]
-    endoMonoid: Monoid[C] = Monoid[B => B]
-    f: A => B
-    z: B
+     def _foldMapZ[X, Y](as: List[X], m: Monoid[Y])(f: X => Y)(z: Y): Y
+     W = B
+     X = A
+     Y = B
+     as: List[A]
+     endoMonoid: Monoid[C] = Monoid[B => B]
+     f: A => B
+     z: B
      */
     type C = B => B
     val g: A => C = f.curried
 
     // fpinscala.monoids.Monoid[Function1[B, B]]
-    val endoMonoidC: Monoid[C] = endoMonoid[B] 
+    val endoMonoidC: Monoid[C] = endoMonoid[B]
     /*
      def op(bb0: (B=>B), bb1: (B=>B)): B=>B
      def zero: B=>B
@@ -332,7 +328,7 @@ object Monoid {
     val g: A => C = (a: A) => {(b: B) => f(b,a)}
 
     // A=>B would not be an endofunction
-    val endoMonoidC: Monoid[C] = endoMonoid[B] 
+    val endoMonoidC: Monoid[C] = endoMonoid[B]
 
     // val b: B = _foldMapZ(as, dual(Monoid.endoMonoid)){
     //   // need A => C
@@ -449,7 +445,7 @@ object Monoid {
     }
     aggregation._3
   }
-  def genMonoid[A](monoidA: Monoid[A]): Monoid[Gen[A]] = 
+  def genMonoid[A](monoidA: Monoid[A]): Monoid[Gen[A]] =
     new Monoid[Gen[A]] {
       def op(gen1: Gen[A], gen2: Gen[A]): Gen[A] =
         gen1.map2(gen2){(a1: A, a2: A) => monoidA.op(a1, a2)}
@@ -502,18 +498,19 @@ object Monoid {
     }
 
   // improved
+
+  /*
+   Think of this as
+   Par[IndexedSeq[A]] => Par[B]
+   */
+  // don't use IndexedSeq's map or flatMap emethods
+  //   (seqA: IndexedSeq[A]) => {
+  // implicit def indexedSeqToList(is: IndexedSeq[A]): List[A] = is.toList
+
+  // eventually figure out how to go use List in place of Sequence
+
   def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B):
       Par[B] = {
-    /*
-     Think of this as
-     Par[IndexedSeq[A]] => Par[B]
-     */
-    // don't use IndexedSeq's map or flatMap emethods
-    //   (seqA: IndexedSeq[A]) => {
-    // implicit def indexedSeqToList(is: IndexedSeq[A]): List[A] = is.toList
-
-    // eventually figure out how to go use List in place of Sequence
-
     val parListB: Par[Seq[B]] = Par.parMap(v)(f)
     // Par[List[B]] => Par[B]
     // reduce in parallel
@@ -596,7 +593,7 @@ object Monoid {
 
 
   val wcMonoid: Monoid[WC] = new Monoid[WC] {
-    // copied from answers ... 
+    // copied from answers ...
     def op(a: WC, b: WC) = {
       // println("a: "+a+"\t b:"+b)
       val merged: WC = (a, b) match {
@@ -638,9 +635,9 @@ object Monoid {
     //val sWc: IndexedSeq[WC] = sc.map((c: Char) => Stub(c.toString))
 
     /*
-    note here that f returns Stub, a subtype of the type
-    in the monoid passed to foldMap: WC.
-    This should simplify when it's figured out how to do this 
+     note here that f returns Stub, a subtype of the type
+     in the monoid passed to foldMap: WC.
+     This should simplify when it's figured out how to do this 
      without turning each char into its own Stub -- there should
      be a better way...
      */
@@ -678,7 +675,7 @@ object Monoid {
     //val ls: List[String] = List(s) // list of length 1
     // println("count words in: "+lc)
     val wcMerged: WC = Monoid.foldMap(lc, Monoid.wcMonoid){
-      (c: Char) => 
+      (c: Char) =>
       if(c==' ') Part("", 0, "")
       else Stub(c.toString)
     }
@@ -714,7 +711,7 @@ object Monoid {
     }
 
 
-    
+  
   
 
   def functionMonoid[A,B](B: Monoid[B]): Monoid[A => B] =
@@ -728,12 +725,25 @@ object Monoid {
       def zero: A => B = (a: A) => B.zero    // ???
     }
 
+  // listing 10.1
+  def mapMergeMonoid[K,V](V: Monoid[V]): Monoid[Map[K, V]] =
+    new Monoid[Map[K, V]] {
+      def zero: Map[K, V] = Map[K, V]()
+      def op(m1: Map[K, V], m2: Map[K, V]): Map[K, V] = {
+        val mergedKeys = (m1.keySet ++ m2.keySet)
+        val mergedMap: Map[K, V] = mergedKeys.foldLeft(zero){ (keyAccumulated, key) => {
+          val m1PossibleValue = m1.getOrElse(key, V.zero)
+          val m2PossibleValue = m2.getOrElse(key, V.zero)
+          val mergedPossibleValue = V.op(m1PossibleValue, m2PossibleValue)
+          keyAccumulated.updated(key, mergedPossibleValue)
+        }
+        }
+        mergedMap
+      }
 
-  // def mapMergeMonoid[K,V](V: Monoid[V]): Monoid[Map[K, V]] =
-  //   sys.error("todo")
-
-  // def bag[A](as: IndexedSeq[A]): Map[A, Int] =
-  //   sys.error("todo")
+      // def bag[A](as: IndexedSeq[A]): Map[A, Int] =
+      //   sys.error("todo")
+    }
 }
 
 object MonoidTest {
@@ -780,13 +790,15 @@ object MonoidTest {
     genString.listOfN(Gen.choose(4,15))
   // have Gen[List[String]]
   // want to merge strings into a sentence, separated by space character
-  val genSentence: Gen[String] = genListString.map{(ls: List[String]) => 
+  val genSentence: Gen[String] = genListString.map{(ls: List[String]) =>
     Monoid.foldMap(ls, stringMonoid)((s: String) => s+" ")
   }
 
   // val genListSentence: Gen[List[String]] =
   //   genSentence.listOfN(Gen.choose(5,10))
 
+  val genIntMonoid: Gen[Monoid[Int]] = Gen.choose(0,2).
+    map((chosen: Int) => Monoid.intMonoids(chosen.%(Monoid.intMonoids.length)))
 
 
   def main(args: Array[String]): Unit = {
@@ -818,7 +830,7 @@ object MonoidTest {
     println("Testing that WC Monoid meets the Monoid laws")
     println("Generator of WC: ")
     println(genWC)
-    val wcMonoidProp: Prop = 
+    val wcMonoidProp: Prop =
       Monoid.monoidLaws(Monoid.wcMonoid, genWC)
 
     println("wc monoid prop")
@@ -845,7 +857,7 @@ object MonoidTest {
     val countAndSumMonoid: Monoid[(Int, Int)] = Monoid.productMonoid(
       Monoid.intAddition, Monoid.intAddition
     )
-    val countAndSum: (Int, Int) = 
+    val countAndSum: (Int, Int) =
       ListFoldable.foldMap(nums){
         (i: Int) => (1,i): Tuple2[Int,Int]
       }(countAndSumMonoid)
@@ -853,12 +865,17 @@ object MonoidTest {
     println("sum of nums: "+countAndSum._2)
 
     // count and sum with no use of List Foldable
-    val countAndSumPrimitive: (Int, Int) = 
+    val countAndSumPrimitive: (Int, Int) =
       Monoid._foldMap(nums, countAndSumMonoid){(i: Int) => (1,i)}
     println("same result from Monoid's own _foldMap method.")
     println("length of nums: "+countAndSumPrimitive._1)
     println("sum of nums: "+countAndSumPrimitive._2)
 
+    // this should be done on paper
+    // println("checking that product monoid meets monoid laws")
+    // println("(at least for Int monoids)")
+    // val productMonoidForIntMonoids: Prop =
+    //   Monoid.monoidLaws(Monoid.productMonoid(A: Monoid[A], B: Monoid[B])
 
   }
 }
@@ -923,18 +940,18 @@ object IndexedSeqFoldable extends Foldable[IndexedSeq] {
     // Monoid.foldMapV(as, Monoid.indexedSeqMonoid)(g)
     as.foldRight(z)(f)
   }
-    
+  
   override def foldLeft[A, B](as: IndexedSeq[A])(z: B)(f: (B, A) => B) = {
     // val bMonoid = new Monoid[B] {
-    //   def op(b0: B, b1: B): B = 
-    //   def zero: B = 
+    //   def op(b0: B, b1: B): B =
+    //   def zero: B =
     // }
     // val g: A => B = (a: A) => f(z, a)
 
     // this.foldMap(as)(g)(bMonoid)
 
     as.foldLeft(z)(f)
-    }
+  }
 
   override def foldMap[A, B](as: IndexedSeq[A])(f: A => B)(mb: Monoid[B]): B = {
     // map and reduce -- and make use of IndexedSeq's efficient
@@ -943,7 +960,7 @@ object IndexedSeqFoldable extends Foldable[IndexedSeq] {
     Monoid.foldMapV(as, mb)(f)
 
   }
-    
+  
 
 
 }
@@ -1015,7 +1032,7 @@ object OptionFoldable extends Foldable[Option] {
       case Some(a) => f(z, a)
       case None => z
     }
-    
+  
   override def foldRight[A, B]
     (as: Option[A])(z: B)(f: (A, B) => B): B =
     as match {
