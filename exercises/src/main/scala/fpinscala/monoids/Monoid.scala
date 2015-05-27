@@ -522,6 +522,21 @@ object Monoid {
 
     parB
   }
+
+  // def parFoldMap2[A,B](v: IndexedSeq[A], m: Monoid[Par[B]])(f: A => Par[B]):
+  //     Par[B] = {
+  //   val parListB: Par[IndexedSeq[B]] = Par.parMap(v)(f)
+
+  //   // Par[List[B]] => Par[B]
+  //   // reduce in parallel
+  //   val parB: Par[B] = Par.map(parListB){
+  //     (listB: IndexedSeq[B]) => listB.foldLeft(m.zero)(m.op)
+  //   }
+
+  //   parB
+  // }
+
+
   /*
    we perform the mapping and the reducing both in parallel
 
@@ -774,16 +789,13 @@ object Monoid {
   }
 
   def parBag[A](as: IndexedSeq[A]): Par[Map[A, Int]] = {
-    /*
-     This may approach the problem from the wrong angle.
-     Compose the Par monoid and the bag merge monoid instead.
-     */
-    // val singleBag: Par[Map[A, Int]] = 
-    //   Monoid.parFoldMap(as, bagMergeMonoid){(a: A) =>
-    //   Map(a -> 1)
-    // }
 
-    val singleParBag: Par[Map[A, Int]] =
+    val singleParBag: Par[Map[A, Int]] = {
+      // foldMap
+      // (IndexedSeq[Char])
+      // (Char=>Par[Map[A, Int]])  <--- mapping
+      // (Monoid[Par[Map[Char,Int]]])
+
       IndexedSeqFoldable.foldMap(as){(a: A) => {
         /*
          Mapping is apparently stuck on one thread.
@@ -794,10 +806,22 @@ object Monoid {
       }
       }(Monoid.parBagMergeMonoid)
 
+    }
     singleParBag
-    
-
   }
+  // def parBagByParFoldMap[A](as: IndexedSeq[A]): Par[Map[A, Int]] = {
+  //   /*
+  //    This may approach the problem from the wrong angle.
+  //    Compose the Par monoid and the bag merge monoid instead.
+  //    */
+  //   val singleParBag: Par[Map[A, Int]] = 
+  //     Monoid.parFoldMap(as, bagMergeMonoid){(a: A) => {
+  //       println("mapping thread: "+Thread.currentThread().getId())
+  //       Map(a -> 1)
+  //     }
+  //   }
+  //   singleParBag
+  // }
 
 
 }
@@ -958,18 +982,25 @@ object MonoidTest {
     }
 
     println("parallelized bagging")
-    println("non-blocking Par implementation examples")
     val service = Executors.newFixedThreadPool(5)
     println("service: "+service)
 
-    val parBagged: Par[Map[Char, Int]] = Monoid.parBag(quickFoxSeq)
+    println("Using Monoid[Par[Key[Char, Int]]] and IndexedSeqFoldable.foldMap")
+    val parBagged2: Par[Map[Char, Int]] = Monoid.parBag(quickFoxSeq)
 
-    val bagged2: Map[Char, Int] = Par.run(service)(parBagged)
+    val bagged2: Map[Char, Int] = Par.run(service)(parBagged2)
 
     for(k<-bagged2.keys){
       println(k+":\t"+bagged2(k))
     }
 
+    // println("Using Monoid[Key[Char, Int]] and Monoid.parFoldMap")
+    // val parBagged3: Par[Map[Char, Int]] = Monoid.parBagByParFoldMap(quickFoxSeq)
+    // val bagged3: Map[Char, Int] = Par.run(service)(parBagged3)
+
+    // for(k<-bagged3.keys){
+    //   println(k+":\t"+bagged3(k))
+    // }
 
     service.shutdown()
 
