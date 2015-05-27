@@ -135,7 +135,7 @@ object Monoid {
      }
      */
     val lb = as.map(f)
-    println("Monoid.foldMap.lb: "+lb)
+    //println("Monoid.foldMap.lb: "+lb)
     
     lb.foldLeft(m.zero)(m.op)
   }
@@ -598,7 +598,7 @@ object Monoid {
   val wcMonoid: Monoid[WC] = new Monoid[WC] {
     // copied from answers ... 
     def op(a: WC, b: WC) = {
-      println("a: "+a+"\t b:"+b)
+      // println("a: "+a+"\t b:"+b)
       val merged: WC = (a, b) match {
         case (Stub(c), Stub(d)) => Stub(c + d)
         case (Stub(c), Part(l, w, r)) => Part(c + l, w, r)
@@ -613,7 +613,7 @@ object Monoid {
           Part(l1, w1 + (if (r1 == "" || l2 == "") 1 else 0) + w2, r2)
         }
       }
-      println("merged: "+merged)
+      // println("merged: "+merged)
       merged
     }
     def zero: WC = Stub("")
@@ -676,7 +676,7 @@ object Monoid {
     // println("fold map output: "+wc)
 
     //val ls: List[String] = List(s) // list of length 1
-    println("count words in: "+lc)
+    // println("count words in: "+lc)
     val wcMerged: WC = Monoid.foldMap(lc, Monoid.wcMonoid){
       (c: Char) => 
       if(c==' ') Part("", 0, "")
@@ -691,7 +691,7 @@ object Monoid {
     //   case Stub(_) => 0
     //   case Part(_, i, _) => i
     // }
-    println(wcMerged)
+    //println(wcMerged)
     val counted: Int = wcMerged match {
       case Stub(_) => 0
       case Part(_, i, _) => i
@@ -829,8 +829,12 @@ object MonoidTest {
     val countProp: Prop =
       Prop.forAll(genSentence){(sentence: String) => {
         val length = Monoid.count(sentence)
+        println("sentence: '"+sentence+"'")
         println("length: "+length)
-        length >= 4 && length <= 14
+        //length >= 4 && length <= 14
+        val realLength = sentence.split(" ").length
+        println("real length: " + realLength)
+        (length <= realLength) && (length >= (realLength-2))
       }
       }
     Prop.run(countProp, 10, 10)
