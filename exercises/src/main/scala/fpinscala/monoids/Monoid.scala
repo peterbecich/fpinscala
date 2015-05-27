@@ -800,6 +800,12 @@ object MonoidTest {
   val genIntMonoid: Gen[Monoid[Int]] = Gen.choose(0,2).
     map((chosen: Int) => Monoid.intMonoids(chosen.%(Monoid.intMonoids.length)))
 
+  def nestedMapsMonoid[K]: Monoid[Map[K, Int]] =
+    Monoid.mapMergeMonoid(Monoid.intAddition)
+
+  val map1 = Map("key1" -> 1, "key2" -> 2)
+  val map2 = Map("key1" -> 4, "key2" -> 3, "key3" -> 10)
+  val map3 = nestedMapsMonoid.op(map1,map2)
 
   def main(args: Array[String]): Unit = {
     /*
@@ -876,7 +882,14 @@ object MonoidTest {
     // println("(at least for Int monoids)")
     // val productMonoidForIntMonoids: Prop =
     //   Monoid.monoidLaws(Monoid.productMonoid(A: Monoid[A], B: Monoid[B])
-
+    
+    println("merging nested Maps with the map merge and int addition monoids")
+    println("map1")
+    println(map1)
+    println("map2")
+    println(map2)
+    println("merged")
+    println(map3)
   }
 }
 trait Foldable[F[_]] {
