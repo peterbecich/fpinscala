@@ -83,8 +83,7 @@ object Nonblocking {
     def map2[A,B,C](p: Par[A], p2: Par[B])(f: (A,B) => C): Par[C] =
       (es: ExecutorService) => new Future[C] {
         def apply(cb: C => Unit): Unit = {
-          println("Par.map2 merging "+p+" and "+p2)
-          println("thread: "+Thread.currentThread().getId())
+          println("Par.map2 merging "+p+" and "+p2+"\t thread: "+Thread.currentThread().getId())
           var ar: Option[A] = None
           var br: Option[B] = None
           val combiner = Actor[Either[A,B]](es) {
@@ -507,7 +506,7 @@ object NonblockingExamples {
             val left: IndexedSeq[Int] = intsLeft(split)
             val right: IndexedSeq[Int] = intsRight(split)
 
-            println("thread: "+Thread.currentThread().getId())
+            println("par sum \t thread: "+Thread.currentThread().getId())
             println("left: "+left+"\t right: "+right)
 
             val parLeft = Par.unit(left)

@@ -464,13 +464,9 @@ object Monoid {
 
   def parMonoid[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
     //  type Par[A] = ExecutorService => Future[A]
-    def op(par1: Par[A], par2: Par[A]): Par[A] = {
-      // This does too much... runs the two Pars
-      // (es: java.util.concurrent.ExecutorService) => {
-      //   // remember you have an op to combine two A values
-      //   val par3 = Par.map2(par1, par2)(m.op): Par[A]
-      //   par3.run(es)
-      // }
+    def op(par1: Par[A], par2: Par[A]): Par[A] = Par.fork{
+      println("Par Monoid 'op' thread: "+Thread.currentThread().getId())
+      //merging "+par1+" and "+par2)
       Par.fork(Par.map2(par1, par2)(m.op)): Par[A]
     }
     def zero: Par[A] = Par.unit(m.zero)
@@ -789,8 +785,11 @@ object Monoid {
 
     val singleParBag: Par[Map[A, Int]] =
       IndexedSeqFoldable.foldMap(as){(a: A) => {
-        //Par.unit(Map(a -> 1))
-        println("thread: "+Thread.currentThread().getId())
+        /*
+         Mapping is apparently stuck on one thread.
+         But reduction happens in parallel... not good.
+         */
+        println("mapping thread: "+Thread.currentThread().getId())
         Par.fork(Par.unit(Map(a -> 1)))
       }
       }(Monoid.parBagMergeMonoid)
