@@ -409,44 +409,23 @@ object Gen {
 
 object PropTests {
 
+  val simpleProp = Prop(
+    (maxSize: Int, testCases: Int, rng: RNG) => Prop.Passed
+  )
+
   val chooseGenInt: Gen[Int] = Gen.choose(5, 30)
   val simpleRNG: RNG = RNG.Simple(123)
 
   val randomIntStream: Stream[Int] =
     Prop.randomStream(chooseGenInt)(simpleRNG)
 
-  val chosenIntRangeProp: Prop =
+  val randomIntStreamProp: Prop =
     Prop.forAll(chooseGenInt)((i: Int) => (i>=5 && i<30))
 
-  val simpleProp = Prop(
-    (maxSize: Int, testCases: Int, rng: RNG) => Prop.Passed
-  )
+
 
   def main(args: Array[String]): Unit = {
     val ES: ExecutorService = Executors.newCachedThreadPool
-
-    /*
-     big runtime error with Stream.
-
-     [error] (run-main-6) java.lang.StackOverflowError
-     java.lang.StackOverflowError
-     at fpinscala.laziness.Stream$.from(Stream.scala:275)
-     at fpinscala.laziness.Stream$$anonfun$from$2.apply(Stream.scala:275)
-     at fpinscala.laziness.Stream$$anonfun$from$2.apply(Stream.scala:275)
-     at fpinscala.laziness.Stream$.tail$lzycompute$1(Stream.scala:236)
-     at fpinscala.laziness.Stream$.fpinscala$laziness$Stream$$tail$1(Stream.scala:236)
-     at fpinscala.laziness.Stream$$anonfun$cons$2.apply(Stream.scala:237)
-     at fpinscala.laziness.Stream$$anonfun$cons$2.apply(Stream.scala:237)
-     at fpinscala.laziness.Stream$$anonfun$foldRight$1.apply(Stream.scala:15)
-     at fpinscala.laziness.Stream$class.g$2(Stream.scala:181)
-     at fpinscala.laziness.Stream$$anonfun$flatMap$2.apply(Stream.scala:182)
-     at fpinscala.laziness.Stream$$anonfun$flatMap$2.apply(Stream.scala:182)
-     at fpinscala.laziness.Stream$class.foldRight(Stream.scala:15)
-     at fpinscala.laziness.Cons.foldRight(Stream.scala:231)
-     at 
-
-
-     */
 
     /*
      These don't exist *until* main is run!
@@ -458,22 +437,32 @@ object PropTests {
                                      ^
      */
 
-    // val chooseGenInt: Gen[Int] = Gen.choose(5, 30)
-    // val simpleRNG: RNG = RNG.Simple(123)
 
-    // val randomIntStream: Stream[Int] = 
-    //   Prop.randomStream(chooseGenInt)(simpleRNG)
-    println("random int stream")
+    println("random int stream prop")
     println(randomIntStream.toListFinite(15))
+    Prop.run(randomIntStreamProp)
 
-    // val chosenIntRangeProp: Prop = 
-    //   Prop.forAll(chooseGenInt)((i: Int) => (i>=5 && i<30))
+    println("random Ints above zero prop")
+    val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
+      (i: Int) => i > 0
+    }
+    Prop.run(randomsAboveZeroProp)
 
-    // runtime error
-    Prop.run(chosenIntRangeProp)
 
-    // runtime error
-    //val result: Result = chosenIntRangeProp.run(5,5,simpleRNG)
+
+    //  test case: List()
+    // generated an exception: 
+    // java.lang.UnsupportedOperationException: empty.max
+
+    println("list maximum prop")
+    val smallInt: Gen[Int] = Gen.choose(-10,10)
+    val smallIntProp: Prop = forAll(Gen.listOf(smallInt)) {
+      (la: List[Int]) => {
+        val max = la.max
+        !la.exists((i: Int) => i>max)
+      }
+    }
+    Prop.run(smallIntProp)
 
 
     /*
@@ -481,26 +470,15 @@ object PropTests {
      generate one value -- Par.unit(1).
      How will Prop.forAll handle a generator that generates many Pars?
      */
-    // val parAdditionProp: Prop = Prop.forAll(Gen.unit(Par.unit(1))){
-    //   (pi: Par[Int]) => {
-    //     Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
-    //   }
-    // }
-    // Prop.run(parAdditionProp)
+    println("parallel addition prop, with Par")
+    val parAdditionProp: Prop = Prop.forAll(Gen.unit(Par.unit(1))){
+      (pi: Par[Int]) => {
+        Par.map(pi)(_ + 1)(ES).get == Par.unit(2)(ES).get
+      }
+    }
+    Prop.run(parAdditionProp)
 
-    // val randomsAboveZeroProp = Prop.forAll(Gen.choose(4, 40)){
-    //   (i: Int) => i > 0
-    // }
-    // Prop.run(randomsAboveZeroProp)
 
-    // val smallInt: Gen[Int] = Gen.choose(-10,10)
-    // val smallIntProp: Prop = forAll(Gen.listOf(smallInt)) {
-    //   (la: List[Int]) => {
-    //     val max = la.max
-    //     !la.exists((i: Int) => i>max)
-    //   }
-    // }
-    // Prop.run(smallIntProp)
 
     ES.shutdown()
   }
