@@ -456,7 +456,9 @@ object PropTests {
 
     println("list maximum prop")
     val smallInt: Gen[Int] = Gen.choose(-10,10)
-    val smallIntProp: Prop = forAll(Gen.listOf(smallInt)) {
+    val genListInt: Gen[List[Int]] = smallInt.listOfN(Gen.choose(5,15))
+    //val sgenListInt: SGen[List[Int]] = Gen.listOf(smallInt)
+    val smallIntProp: Prop = forAll(genListInt) {
       (la: List[Int]) => {
         val max = la.max
         !la.exists((i: Int) => i>max)

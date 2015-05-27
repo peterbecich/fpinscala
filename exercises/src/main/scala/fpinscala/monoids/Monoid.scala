@@ -448,6 +448,12 @@ object Monoid {
     }
     aggregation._3
   }
+  def genMonoid[A](monoidA: Monoid[A]): Monoid[Gen[A]] = 
+    new Monoid[Gen[A]] {
+      def op(gen1: Gen[A], gen2: Gen[A]): Gen[A] =
+        gen1.map2(gen2){(a1: A, a2: A) => monoidA.op(a1, a2)}
+      def zero: Gen[A] = Gen.unit(monoidA.zero)
+    }
 
 
   sealed trait WC
@@ -682,6 +688,8 @@ object Monoid {
       }
       def zero: (A, B) = (A.zero, B.zero)
     }
+
+
     
   
 
@@ -722,8 +730,40 @@ object MonoidTest {
       (Stub(asciiString), nextRNG)
     }
   }
-
+  // random Stub
   val genWC: Gen[WC] = Gen(randWC)
+  // random list of Stubs
+  val genListWC: Gen[List[WC]] = genWC.listOfN(Gen.choose(5,20))
+
+
+  val stringMonoid = Monoid.stringMonoid
+  val genStringMonoid = Monoid.genMonoid(stringMonoid)
+  val genASCII: Gen[Char] = Gen.choose(65,90).map((i: Int) => i.toChar)
+  val genListChar: Gen[List[Char]] = genASCII.listOfN(Gen.choose(2,10))
+
+  // have Monoid[Gen[String]] and Gen[List[Char]]
+  // want Gen[String]
+  // use foldMap[A,B](List[A], Monoid[B])(A=>B)
+  //     foldMap[Char,Gen[String]](
+  //            List[Gen[Char]], Monoid[Gen[String]]
+  //            )(Gen[Char] => Gen[String])
+  val genString: Gen[String] = genListChar.map{(lc: List[Char])=>
+    Monoid.foldMap(lc, stringMonoid)((c: Char) => c.toString)
+  }
+
+  // sentences of 4 to 14 words
+  val genListString: Gen[List[String]] =
+    genString.listOfN(Gen.choose(4,15))
+  // have Gen[List[String]]
+  // want to merge strings into a sentence, separated by space character
+  val genSentence: Gen[String] = genListString.map{(ls: List[String]) => 
+    Monoid.foldMap(ls, stringMonoid)((s: String) => s+" ")
+  }
+
+  // val genListSentence: Gen[List[String]] =
+  //   genSentence.listOfN(Gen.choose(5,10))
+
+
 
   def main(args: Array[String]): Unit = {
     /*
@@ -759,10 +799,17 @@ object MonoidTest {
 
     println("wc monoid prop")
     println(wcMonoidProp)
-    // val checked = wcMonoidProp.check
-    // println(checked)
-
     Prop.run(wcMonoidProp, 10, 10)
+
+    println("checking 'count' method using generated strings")
+    val countProp: Prop =
+      Prop.forAll(genSentence){(sentence: String) => {
+        val length = Monoid.count(sentence)
+        length >= 4 && length <= 14
+      }
+      }
+    Prop.run(countProp, 10, 10)
+
 
 
     val countAndSumMonoid: Monoid[(Int, Int)] = Monoid.productMonoid(
