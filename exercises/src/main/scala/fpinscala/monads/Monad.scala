@@ -8,6 +8,7 @@ import state._
 import parallelism.Par._
 //import laziness.Stream
 
+
 // http://www.scala-lang.org/api/current/#scala.language$
 import scala.language.higherKinds
 import scala.language.implicitConversions
@@ -639,7 +640,7 @@ object Monad {
     }
   }
   // why the funny parenthesis pattern,  ({...})   ?
-  def intStateMonadAlt[S] = 
+  def intStateMonadAlt = 
     new Monad[({type IntStateAlt[A] = State[Int, A]})#IntStateAlt] {
     def unit[A](a: => A): State[Int, A] = State.unit(a)
     def flatMap[A, B](st: State[Int, A])(f: A => State[Int, B]): 
@@ -648,7 +649,15 @@ object Monad {
     }
   }
 
+  def stateMonad[S] =  // what is the type of this?
+    new Monad[({type f[x] = State[S,x]})#f] {
+      def unit[A](a: => A): State[S,A] = State((s: S) => (a,s))
+      def flatMap[A,B](st: State[S,A])(f: A => State[S,B]): State[S,B] =
+        st.flatMap(f)
+    }
 
+  // def intStateMonadAlt2[A]: Monad[Int] = stateMonad[Int]
+  //                       ^ not Monad[State[(Int,A)]]
 
   val idMonad: Monad[Id] = new Monad[Id] {
     override def unit[A](a: => A): Id[A] = Id(a)
@@ -667,8 +676,79 @@ object Monad {
   // }
 
 }
+
+
+case class Id[A](value: A) {
+  def map[B](f: A => B): Id[B] = Id(f(value))
+  def flatMap[B](f: A => Id[B]): Id[B] = f(value)
+}
+
+
+
+case class Reader[R, A](run: R => A)
+
+object Reader {
+  def readerMonad[R] = new Monad[({type f[x] = Reader[R,x]})#f] {
+    def unit[A](a: => A): Reader[R,A] = ???
+    override def flatMap[A,B](st: Reader[R,A])(f: A => Reader[R,B]): Reader[R,B] = ???
+  }
+}
+
+
 object MonadTest {
-  //import fpinscala.monads.Monad
+  
+  def genId[A](aGen: Gen[A]): Gen[Id[A]] = aGen.map(Id(_))
+
+  def genIdInt: Gen[Id[Int]] = {
+    // confusion in State.scala is two uses of type name 'Rand'
+    // they seem to be interoperable
+    val stateInt: State.Rand[Int] = State(RNG.randInt)
+    val genInt: Gen[Int] = Gen(stateInt)
+    genId(genInt)
+  }
+  def genListIdInt(n: Int): Gen[List[Id[Int]]] = Gen.listOfN(n, genIdInt)
+
+  // def idProps: Prop = {
+  //   val associativity: Prop = 
+  //     Prop.forAll(genListIdInt(3)){(ll: List[Id[Int]]) => {
+  //       val idInt0: Id[Int] = ll(0)
+  //       val idInt1 = ll(1)
+  //       val idInt2 = ll(2)
+  //       //  m flatMap f flatMap g == m flatMap (x => f(x) flatMap g)
+  //       //val left = idInt0.flatMap(int0 => 
+
+  //       val right = idInt0.flatMap{(int0: Int) => {
+  //         val int1: Int = 
+
+  val zipIntMonad = Monad.stateMonad[Int]
+
+  // listing 11.8 with for comprehension made explicit
+  def zipWithIndex[A](as: List[A]): List[(Int,A)] = {
+
+    val emptyZip: State[Int, List[(Int,A)]] =
+      zipIntMonad.unit(List[(Int,A)]())
+
+    val f: (List[(Int,A)], A) => List[(Int,A)] = 
+      (acc: List[(Int,A)], a: A) => {
+        acc.flatMap{(xs: (Int,A)) => {
+          val stateIncrement: State[Int, Unit] = 
+            State.get.flatMap{(n:Int) => {
+              State.set(n+1)
+//.flatMap{(ignored:Int) => {n+1}
+            }
+          }
+          val nextZip: State[Int, List[(Int,A)]] =
+            stateIncrement.map(
+        }
+        }
+      }
+
+
+
+    as.foldLeft(emptyZip)(f)
+
+            }
+
   def main(args: Array[String]): Unit = {
     // val ll = (10 to 20).toList
     // val ll2 = (10 to 20).toList
@@ -689,6 +769,36 @@ object MonadTest {
 
     println("---------------------------")
     val F = Monad.intStateMonad
+        
+    println("---------------------------")
+    println("use of Id and Id monad")
+    // We could say that monads provide a context for introducing and binding variables, and performing variable substitution.
+
+    val hello = Id("Hello ")
+    val there = Id("there ")
+    val mnd = Id("monad!")
+    val wordList: List[Id[String]] = List(hello,there,mnd)
+    val sentence: Id[String] = hello.flatMap(str0 => 
+      there.flatMap(str1 =>
+        mnd.flatMap(str2 =>
+          Id(str0+str1+str2)
+        )
+      )
+    )
+    println(sentence)
+    println("using sequence")
+    println(Monad.idMonad.sequence(wordList))
+    println("using replicate")
+    println(Monad.idMonad.replicateM(5,hello))
+    println("using product")
+    println(Monad.idMonad.product(hello,mnd))
+
+    println("---------------------------")
+    println("use of Int State monad")
+    val one = State.unit(1)
+    println("state of one: "+one)
+
+
 
 
   }
@@ -762,18 +872,4 @@ trait MonadC[M[_]] extends Monad[M] {
 
 }
 
-
-case class Id[A](value: A) {
-  def map[B](f: A => B): Id[B] = Id(f(value))
-  def flatMap[B](f: A => Id[B]): Id[B] = f(value)
-}
-
-case class Reader[R, A](run: R => A)
-
-object Reader {
-  def readerMonad[R] = new Monad[({type f[x] = Reader[R,x]})#f] {
-    def unit[A](a: => A): Reader[R,A] = ???
-    override def flatMap[A,B](st: Reader[R,A])(f: A => Reader[R,B]): Reader[R,B] = ???
-  }
-}
 

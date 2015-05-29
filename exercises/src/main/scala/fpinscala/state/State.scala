@@ -310,7 +310,7 @@ case class State[S,+A](run: S => (A, S)) {
     }
   }
 
-
+  //override def toString: String =  // get state here
 
 }
 
