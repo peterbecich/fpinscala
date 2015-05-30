@@ -764,12 +764,12 @@ object MonadTest {
   // listing 11.8 with for comprehension made explicit
   def zipWithIndexState[A](as: List[A]): State[Int, List[(Int,A)]] = {
 
-    // as.foldLeft(Monad.stateMonad[Int].unit(List[(Int, A)]())){(acc,a)=>
-    //   for {
-    //     xs <- acc
-    //     n <- State.get
-    //     _ <- State.set(n+1)
-    //  } yield (n, a) :: xs }
+    as.foldLeft(Monad.stateMonad[Int].unit(List[(Int, A)]())){(acc,a)=>
+      for {
+        xs <- acc
+        n <- State.get
+        _ <- State.set(n+1)
+     } yield (n, a) :: xs }
 
     // .run(0)._1.reverse
     /*
@@ -782,28 +782,28 @@ object MonadTest {
 
     //fpinscala.state.State[Int, List[Tuple2[Int, A]]]
     // state's S = Int, state's A = List[(Int, A)]
-    val emptyZip: State[Int, List[(Int,A)]] =
-      zipIntMonad.unit(List[(Int,A)]())
+    // val emptyZip: State[Int, List[(Int,A)]] =
+    //   zipIntMonad.unit(List[(Int,A)]())
 
-    val f: (State[Int, List[(Int,A)]], A) => State[Int, List[(Int,A)]] = 
-      (acc: State[Int, List[(Int,A)]], a: A) => {
-        val nextState: State[Int, Unit] =
-          acc.flatMap{(xs: List[(Int,A)]) => {
-            val getter: State[Int, Int] = State.get
-            val newState: State[Int, List[(Int,A)]] =
-              getter.flatMap{(n:Int) => {
-                val setter: State[Int, Unit] = State.set(n+1)
-                setter.map(_=>(n, a)::xs)
-              }
-              }
-            newState
-          }
-          }
-      }
+    // val f: (State[Int, List[(Int,A)]], A) => State[Int, List[(Int,A)]] = 
+    //   (acc: State[Int, List[(Int,A)]], a: A) => {
+    //     val nextState: State[Int, Unit] =
+    //       acc.flatMap{(xs: List[(Int,A)]) => {
+    //         val getter: State[Int, Int] = State.get
+    //         val newState: State[Int, List[(Int,A)]] =
+    //           getter.flatMap{(n:Int) => {
+    //             val setter: State[Int, Unit] = State.set(n+1)
+    //             setter.map(_=>(n, a)::xs)
+    //           }
+    //           }
+    //         newState
+    //       }
+    //       }
+    //   }
 
-    val aggregatedState: State[Int, List[(Int,A)]] =
-      as.foldLeft(emptyZip)(f)
-    aggregatedState
+    // val aggregatedState: State[Int, List[(Int,A)]] =
+    //   as.foldLeft(emptyZip)(f)
+    // aggregatedState
   }
 
   def main(args: Array[String]): Unit = {
