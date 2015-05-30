@@ -752,6 +752,35 @@ object MonadTest {
    */
 
 
+  // def counter(start: Int, n: Int): List[Int] = {
+  //   val counterMonad = Monad.stateMonad[(Int, List[Int])]
+  //   // State[S=(head: Int, list: List[Int]), A=list: List[Int]]
+  //   // State should not contain its remaining number of increments
+  //   val blankState: State[(Int, List[Int]), List[Int]] =
+  //     State((s: (Int, List[Int])) => {
+  //       val nextListHead = s._1 + 1
+  //       val nextList = nextListHead::s._2
+  //       (nextList, (nextListHead,nextList))
+  //     }
+  //     )
+
+    // def unit[A](a: => A): State[S,A] = State((s: S) => (a,s))
+    // val startState: State[(Int, List[Int]), Int] =
+    //   counterMonad.unit(start)
+    // def replicateM[A](n: Int, ma: M[A]): M[List[A]]
+    // def replicateM[List[Int]](n: Int, ma: State[List[Int]]):
+    //   State[List[Int]]
+    // val listState:  = counterMonad.replicateM(n, blankState)
+    // val ran: ((Int, List[Int]), =
+    //   stateList.run((start, List[Int]()))
+    // ran._2
+
+    // for {
+    //   i <- 0 to n;
+      
+
+  // }
+
   def zipWithIndex[A](as: List[A]): List[(Int,A)] = {
     val ran: (List[(Int, A)], Int) = zipWithIndexState(as).run(0)
     val nextState: Int = ran._2
@@ -862,6 +891,12 @@ object MonadTest {
     val zipped = MonadTest.zipWithIndex(letters)
     println("zipped:")
     for(tpl <- zipped) println(tpl)
+
+
+    // println("---------------------------")
+    // println("use of counter, from 5, for 9")
+    // println(counter(5,9))
+
 
   }
 }
