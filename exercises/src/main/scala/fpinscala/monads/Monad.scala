@@ -596,8 +596,8 @@ object Monad {
   //   }
 
   type IntState[A] = State[Int, A]
-
-  val intStateMonad: Monad[IntState] = new Monad[IntState] {
+  //                 Monad[State[Int, A]]
+  val intStateMonad = new Monad[IntState] {
     def unit[A](a: => A): IntState[A] = State.unit(a)
     def flatMap[A, B](st: IntState[A])(f: A => IntState[B]): 
         IntState[B] = {
@@ -649,8 +649,27 @@ object Monad {
     }
   }
 
+  // from answers...
+  // Since `State` is a binary type constructor, we need to partially apply it
+  // with the `S` type argument. Thus, it is not just one monad, but an entire
+  // family of monads, one for each type `S`. One solution is to create a class
+  // `StateMonads` that accepts the `S` type argument and then has a _type member_
+  // for the fully applied `State[S, A]` type inside:
+  class StateMonads[S] {
+    type StateS[A] = State[S, A]
+    // We can then declare the monad for the `StateS` type constructor:
+    val monad = new Monad[StateS] {
+      def unit[A](a: => A): State[S, A] = State(s => (a, s))
+      override def flatMap[A,B](st: State[S, A])(f: A => State[S, B]): State[S, B] =
+        st flatMap f
+    }
+  }
+
+
+  // S replaced by Int
   def stateMonad[S] =  // what is the type of this?
-    new Monad[({type f[x] = State[S,x]})#f] {
+    new Monad[({type f[X] = State[S,X]})#f] {
+      //             ^ an anonymous type: fpinscala.state.State[S, X]
       def unit[A](a: => A): State[S,A] = State((s: S) => (a,s))
       def flatMap[A,B](st: State[S,A])(f: A => State[S,B]): State[S,B] =
         st.flatMap(f)
@@ -721,33 +740,71 @@ object MonadTest {
   //         val int1: Int = 
 
   val zipIntMonad = Monad.stateMonad[Int]
+  val zipIntMonads = new Monad.StateMonads[Int]
+  val mnd = zipIntMonads.monad
+  /*  ^^^^
+   Can't seem to get type of this out of Ensime.
+   Would have thought type is Monad[State[Int,A]]
+   where def is 'def mnd[A]'.
+   vals can't make parametric type -- val foo[A] doesn't work.
+   class
+   fpinscala.monads.Monad$$StateMonads$<refinement>
+   */
+
+
+  def zipWithIndex[A](as: List[A]): List[(Int,A)] = {
+    val ran: (List[(Int, A)], Int) = zipWithIndexState(as).run(0)
+    val nextState: Int = ran._2
+    println("next state: "+nextState)
+    val finalListTuple: List[(Int, A)] = ran._1
+    println("run state output: "+finalListTuple)
+    finalListTuple.reverse
+  }
 
   // listing 11.8 with for comprehension made explicit
-  def zipWithIndex[A](as: List[A]): List[(Int,A)] = {
+  def zipWithIndexState[A](as: List[A]): State[Int, List[(Int,A)]] = {
 
+    // as.foldLeft(Monad.stateMonad[Int].unit(List[(Int, A)]())){(acc,a)=>
+    //   for {
+    //     xs <- acc
+    //     n <- State.get
+    //     _ <- State.set(n+1)
+    //  } yield (n, a) :: xs }
+
+    // .run(0)._1.reverse
+    /*
+     Translating for-comprehensions
+
+     Scala’s “for comprehensions” are syntactic sugar for composition of multiple operations with foreach, map, flatMap, filter or withFilter. Scala actually translates a for-expression into calls to those methods, so any class providing them, or a subset of them, can be used with for comprehensions.
+
+     http://docs.scala-lang.org/tutorials/FAQ/yield.html
+     */
+
+    //fpinscala.state.State[Int, List[Tuple2[Int, A]]]
+    // state's S = Int, state's A = List[(Int, A)]
     val emptyZip: State[Int, List[(Int,A)]] =
       zipIntMonad.unit(List[(Int,A)]())
 
-    val f: (List[(Int,A)], A) => List[(Int,A)] = 
-      (acc: List[(Int,A)], a: A) => {
-        acc.flatMap{(xs: (Int,A)) => {
-          val stateIncrement: State[Int, Unit] = 
-            State.get.flatMap{(n:Int) => {
-              State.set(n+1)
-//.flatMap{(ignored:Int) => {n+1}
-            }
+    val f: (State[Int, List[(Int,A)]], A) => State[Int, List[(Int,A)]] = 
+      (acc: State[Int, List[(Int,A)]], a: A) => {
+        val nextState: State[Int, Unit] =
+          acc.flatMap{(xs: List[(Int,A)]) => {
+            val getter: State[Int, Int] = State.get
+            val newState: State[Int, List[(Int,A)]] =
+              getter.flatMap{(n:Int) => {
+                val setter: State[Int, Unit] = State.set(n+1)
+                setter.map(_=>(n, a)::xs)
+              }
+              }
+            newState
           }
-          val nextZip: State[Int, List[(Int,A)]] =
-            stateIncrement.map(
-        }
-        }
+          }
       }
 
-
-
-    as.foldLeft(emptyZip)(f)
-
-            }
+    val aggregatedState: State[Int, List[(Int,A)]] =
+      as.foldLeft(emptyZip)(f)
+    aggregatedState
+  }
 
   def main(args: Array[String]): Unit = {
     // val ll = (10 to 20).toList
@@ -794,12 +851,17 @@ object MonadTest {
     println(Monad.idMonad.product(hello,mnd))
 
     println("---------------------------")
-    println("use of Int State monad")
-    val one = State.unit(1)
-    println("state of one: "+one)
+    // println("use of Int State monad")
+    // val one = State.unit(1)
+    // println("state of one: "+one)
 
-
-
+    println("---------------------------")
+    println("use of zipWithIndex")
+    val letters = (65 to 91).map(_.toChar).toList
+    println("on letters: "+letters)
+    val zipped = MonadTest.zipWithIndex(letters)
+    println("zipped:")
+    for(tpl <- zipped) println(tpl)
 
   }
 }
