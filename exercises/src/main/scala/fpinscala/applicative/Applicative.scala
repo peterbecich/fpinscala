@@ -52,8 +52,8 @@ trait Applicative[F[_]] extends Functor[F] {
       Applicative[({type f[x] = (F[x], G[x])})#f] =
     new Applicative[({type f[x] = (F[x], G[x])})#f]{
       // implement primites unit and map2
-      override def map2[A,B,C](fab1: F[(A,B)], fab2: F[(A,B)])
-          (merge: ((A,B),(A,B))=>(A,B)): F[(A,B)] = {
+      override def map2[A](faa: F[(A,A)], gaa: G[(A,A)])
+          (merge: ((A,A),(A,A))=>(A,A)): F[(A,B)] = {
         val fa3: F[A] = fab1.
       }
 
@@ -62,6 +62,21 @@ trait Applicative[F[_]] extends Functor[F] {
   def compose[G[_]](G: Applicative[G]): Applicative[({type f[x] = F[G[x]]})#f] = ???
 
   def sequenceMap[K,V](ofa: Map[K,F[V]]): F[Map[K,V]] = ???
+}
+
+trait Applicative2[F[_]] extends Applicative[F] {
+  override def apply[A,B](fab: F[A => B])(fa: F[A]): F[B]
+  override def unit[A](a: => A): F[A]
+
+  override def map[A,B](fa: F[A])(f: A => B): F[B] = {
+    val applier: F[A => B] = unit(f)
+    this.apply(applier)(fa)
+  }
+  override def map2[A,B,C](fa: F[A], fb: F[B])(f: (A,B) => C): F[C] = {
+    
+  }
+
+
 }
 
 case class Tree[+A](head: A, tail: List[Tree[A]])
