@@ -905,7 +905,7 @@ object MonadTest {
  A monad trait based on the second primitive set of methods
  to be left abstract: unit and compose
  */
-trait MonadB[M[_]] extends Monad[M] {
+trait Monad2[M[_]] extends Monad[M] {
   def unit[A](a: => A): M[A]
   override def compose[A,B,C](f: A => M[B], g: B => M[C]): A => M[C]
 
@@ -945,7 +945,7 @@ trait MonadB[M[_]] extends Monad[M] {
  A monad trait based on the third primitive set of methods
  to be left abstract: unit, map, and join
  */
-trait MonadC[M[_]] extends Monad[M] {
+trait Monad3[M[_]] extends Monad[M] {
   def unit[A](a: => A): M[A]
 
   override def map[A,B](ma: M[A])(f: A => B): M[B]

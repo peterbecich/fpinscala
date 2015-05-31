@@ -228,6 +228,9 @@ object Monoid {
   //   val g: A => (B => B) = f.curried
   //   // Thought that it was incorrect to hide type A => B => B in
   //   // type A => B...
+  //      ^^^ allowed because these are two distinct B's.
+  //      give _foldMapZ signature _foldMapZ[C,D]
+  //      D = B=>B
 
   //   _foldMapZ(as, Monoid.endoMonoid)(g)((b: B) => z)
 

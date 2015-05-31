@@ -25,6 +25,26 @@ trait Applicative[F[_]] extends Functor[F] {
   def map[A,B](fa: F[A])(f: A => B): F[B] =
     apply(unit(f))(fa)
 
+  def map3[A,B,C,D](fa: F[A], fb: F[B], fc: F[C])(f: (A,B,C)=>D): F[D] = {
+    val g: A => (B => (C => D)) = f.curried
+    val fabcd: F[A=>(B=>(C=>D))] = this.unit(g)
+    val fbcd: F[B=>(C=>D)] = this.apply(fabcd)(fa)
+    //this.map2(fb, fc)(
+    val fcd: F[C=>D] = this.apply(fbcd)(fb)
+    val fd: F[D] = this.apply(fcd)(fc)
+    fd
+  }
+
+  def map4[A,B,C,D,E](fa: F[A], fb: F[B], fc: F[C], fd: F[D])(f: (A,B,C,D)=>E): F[E] = {
+    val g: A => (B => (C => (D => E))) = f.curried
+    val fabcde: F[A => (B => (C => (D => E)))] = this.unit(g)
+    val fbcde: F[B => (C => (D => E))] = this.apply(fabcde)(fa)
+    val fcde: F[C => (D => E)] = this.apply(fbcde)(fb)
+    val fde: F[D=>E] = this.apply(fcde)(fc)
+    val fe: F[E] = this.apply(fde)(fd)
+    fe
+  }
+
   def sequence[A](fas: List[F[A]]): F[List[A]] = {
     def merge(fa: F[A], flist: F[List[A]]): F[List[A]] =
       this.map2(fa, flist){(a: A, lista: List[A])=>a::lista}
@@ -49,15 +69,15 @@ trait Applicative[F[_]] extends Functor[F] {
   }
 
   def product[G[_]](G: Applicative[G]):
-      Applicative[({type f[x] = (F[x], G[x])})#f] =
-    new Applicative[({type f[x] = (F[x], G[x])})#f]{
-      // implement primites unit and map2
-      override def map2[A](faa: F[(A,A)], gaa: G[(A,A)])
-          (merge: ((A,A),(A,A))=>(A,A)): F[(A,B)] = {
-        val fa3: F[A] = fab1.
-      }
+      Applicative[({type f[x] = (F[x], G[x])})#f] = ???
+    // new Applicative[({type f[x] = (F[x], G[x])})#f]{
+    //   // implement primites unit and map2
+    //   override def map2[A](faa: F[(A,A)], gaa: G[(A,A)])
+    //       (merge: ((A,A),(A,A))=>(A,A)): F[(A,B)] = {
+    //     val fa3: F[A] = fab1.
+    //   }
 
-    }
+    // }
 
   def compose[G[_]](G: Applicative[G]): Applicative[({type f[x] = F[G[x]]})#f] = ???
 
@@ -69,19 +89,29 @@ trait Applicative2[F[_]] extends Applicative[F] {
   override def unit[A](a: => A): F[A]
 
   override def map[A,B](fa: F[A])(f: A => B): F[B] = {
-    val applier: F[A => B] = unit(f)
+    val applier: F[A => B] = this.unit(f)
     this.apply(applier)(fa)
   }
   override def map2[A,B,C](fa: F[A], fb: F[B])(f: (A,B) => C): F[C] = {
-    
+    // val applier: F[(A,B)=>C] = unit(f)
+    // this.apply(applier)(
+    val g: A => (B => C) = f.curried
+    val applier: F[A=>(B=>C)] = this.unit(g)
+    val fbc: F[B=>C] = this.apply(applier)(fa)
+    val fc: F[C] = this.apply(fbc)(fb)
+    fc
   }
-
-
 }
 
 case class Tree[+A](head: A, tail: List[Tree[A]])
 
 trait Monad[F[_]] extends Applicative[F] {
+  /*
+   Figure out why this seemingly circular dependency 
+   between flatMap and join is okay.
+   Trace the method calls.
+   Insight also applies to answers.monad.Monad
+   */
   def flatMap[A,B](ma: F[A])(f: A => F[B]): F[B] = join(map(ma)(f))
 
   def join[A](mma: F[F[A]]): F[A] = flatMap(mma)(ma => ma)
