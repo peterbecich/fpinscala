@@ -12,24 +12,52 @@ import scala.language.implicitConversions
 
 trait Applicative[F[_]] extends Functor[F] {
 
-  def map2[A,B,C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] = ???
-
-  def apply[A,B](fab: F[A => B])(fa: F[A]): F[B] = ???
+  def map2[A,B,C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C]
 
   def unit[A](a: => A): F[A]
+
+  def apply[A,B](fab: F[A => B])(fa: F[A]): F[B] =
+    this.map2(fab, fa){(abFunc: A=>B, a: A) => {
+      abFunc(a)
+    }
+    }
 
   def map[A,B](fa: F[A])(f: A => B): F[B] =
     apply(unit(f))(fa)
 
-  def sequence[A](fas: List[F[A]]): F[List[A]] = ???
+  def sequence[A](fas: List[F[A]]): F[List[A]] = {
+    def merge(fa: F[A], flist: F[List[A]]): F[List[A]] =
+      this.map2(fa, flist){(a: A, lista: List[A])=>a::lista}
+    fas match {
+      case (fa: F[A])::(t: List[F[A]]) => merge(fa, sequence(t))
+      case _ => this.unit(List[A]())
+    }
+  }
 
-  def traverse[A,B](as: List[A])(f: A => F[B]): F[List[B]] = ???
+  def traverse[A,B](as: List[A])(f: A => F[B]): F[List[B]] = {
+    val afb: List[F[B]] = as.map(a => f(a))
+    sequence(afb)
+  }
 
-  def replicateM[A](n: Int, fa: F[A]): F[List[A]] = ???
+  def replicateM[A](n: Int, fa: F[A]): F[List[A]] = {
+    val lfa: List[F[A]] = List.fill(n)(fa)
+    sequence(lfa)
+  }
 
-  def factor[A,B](fa: F[A], fb: F[B]): F[(A,B)] = ???
+  def factor[A,B](fa: F[A], fb: F[B]): F[(A,B)] = {
+    this.map2(fa, fb){(a: A, b: B) => (a, b)}
+  }
 
-  def product[G[_]](G: Applicative[G]): Applicative[({type f[x] = (F[x], G[x])})#f] = ???
+  def product[G[_]](G: Applicative[G]):
+      Applicative[({type f[x] = (F[x], G[x])})#f] =
+    new Applicative[({type f[x] = (F[x], G[x])})#f]{
+      // implement primites unit and map2
+      override def map2[A,B,C](fab1: F[(A,B)], fab2: F[(A,B)])
+          (merge: ((A,B),(A,B))=>(A,B)): F[(A,B)] = {
+        val fa3: F[A] = fab1.
+      }
+
+    }
 
   def compose[G[_]](G: Applicative[G]): Applicative[({type f[x] = F[G[x]]})#f] = ???
 
