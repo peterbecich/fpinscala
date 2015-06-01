@@ -48,6 +48,7 @@ trait Applicative[F[_]] extends Functor[F] {
     fe
   }
 
+  // not much of a point in re-doing this with our List implementation
   def sequence[A](fas: List[F[A]]): F[List[A]] = {
     def merge(fa: F[A], flist: F[List[A]]): F[List[A]] =
       this.map2(fa, flist){(a: A, lista: List[A])=>a::lista}
@@ -139,7 +140,17 @@ trait Monad4[F[_]] extends Applicative[F] {
 }
 
 object Monad4 {
-  def eitherMonad[E]: Monad4[({type f[x] = Either[E, x]})#f] = ???
+  def eitherMonad[E]: Monad4[({type f[x] = Either[E, x]})#f] =
+    new Monad4[({type f[x] = Either[E, x]})#f]{
+      // implement unit, map2 and join
+      def unit[A](a: => A): Either[E,A] = scala.util.Right(a)
+      def map2[A,B,C](ea: Either[E,A], eb: Either[E,B])(f: (A,B)=>C):
+          Either[E,C] = (ea, eb) match {
+        case (Right(a), Right(b)) => Right(f(a,b))
+        case (Left(e1),
+      }
+
+    }
 
   def stateMonad[S] = new Monad4[({type f[x] = State[S, x]})#f] {
     def unit[A](a: => A): State[S, A] = State(s => (a, s))
@@ -176,6 +187,23 @@ object Applicative {
     def unit[A](a: => A): Stream[A] = Stream._constant(a)
     def map2[A,B,C](sa: Stream[A], sb: Stream[B])(f: (A,B)=>C): Stream[C] =
       sa.map2(sb)(f)
+
+    /*
+     Exercise 12.4
+     The meaning of
+     def sequence[A](fas: List[Stream[A]]): Stream[List[A]]
+
+     It is not
+      concatenating Streams into one Stream
+      multiplexing Streams into one Stream
+     It is
+      forming a Stream of Lists of elements of the same type 
+      from elements in provided Streams at equal indices
+
+     sequence(List(numbers, numbers)) = 
+     Stream((1,1),(2,2),...)
+     */
+
   }
 
   def validationApplicative[E]: Applicative[({type f[x] = Validation[E,x]})#f] = ???
@@ -255,3 +283,17 @@ object StateUtil {
   def set[S](s: S): State[S, Unit] =
     State(_ => ((), s))
 }
+
+object ApplicativeTests {
+  val listStreamInt: List[Stream[Int]] =
+    List(Stream._from(1), Stream._from(4), Stream._fibs)
+  val sequencedStreams: Stream[List[Int]] =
+    Applicative.streamApplicative.sequence(listStreamInt)
+
+  def main(args: Array[String]): Unit = {
+    println("Stream of Lists of Ints")
+    for(l<-sequencedStreams.toListFinite(10)) println(l)
+
+  }
+}
+
