@@ -105,7 +105,12 @@ trait Applicative2[F[_]] extends Applicative[F] {
 
 case class Tree[+A](head: A, tail: List[Tree[A]])
 
-trait Monad[F[_]] extends Applicative[F] {
+trait Monad[F[_]] extends Applicative2[F] {
+  override def apply[A,B](mf: F[A => B])(ma: F[A]): F[B]
+
+  //flatMap(mf)(f => map(ma)(a => f(a)))
+  override def unit[A](a: => A): Monad[A]
+
   /*
    Figure out why this seemingly circular dependency 
    between flatMap and join is okay.
@@ -119,8 +124,6 @@ trait Monad[F[_]] extends Applicative[F] {
   def compose[A,B,C](f: A => F[B], g: B => F[C]): A => F[C] =
     a => flatMap(f(a))(g)
 
-  override def apply[A,B](mf: F[A => B])(ma: F[A]): F[B] =
-    flatMap(mf)(f => map(ma)(a => f(a)))
 }
 
 object Monad {
