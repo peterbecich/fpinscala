@@ -111,12 +111,6 @@ trait Monad[F[_]] extends Applicative2[F] {
   //flatMap(mf)(f => map(ma)(a => f(a)))
   override def unit[A](a: => A): Monad[A]
 
-  /*
-   Figure out why this seemingly circular dependency 
-   between flatMap and join is okay.
-   Trace the method calls.
-   Insight also applies to answers.monad.Monad
-   */
   def flatMap[A,B](ma: F[A])(f: A => F[B]): F[B] = join(map(ma)(f))
 
   def join[A](mma: F[F[A]]): F[A] = flatMap(mma)(ma => ma)
