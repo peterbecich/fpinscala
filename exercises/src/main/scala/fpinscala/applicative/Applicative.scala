@@ -6,6 +6,8 @@ import state._
 import State._
 //import StateUtil._ // defined at bottom of this file
 import monoids._
+import scala.{Stream => _}
+import laziness.Stream
 import scala.language.higherKinds
 import scala.language.implicitConversions
 
@@ -16,6 +18,7 @@ trait Applicative[F[_]] extends Functor[F] {
 
   def unit[A](a: => A): F[A]
 
+  // exercise 12.2
   def apply[A,B](fab: F[A => B])(fa: F[A]): F[B] =
     this.map2(fab, fa){(abFunc: A=>B, a: A) => {
       abFunc(a)
@@ -84,6 +87,7 @@ trait Applicative[F[_]] extends Functor[F] {
   def sequenceMap[K,V](ofa: Map[K,F[V]]): F[Map[K,V]] = ???
 }
 
+// exercise 12.2
 trait Applicative2[F[_]] extends Applicative[F] {
   override def apply[A,B](fab: F[A => B])(fa: F[A]): F[B]
   override def unit[A](a: => A): F[A]
@@ -157,14 +161,21 @@ case class Success[A](a: A) extends Validation[Nothing, A]
 
 object Applicative {
 
-  val streamApplicative = new Applicative[Stream] {
+  // Collections' Stream
+  val collectionsStreamApplicative = new Applicative[scala.Stream] {
 
-    def unit[A](a: => A): Stream[A] =
-      Stream.continually(a) // The infinite, constant stream
+    def unit[A](a: => A): scala.Stream[A] =
+      scala.Stream.continually(a) // The infinite, constant stream
 
-    override def map2[A,B,C](a: Stream[A], b: Stream[B])( // Combine elements pointwise
-                    f: (A,B) => C): Stream[C] =
+    def map2[A,B,C](a: scala.Stream[A], b: scala.Stream[B])( // Combine elements pointwise
+                    f: (A,B) => C): scala.Stream[C] =
       a zip b map f.tupled
+  }
+  // fpinscala Stream
+  val streamApplicative = new Applicative[fpinscala.laziness.Stream] {
+    def unit[A](a: => A): Stream[A] = Stream._constant(a)
+    def map2[A,B,C](sa: Stream[A], sb: Stream[B])(f: (A,B)=>C): Stream[C] =
+      sa.map2(sb)(f)
   }
 
   def validationApplicative[E]: Applicative[({type f[x] = Validation[E,x]})#f] = ???

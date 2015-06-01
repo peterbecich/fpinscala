@@ -143,6 +143,24 @@ trait Stream[+A] {
     foldRight(Stream.empty[B])(g)
   }
 
+  // Know why this does not 'zip' implicitly.
+  // Probably the same reason that Monad's 'product' cannot
+  // implement 'zip'.
+  // def map2[B,C](sb: Stream[B])(f: (A,B)=>C): Stream[C] =
+  //   this.flatMap{(a:A)=>{
+  //     sb.map{(b:B)=>{
+  //       f(a,b)
+  //     }
+  //     }
+  //   }
+  //   }
+  def map2[B,C](sb: Stream[B])(f: (A,B)=>C): Stream[C] = {
+    val sab: Stream[(A,B)] = this.zip(sb)
+    //val merge: Tuple2[A,B] => C = ((a,b))=>f(a,b)
+    def merge(tpl: Tuple2[A,B]): C = f(tpl._1, tpl._2)
+    val sc: Stream[C] = sab.map(merge)
+    sc
+  }
 
   /*
    Learn about covariance, invariance and contravariance.
@@ -255,7 +273,6 @@ trait Stream[+A] {
     }
   }
 
-  // runtime error here!
   def zip[B](sb: fpinscala.laziness.Stream[B]):
       fpinscala.laziness.Stream[(A,B)] = {
     val sa: fpinscala.laziness.Stream[A] = this
@@ -371,6 +388,12 @@ object Stream {
     (tpl: (Int,Int)) => Some(tpl._1 + tpl._2, (tpl._2, tpl._1 + tpl._2))
   )
 
+  // ASCII characters 0x21 to 0x7E
+  def characters: Stream[Char] = unfold(0x21){(i: Int)=>
+    if(i<=0x7E) Some((i.toChar, i+1)) else None
+  }
+
+
 
 
 }
@@ -432,6 +455,32 @@ object StreamTests {
 
     println("find char M")
     println(letters.find((c: Char) => {c=='&'}))
+
+    println("characters")
+    Stream.characters.feedback
+
+    println("testing map2")
+    println("concatenate incrementing numbers and letters into short sentences")
+    println("'numbered letters'")
+    val numberedLetters: Stream[String] =
+      Stream._from(1).map2(Stream.characters){(i: Int, c: Char)=>{
+        s"$i $c"
+      }
+      }
+    numberedLetters.feedback
+
+    println("'lettered numbers'")
+    val letteredNumbers: Stream[String] =
+      Stream.characters.map2(Stream._from(1)){(c: Char, i: Int)=>{
+        s"$i $c"
+      }
+      }
+    letteredNumbers.feedback
+/*
+List(1 !, 2 !, 3 !, 4 !, 5 !, 6 !, 7 !, 8 !, 9 !, 10 !, 11 !, 12 !, 13 !, 14 !, 15 !, 16 !, 17 !, 18 !, 19 !, 20 !, 21 !, 22 !, 23 !, 24 !, 25 !, 26 !, 27 !, 28 !, 29 !, 30 !, 31 !, 32 !, 33 !, 34 !, 35 !, 36 !, 37 !, 38 !, 39 !, 40 !, 41 !, 42 !, 43 !, 44 !, 45 !, 46 !, 47 !, 48 !, 49 !, 50 !, 51 !, 52 !, 53 !, 54 !, 55 !, 56 !, 57 !, 58 !, 59 !, 60 !, 61 !, 62 !, 63 !, 64 !, 65 !, 66 !, 67 !, 68 !, 69 !, 70 !, 71 !, 72 !, 73 !, 74 !, 75 !, 76 !, 77 !, 78 !, 79 !, 80 !, 81 !, 82 !, 83 !, 84 !, 85 !, 86 !, 87 !, 88 !, 89 !, 90 !, 91 !, 92 !, 93 !, 94 !, 95 !, 96 !, 97 !, 98 !, 99 !, 100 !, 101 !, 102 !, 103 !, 104 !, 105 !, 106 !, 107 !, 108 !, 109 !, 110 !, 111 !, 112 !, 113 !, 114 !, 115 !, 116 !, 117 !, 118 !, 119 !, 120 !, 121 !, 122 !, 123 !, 124 !, 125 !, 126 !, 127 !, 128 !, 129 !, 130 !, 131 !, 132 !, 133 !, 134 !, 135 !, 136 !, 137 !, 138 !, 139 !, 140 !, 141 !, 142 !, 143 !, 144 !, 145 !, 146 !, 147 !, 148 !, 149 !, 150 !)
+
+ */
+
 
     // println("find number 100")
     // println(Stream.from(105).find((i: Int) => {i==100}))
