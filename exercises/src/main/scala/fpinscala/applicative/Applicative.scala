@@ -105,32 +105,46 @@ trait Applicative2[F[_]] extends Applicative[F] {
 
 case class Tree[+A](head: A, tail: List[Tree[A]])
 
-trait Monad[F[_]] extends Applicative2[F] {
-  override def apply[A,B](mf: F[A => B])(ma: F[A]): F[B]
 
-  //flatMap(mf)(f => map(ma)(a => f(a)))
-  override def unit[A](a: => A): Monad[A]
+/*
+ A monad with the same set of primitives as
+ Monad3: unit, map, and join.
+ unit and map are sent to Applicative.
+ join is left abstract.
+ */
+trait Monad4[F[_]] extends Applicative[F] {
+  def join[A](mma: F[F[A]]): F[A] = flatMap(mma)(ma => ma)
+
+  override def apply[A,B](mf: F[A => B])(ma: F[A]): F[B] =
+    flatMap(mf)(f => map(ma)(a => f(a)))
+
+  // override Applicative's abstract primitive map2
+  override def map2[A,B,C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] =
+    this.flatMap(fa){(a:A)=>{
+      this.map(fb){(b:B)=>{
+        f(a,b)
+      }
+      }
+    }
+    }
 
   def flatMap[A,B](ma: F[A])(f: A => F[B]): F[B] = join(map(ma)(f))
 
-  def join[A](mma: F[F[A]]): F[A] = flatMap(mma)(ma => ma)
-
   def compose[A,B,C](f: A => F[B], g: B => F[C]): A => F[C] =
     a => flatMap(f(a))(g)
-
 }
 
-object Monad {
-  def eitherMonad[E]: Monad[({type f[x] = Either[E, x]})#f] = ???
+object Monad4 {
+  def eitherMonad[E]: Monad4[({type f[x] = Either[E, x]})#f] = ???
 
-  def stateMonad[S] = new Monad[({type f[x] = State[S, x]})#f] {
+  def stateMonad[S] = new Monad4[({type f[x] = State[S, x]})#f] {
     def unit[A](a: => A): State[S, A] = State(s => (a, s))
     override def flatMap[A,B](st: State[S, A])(f: A => State[S, B]): State[S, B] =
       st flatMap f
   }
 
-  def composeM[F[_],N[_]](implicit F: Monad[F], N: Monad[N], T: Traverse[N]):
-    Monad[({type f[x] = F[N[x]]})#f] = ???
+  def composeM[F[_],N[_]](implicit F: Monad4[F], N: Monad4[N], T: Traverse[N]):
+    Monad4[({type f[x] = F[N[x]]})#f] = ???
 }
 
 sealed trait Validation[+E, +A]
@@ -158,7 +172,7 @@ object Applicative {
   type Const[A, B] = A
 
   implicit def monoidApplicative[M](M: Monoid[M]) =
-    new Applicative[({ type f[x] = Const[M, x] })#f] {
+    new Applicative2[({ type f[x] = Const[M, x] })#f] {
       def unit[A](a: => A): M = M.zero
       override def apply[A,B](m1: M)(m2: M): M = M.op(m1, m2)
     }
@@ -171,7 +185,7 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     traverse(fma)(ma => ma)
 
   type Id[A] = A
-  val idMonad = new Monad[Id] {
+  val idMonad = new Monad4[Id] {
     def unit[A](a: => A) = a
     override def flatMap[A,B](a: A)(f: A => B): B = f(a)
   }
@@ -186,7 +200,7 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
       as)(f)(monoidApplicative(mb))
 
   def traverseS[S,A,B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
-    traverse[({type f[x] = State[S,x]})#f,A,B](fa)(f)(Monad.stateMonad)
+    traverse[({type f[x] = State[S,x]})#f,A,B](fa)(f)(Monad4.stateMonad)
 
   def mapAccum[S,A,B](fa: F[A], s: S)(f: (A, S) => (B, S)): (F[B], S) =
     traverseS(fa)((a: A) => (for {

@@ -379,6 +379,7 @@ trait Monad[M[_]] extends Functor[M] {
 
    Primitive methods of applicative functor:
    unit and map2
+   unit and apply
 
    */
 
