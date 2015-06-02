@@ -72,18 +72,36 @@ trait Applicative[F[_]] extends Functor[F] {
     this.map2(fa, fb){(a: A, b: B) => (a, b)}
   }
 
+  /*
+   Product of applicative functors of same subtype.
+   i.e. product of Option[Int] and Stream[Int] = 
+        (Option[Int], Stream[Int])
+        that looks too simple...
+   */
   def product[G[_]](G: Applicative[G]):
-      Applicative[({type f[x] = (F[x], G[x])})#f] = ???
-    // new Applicative[({type f[x] = (F[x], G[x])})#f]{
-    //   // implement primites unit and map2
-    //   override def map2[A](faa: F[(A,A)], gaa: G[(A,A)])
-    //       (merge: ((A,A),(A,A))=>(A,A)): F[(A,B)] = {
-    //     val fa3: F[A] = fab1.
-    //   }
+      Applicative[({type f[x] = (F[x], G[x])})#f] = {
+    val applicativeF: Applicative[F] = this
+    new Applicative[({type f[x] = (F[x], G[x])})#f]{
+      // implement primitives unit and map2
+      override def unit[A](a: => A): (F[A], G[A]) =
+        (applicativeF.unit(a), G.unit(a))
+      //override def map2[A](faa: F[(A,A)], gaa: G[(A,A)])
+      //                              ^^ wrong...
+      override def map2[A]
+        (faga1: (F[A],G[A]), faga2: (F[A],G[A]))(
+        (aa1:(A,A),aa2:(A,A))=>(A,A)
+      ): (F[A],G[A]) = {
 
-    // }
+      }
+        
 
-  def compose[G[_]](G: Applicative[G]): Applicative[({type f[x] = F[G[x]]})#f] = ???
+    }
+  }
+
+  def compose[G[_]](G: Applicative[G]):
+      Applicative[({type f[x] = F[G[x]]})#f] = {
+
+  }
 
   def sequenceMap[K,V](ofa: Map[K,F[V]]): F[Map[K,V]] = ???
 }
