@@ -140,16 +140,22 @@ trait Monad4[F[_]] extends Applicative[F] {
 }
 
 object Monad4 {
+  /*
+   Either cannot contain multiple errors.
+   This exercises points out both the chain of dependencies of
+   monad application,
+   and also the insufficiency of Either.
+   */
   def eitherMonad[E]: Monad4[({type f[x] = Either[E, x]})#f] =
     new Monad4[({type f[x] = Either[E, x]})#f]{
       // implement unit, map2 and join
       def unit[A](a: => A): Either[E,A] = scala.util.Right(a)
-      def map2[A,B,C](ea: Either[E,A], eb: Either[E,B])(f: (A,B)=>C):
+      override def map2[A,B,C](ea: Either[E,A], eb: Either[E,B])(f: (A,B)=>C):
           Either[E,C] = (ea, eb) match {
         case (Right(a), Right(b)) => Right(f(a,b))
-        case (Left(e1),
+        case (Left(e1), _) => Left(e1)
+        case (_, Left(e2)) => Left(e2)
       }
-
     }
 
   def stateMonad[S] = new Monad4[({type f[x] = State[S, x]})#f] {
@@ -164,8 +170,8 @@ object Monad4 {
 
 sealed trait Validation[+E, +A]
 
-case class Failure[E](head: E, tail: Vector[E])
-  extends Validation[E, Nothing]
+case class Failure[E](head: E, tail: Vector[E] = Vector())
+  extends Validation[E, Nothing]        // default ^^ was missing
 
 case class Success[A](a: A) extends Validation[Nothing, A]
 
@@ -206,7 +212,22 @@ object Applicative {
 
   }
 
-  def validationApplicative[E]: Applicative[({type f[x] = Validation[E,x]})#f] = ???
+  def validationApplicative[E]:
+      Applicative[({type f[x] = Validation[E,x]})#f] =
+    new Applicative[({type f[x] = Validation[E,x]})#f] {
+      // implement unit and map2
+      // (or unit and apply)
+      def unit[A](a: => A): Validation[E,A] = Success(a)
+      def map2[A,B,C](va: Validation[E,A], vb: Validation[E,B])(
+        f: (A,B) => C): Validation[E,C] = (va, vb) match {
+        case (Success(a), Success(b)) => Success(f(a,b))
+        case (Success(a), Failure(e2, vecE2)) => Failure(e2, vecE2)
+        case (Failure(e1, vecE1), Success(b)) => Failure(e1, vecE1)
+        // Assuming error in head not stored in tail
+        case (Failure(e1, vecE1), Failure(e2, vecE2)) =>
+          Failure(e1, vecE1 ++ Vector[E](e2) ++ vecE2)
+      }
+    }
 
   type Const[A, B] = A
 
@@ -290,9 +311,64 @@ object ApplicativeTests {
   val sequencedStreams: Stream[List[Int]] =
     Applicative.streamApplicative.sequence(listStreamInt)
 
+  // web form example -- Listing 12.5
+  case class WebForm(
+    name: String,
+    birthdate: java.util.Date,
+    phoneNumber: String
+  )
+  def validName(name: String): Validation[String, String] =
+    if(name != "") Success(name)
+    else Failure("Name cannot be empty")
+  def validBirthdate(birthdate: String): Validation[String, java.util.Date] =
+    try {
+      import java.text._
+      Success((new SimpleDateFormat("yyyy-MM-dd")).parse(birthdate))
+    } catch {
+      case e => Failure("Birthdate must be in form yyyy-MM-dd")
+        // ^^ case statement was neccessary
+        // http://stackoverflow.com/questions/19950345/value-isdefinedat-is-not-a-member-of-play-api-mvc-simpleresult
+    }
+  def validPhone(phoneNumber: String): Validation[String, String] =
+    if (phoneNumber.matches("[0-9]{10}")) // << learn this regex
+      Success(phoneNumber)
+    else Failure("Phone number must be 10 digits")
+
+  // "lift" with map3
+  def validWebForm(name: String, birthdate: String, phone: String):
+      Validation[String, WebForm] =
+    Applicative.validationApplicative.map3(
+      validName(name),
+      validBirthdate(birthdate),
+      validPhone(phone)
+    ){(  // << interesting difference between {} and () shown here
+         // () required to enclosure multiple arguments,
+         // but not one argument?
+      successfulName: String,
+      successfulBirthdate: java.util.Date,
+      successfulPhone: String
+    ) => WebForm(successfulName, successfulBirthdate, successfulPhone)
+    }
+
+  val badName = ""
+  val badBirthdate = "1000 AD"
+  val badPhone = "411"
+
+  val validatedWebForm: Validation[String, WebForm] =
+    validWebForm(badName, badBirthdate, badPhone)
+
   def main(args: Array[String]): Unit = {
     println("Stream of Lists of Ints")
     for(l<-sequencedStreams.toListFinite(10)) println(l)
+
+    println("web form example -- Listing 12.5")
+    validatedWebForm match {
+      case Success(form) => println(form)
+      case Failure(h, tail) => {
+        println("first error: "+h)
+        println("others: "+tail)
+      }
+    }
 
   }
 }
