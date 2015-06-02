@@ -116,7 +116,16 @@ trait Applicative[F[_]] extends Functor[F] {
     }
   }
 
-  def sequenceMap[K,V](ofa: Map[K,F[V]]): F[Map[K,V]] = ???
+  def sequenceMap[K,V](ofa: Map[K,F[V]]): F[Map[K,V]] = {
+    def merge(k: K, fv: F[V], fmapkv: F[Map[K,V]]): F[Map[K,V]] =
+      this.map2(fv,fmapkv)((v: V, mapkv: Map[K,V])=>mapkv.+(k->v))
+    ofa.foldLeft(this.unit(Map[K,V]())){
+      // (op: Function2[B, Tuple2[K, F[V]], B])
+      (fmapkv: F[Map[K,V]], tuplekfv: Tuple2[K,F[V]])=>{
+        merge(tuplekfv._1, tuplekfv._2, fmapkv)
+      }
+    }
+  }
 }
 
 // exercise 12.2
@@ -317,11 +326,47 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
 }
 
 object Traverse {
-  val listTraverse = ???
+  // trait Traverse[F[_]] extends Functor[F] with Foldable[F]
+  val listTraverse: Traverse[List] = new Traverse[List]{
+    // implement map, foldLeft, and foldRight
+    def map[A,B](la: List[A])(f: A=>B): List[B] = la.map(f)
+    def foldRight[A,B](la: List[A])(z: B)(f: (A,B)=>B): B =
+      la.foldRight(z)(f)
+    def foldLeft[A,B](la: List[A])(z: B)(f: (B,A)=>B): B =
+      la.foldLeft(z)(f)
+  }
 
-  val optionTraverse = ???
+  val optionTraverse = new Traverse[Option]{
+    def map[A,B](oa: Option[A])(f: A=>B): Option[B] =
+      oa.map(f)
+    def foldRight[A,B](oa: Option[A])(z: B)(f: (A,B)=>B): B =
+      oa.foldRight(z)(f)
+    def foldLeft[A,B](oa: Option[A])(z: B)(f: (B,A)=>B): B =
+      oa.foldLeft(z)(f)
+  }
 
-  val treeTraverse = ???
+  val treeTraverse = new Traverse[Tree]{
+    def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
+      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+        Tree(f(head),List[Tree[B]]())
+      case Tree(head: A, tail: List[Tree[A]]) =>
+        Tree(f(head), tail.map((subtree:Tree[A])=>this.map(subtree)(f)))
+    }
+
+    def foldRight[A,B](ta: Tree[A])(z: B)(f: (A,B)=>B): B = ta match {
+      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+        f(head, z)
+      case Tree(head: A, tail: List[Tree[A]]) => {
+        val listB = tail.map((subtree:Tree[A])=>this.foldRight(subtree)(b)(f))
+        val tailB = listB.foldRight(
+        f(head, tailB)
+      }
+
+    }
+
+  }
+
+
 }
 
 // The `get` and `set` functions on `State` are used above,

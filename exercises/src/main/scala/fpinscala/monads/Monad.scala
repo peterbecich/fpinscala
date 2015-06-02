@@ -526,6 +526,10 @@ trait Monad[M[_]] extends Functor[M] {
 
 
   // }
+  // exercise 12.11
+  // show why not possible
+  // def compose[G[_]](G: Monad[G]):
+  //   Monad[({type f[x] = F[G[x]]})#f]
 }
 
 
