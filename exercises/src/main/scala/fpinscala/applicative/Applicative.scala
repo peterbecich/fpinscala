@@ -79,28 +79,41 @@ trait Applicative[F[_]] extends Functor[F] {
         that looks too simple...
    */
   def product[G[_]](G: Applicative[G]):
-      Applicative[({type f[x] = (F[x], G[x])})#f] = {
+      Applicative2[({type f[x] = (F[x], G[x])})#f] = {
     val applicativeF: Applicative[F] = this
-    new Applicative[({type f[x] = (F[x], G[x])})#f]{
-      // implement primitives unit and map2
+
+    new Applicative2[({type f[x] = (F[x], G[x])})#f]{
+      // implement primitives unit and apply
       override def unit[A](a: => A): (F[A], G[A]) =
         (applicativeF.unit(a), G.unit(a))
-      //override def map2[A](faa: F[(A,A)], gaa: G[(A,A)])
-      //                              ^^ wrong...
-      override def map2[A]
-        (faga1: (F[A],G[A]), faga2: (F[A],G[A]))(
-        (aa1:(A,A),aa2:(A,A))=>(A,A)
-      ): (F[A],G[A]) = {
 
-      }
-        
-
+      // apply is easier than map2, in this case
+      override def apply[A,B](fabgab: (F[A => B], G[A => B]))(
+        faga: (F[A], G[A])):  (F[B], G[B]) = {
+        val fb: F[B] = applicativeF.apply(fabgab._1)(faga._1)
+        val gb: G[B] = G.apply(fabgab._2)(faga._2)
+        (fb,gb)
+        }
     }
   }
 
   def compose[G[_]](G: Applicative[G]):
-      Applicative[({type f[x] = F[G[x]]})#f] = {
+      Applicative2[({type f[x] = F[G[x]]})#f] = {
+    val applicativeF: Applicative[F] = this
 
+    new Applicative2[({type f[x] = F[G[x]]})#f]{
+      override def unit[A](a: => A): F[G[A]] = {
+        val ga: G[A] = G.unit(a)
+        val fga: F[G[A]] = applicativeF.unit(ga)
+        fga
+      }
+      override def apply[A,B](fgab: F[G[A=>B]])(fga: F[G[A]]): F[G[B]] = {
+        applicativeF.map2(fgab, fga){(gab: G[A=>B], ga: G[A]) => {
+          G.apply(gab)(ga)
+        }
+        }
+      }
+    }
   }
 
   def sequenceMap[K,V](ofa: Map[K,F[V]]): F[Map[K,V]] = ???
