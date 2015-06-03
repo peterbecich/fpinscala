@@ -355,17 +355,25 @@ object Traverse {
 
     def foldRight[A,B](ta: Tree[A])(z: B)(f: (A,B)=>B): B = ta match {
       case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-        f(head, z)
+        f(head, z): B
       case Tree(head: A, tail: List[Tree[A]]) => {
-        val listB = tail.map((subtree:Tree[A])=>this.foldRight(subtree)(b)(f))
+        val listB: List[B] =
+          tail.map((subtree:Tree[A])=>this.foldRight(subtree)(z)(f))
         val tailB = listB.foldRight(
         f(head, tailB)
       }
 
     }
 
-  }
-
+    }
+    @annotation.tailrec
+    def foldLeft[A,B](ta: Tree[A])(z: B)(f: (B,A)=>B): B = ta match {
+      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+        f(z, head)
+      case Tree(head: A, tail: List[Tree[A]]) => {
+        val g = (b: B) => f(b,head)
+        val tailB = foldLeft(
+      }
 
 }
 
