@@ -251,6 +251,14 @@ object Applicative {
      */
 
   }
+  val optionApplicative = new Applicative[Option]{
+    def unit[A](a: => A): Option[A] = Some(a)
+    def map2[A,B,C](oa: Option[A], ob: Option[B])(f: (A,B)=>C): Option[C] =
+      (oa, ob) match {
+        case (Some(a), Some(b)) => Some(f(a,b))
+        case (_, _) => None
+      }
+  }
 
   def validationApplicative[E]:
       Applicative[({type f[x] = Validation[E,x]})#f] =
@@ -279,6 +287,14 @@ object Applicative {
 }
 
 trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
+  /*
+   A trace of a call to traverse or sequence may prove that this 
+   seemingly circular dependency actually terminates.
+   
+   The clearer answer is that either traverse or sequence is expected
+   to be implemented by the concrete Traverse instance, 
+   Traverse[Option], Traverse[List], etc., breaking the circular dependency.
+   */
   def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] =
     sequence(map(fa)(f))
   def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]] =
@@ -329,52 +345,52 @@ object Traverse {
   // trait Traverse[F[_]] extends Functor[F] with Foldable[F]
   val listTraverse: Traverse[List] = new Traverse[List]{
     // implement map, foldLeft, and foldRight
-    def map[A,B](la: List[A])(f: A=>B): List[B] = la.map(f)
-    def foldRight[A,B](la: List[A])(z: B)(f: (A,B)=>B): B =
+    override def map[A,B](la: List[A])(f: A=>B): List[B] = la.map(f)
+    override def foldRight[A,B](la: List[A])(z: B)(f: (A,B)=>B): B =
       la.foldRight(z)(f)
-    def foldLeft[A,B](la: List[A])(z: B)(f: (B,A)=>B): B =
+    override def foldLeft[A,B](la: List[A])(z: B)(f: (B,A)=>B): B =
       la.foldLeft(z)(f)
   }
 
   val optionTraverse = new Traverse[Option]{
-    def map[A,B](oa: Option[A])(f: A=>B): Option[B] =
+    override def map[A,B](oa: Option[A])(f: A=>B): Option[B] =
       oa.map(f)
-    def foldRight[A,B](oa: Option[A])(z: B)(f: (A,B)=>B): B =
+    override def foldRight[A,B](oa: Option[A])(z: B)(f: (A,B)=>B): B =
       oa.foldRight(z)(f)
-    def foldLeft[A,B](oa: Option[A])(z: B)(f: (B,A)=>B): B =
+    override def foldLeft[A,B](oa: Option[A])(z: B)(f: (B,A)=>B): B =
       oa.foldLeft(z)(f)
   }
 
-  val treeTraverse = new Traverse[Tree]{
-    def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
-      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-        Tree(f(head),List[Tree[B]]())
-      case Tree(head: A, tail: List[Tree[A]]) =>
-        Tree(f(head), tail.map((subtree:Tree[A])=>this.map(subtree)(f)))
-    }
+  //val treeTraverse = new Traverse[Tree]{
+    // def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
+    //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+    //     Tree(f(head),List[Tree[B]]())
+    //   case Tree(head: A, tail: List[Tree[A]]) =>
+    //     Tree(f(head), tail.map((subtree:Tree[A])=>this.map(subtree)(f)))
+    // }
 
-    def foldRight[A,B](ta: Tree[A])(z: B)(f: (A,B)=>B): B = ta match {
-      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-        f(head, z): B
-      case Tree(head: A, tail: List[Tree[A]]) => {
-        val listB: List[B] =
-          tail.map((subtree:Tree[A])=>this.foldRight(subtree)(z)(f))
-        val tailB = listB.foldRight(
-        f(head, tailB)
-      }
+    // def foldRight[A,B](ta: Tree[A])(z: B)(f: (A,B)=>B): B = ta match {
+    //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+    //     f(head, z): B
+    //   case Tree(head: A, tail: List[Tree[A]]) => {
+    //     val listB: List[B] =
+    //       tail.map((subtree:Tree[A])=>this.foldRight(subtree)(z)(f))
+    //     val tailB = listB.foldRight(
+    //     f(head, tailB)
+    //   }
 
-    }
+    // }
 
-    }
-    @annotation.tailrec
-    def foldLeft[A,B](ta: Tree[A])(z: B)(f: (B,A)=>B): B = ta match {
-      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-        f(z, head)
-      case Tree(head: A, tail: List[Tree[A]]) => {
-        val g = (b: B) => f(b,head)
-        val tailB = foldLeft(
-      }
-
+    // }
+    // @annotation.tailrec
+    // def foldLeft[A,B](ta: Tree[A])(z: B)(f: (B,A)=>B): B = ta match {
+    //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+    //     f(z, head)
+    //   case Tree(head: A, tail: List[Tree[A]]) => {
+    //     val g = (b: B) => f(b,head)
+    //     val tailB = foldLeft(
+    //   }
+  //}
 }
 
 // The `get` and `set` functions on `State` are used above,
@@ -457,3 +473,27 @@ object ApplicativeTests {
   }
 }
 
+
+object TraverseTests {
+  import Traverse._
+  import Applicative.optionApplicative
+  implicit val optionAppl = optionApplicative
+  val notASCII = (60 to 90).toList
+  val ASCII = (68 to 85).toList
+  val charConverter: Int=>Option[Char] = 
+    (i: Int) => if(i>65 && i<=90) Some(i.toChar) else None
+  def main(args: Array[String]): Unit = {
+    println("not ASCII")
+    println(notASCII)
+    // access to Applicative[Option] neccessary
+    // understand why
+    val noAlphabet: Option[List[Char]] = 
+      listTraverse.traverse(notASCII)(charConverter)
+
+    println("some ASCII")
+    println(ASCII)
+    val partialAlphabet: Option[List[Char]] = 
+      listTraverse.traverse(ASCII)(charConverter)
+
+  }
+}

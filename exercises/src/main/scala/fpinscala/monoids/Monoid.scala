@@ -1011,6 +1011,12 @@ object MonoidTest {
   }
 }
 trait Foldable[F[_]] {
+  /*
+   Exercise 12.15
+   Why Foldable cannot extend Functor.
+   Some feature of Functor would be too great of a requirement to 
+   Foldable, i.e. requiring flatMap in Applicative.
+   */
   import Monoid._
 
   def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B
