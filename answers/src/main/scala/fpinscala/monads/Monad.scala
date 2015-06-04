@@ -88,9 +88,9 @@ object Monad {
       ma flatMap f
   }
   val sGenMonad = new Monad[SGen] {
-    def unit[A](a: => A): SGen[A] = SGen((i: Int) => a)
+    def unit[A](a: => A): SGen[A] = SGen((i: Int) => Gen.unit(a))
     // fix flatMap of SGen
-    override def flatMap[A, B](ma: SGen[A])(f: A => SGen[B]): SGen[B] =
+    def flatMap[A, B](ma: SGen[A])(f: A => Gen[B]): SGen[B] =
       ma.flatMap(f)
   }
 
