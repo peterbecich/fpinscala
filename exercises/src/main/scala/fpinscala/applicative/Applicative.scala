@@ -11,7 +11,7 @@ import laziness.Stream
 import scala.language.higherKinds
 import scala.language.implicitConversions
 
-
+// abstract primitives map2 and unit
 trait Applicative[F[_]] extends Functor[F] {
 
   def map2[A,B,C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C]
@@ -129,6 +129,7 @@ trait Applicative[F[_]] extends Functor[F] {
 }
 
 // exercise 12.2
+// abstract primitives apply and unit
 trait Applicative2[F[_]] extends Applicative[F] {
   override def apply[A,B](fab: F[A => B])(fa: F[A]): F[B]
   override def unit[A](a: => A): F[A]
@@ -279,9 +280,12 @@ object Applicative {
 
   type Const[A, B] = A
 
-  implicit def monoidApplicative[M](M: Monoid[M]) =
+  implicit def monoidApplicative[M](M: Monoid[M]):
+      Applicative[({ type f[x] = Const[M, x] })#f] =
     new Applicative2[({ type f[x] = Const[M, x] })#f] {
       def unit[A](a: => A): M = M.zero
+      // compare to abstract primitive signature of apply
+      //       def apply[A,B](fab: F[A => B])(fa: F[A]): F[B]
       override def apply[A,B](m1: M)(m2: M): M = M.op(m1, m2)
     }
 }
@@ -306,6 +310,8 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     override def flatMap[A,B](a: A)(f: A => B): B = f(a)
   }
 
+  // exercises 12.14
+  // answer given
   def map[A,B](fa: F[A])(f: A => B): F[B] =
     traverse[Id, A, B](fa)(f)(idMonad)
 
@@ -360,6 +366,16 @@ object Traverse {
     override def foldLeft[A,B](oa: Option[A])(z: B)(f: (B,A)=>B): B =
       oa.foldLeft(z)(f)
   }
+
+
+  /*
+   Need to combine list of B's into single B, to fold over Tree and subtrees
+
+   Section 12.7.1
+   Then in the type signature for traverse, if we instantiate G to be ConstInt, it becomes def traverse[A,B](fa: F[A])(f: A => Int): Int This looks a lot like foldMap from Foldable. Indeed, if F is something like List, then what we need to implement this signature is a way of combining the Int values returned by f for each element of the list, and a “starting” value for handling the empty list. In other words,
+
+   */
+
 
   //val treeTraverse = new Traverse[Tree]{
     // def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
