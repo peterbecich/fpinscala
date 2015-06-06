@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-=======
-[![Build status](https://travis-ci.org/fpinscala/fpinscala.svg?branch=master)](https://travis-ci.org/fpinscala/fpinscala) [![Join the chat at https://gitter.im/fpinscala/fpinscala](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/fpinscala/fpinscala?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) 
->>>>>>> bookmaster
 
 http://stackoverflow.com/questions/849308/pull-push-from-multiple-remote-locations
 
