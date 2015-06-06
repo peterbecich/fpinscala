@@ -273,6 +273,13 @@ trait Stream[+A] {
     }
   }
 
+  /*
+   'Zip' cannot be implemented with Monad's 'product.'
+   
+   But see Applicative's zip method.  Section 12.7.3 comments on
+   differing "shapes" of functors to be zipped.
+   */
+
   def zip[B](sb: fpinscala.laziness.Stream[B]):
       fpinscala.laziness.Stream[(A,B)] = {
     val sa: fpinscala.laziness.Stream[A] = this

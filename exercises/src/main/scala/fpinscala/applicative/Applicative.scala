@@ -78,7 +78,13 @@ trait Applicative[F[_]] extends Functor[F] {
         (Option[Int], Stream[Int])
         that looks too simple...
    */
-  def product[G[_]](G: Applicative[G]):
+
+  /*
+   Know difference between
+   def product[G[_]](G: Applicative[G])
+   def product[G[_]: Applicative](foo: G[_])
+   */
+  def product[G[_]: Applicative](G: Applicative[G]):
       Applicative2[({type f[x] = (F[x], G[x])})#f] = {
     val applicativeF: Applicative[F] = this
 
@@ -317,9 +323,14 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
 
   import Applicative._
 
-  override def foldMap[A,B](as: F[A])(f: A => B)(mb: Monoid[B]): B =
+  override def foldMap[A,B](as: F[A])(f: A => B)(mb: Monoid[B]): B = {
+    // def applicativeMonoidB =   //[M]: Applicative[Const[B,M]] =
+    //   monoidApplicative(mb)
+    // type traversalOuterType = Const[B,A]
+    // traverse[traversalOuterType, A, Nothing](as)(f)(applicativeMonoidB)
     traverse[({type f[x] = Const[B,x]})#f,A,Nothing](
       as)(f)(monoidApplicative(mb))
+  }
 
   def traverseS[S,A,B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
     traverse[({type f[x] = State[S,x]})#f,A,B](fa)(f)(Monad4.stateMonad)
@@ -337,14 +348,61 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
   def zipWithIndex[A](fa: F[A]): F[(A, Int)] =
     mapAccum(fa, 0)((a, s) => ((a, s), s + 1))._1
 
-  def reverse[A](fa: F[A]): F[A] = ???
+  /*
+   listing 12.9
+   less general implementation of Traverse's mapAccum
 
-  override def foldLeft[A,B](fa: F[A])(z: B)(f: (B, A) => B): B = ???
+   very similar to 
+   def zipWithIndexState[A](as: List[A]): State[Int, List[(Int,A)]]
+   in Monad -- listing 11.8
+   */
+  def _zipWithIndex[A](ta: F[A]): F[(A,Int)] = 
+    traverseS(ta)((a:A) => (for {
+      // type "hint" given to   
+      //   def get[S]: State[S,S] = State((s:S)=>(s,s))
+      i <- get[Int]
+      _ <- set(i+1)
+    } yield (a, i))).run(0)._1
+
+
+
+  // def reverse[A](fa: F[A]): F[A] = {
+
+  // }
+
+  // exercise 12.17
+  // use mapAccum
+  //override def foldLeft[A,B](fa: F[A])(z: B)(f: (B, A) => B): B = 
+
 
   def fuse[G[_],H[_],A,B](fa: F[A])(f: A => G[B], g: A => H[B])
-                         (implicit G: Applicative[G], H: Applicative[H]): (G[F[B]], H[F[B]]) = ???
+                         (implicit G: Applicative[G], H: Applicative[H]):
+      (G[F[B]], H[F[B]]) = {
+    val fgb: F[G[B]] = this.map(fa)(f)
+    val fhb: F[H[B]] = this.map(fa)(g)
 
-  def compose[G[_]](implicit G: Traverse[G]): Traverse[({type f[x] = F[G[x]]})#f] = ???
+    val gfb: G[F[B]] = this.sequence(fgb)
+    val hfb: H[F[B]] = this.sequence(fhb)
+
+    (gfb, hfb)
+  }
+
+  def compose[G[_]](implicit G: Traverse[G]): 
+      Traverse[({type f[x] = F[G[x]]})#f] = {
+    val traverseF = this
+    new Traverse[({type f[x] = F[G[x]]})#f] {
+      // implement method traverse or sequence
+      // def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]]
+      // def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]]
+
+      // G is getting defined more than once here...
+      override def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] = {
+        val fgb: F[G[B]] = traverseF.map(fa)(f)
+
+
+        }
+    }
+  }
 }
 
 object Traverse {
@@ -498,6 +556,9 @@ object TraverseTests {
   val ASCII = (68 to 85).toList
   val charConverter: Int=>Option[Char] = 
     (i: Int) => if(i>65 && i<=90) Some(i.toChar) else None
+
+
+
   def main(args: Array[String]): Unit = {
     println("not ASCII")
     println(notASCII)
