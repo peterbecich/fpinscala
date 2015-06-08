@@ -141,6 +141,7 @@ trait Applicative2[F[_]] extends Applicative[F] {
   override def unit[A](a: => A): F[A]
 
   override def map[A,B](fa: F[A])(f: A => B): F[B] = {
+
     val applier: F[A => B] = this.unit(f)
     this.apply(applier)(fa)
   }
@@ -211,8 +212,31 @@ object Monad4 {
       st flatMap f
   }
 
-  def composeM[F[_],N[_]](implicit F: Monad4[F], N: Monad4[N], T: Traverse[N]):
-    Monad4[({type f[x] = F[N[x]]})#f] = ???
+  // exercise 12.20
+  def composeM[F[_],N[_]](
+    implicit monadF: Monad4[F], monadN: Monad4[N], traverseT: Traverse[N]):
+      Monad4[({type f[x] = F[N[x]]})#f] = 
+    new Monad4[({type f[x] = F[N[x]]})#f]{
+      /*
+       implement join and apply
+       Traverse instance for functor N provided
+       Dealt with several circular dependencies recently.  Part of the 
+       problem is a misunderstanding of scope.
+       If this new monad instance (monadFN) were to implement 
+       primitives 'join' and 'apply' with monadFN.flatMap,
+       monadFN.unit, etc. that would be a circular dependency.
+       Using the methods of monadF or monadN to implement monadFN's
+       'join' and 'apply' is not a circular dependency.
+       */
+      override def join[A](fnfna: F[N[F[N[A]]]]): F[N[A]] = 
+        monadF.flatMap(fnfna)((nfna: N[F[N[A]]]) => {
+          monadN.flatMap(nfna)((fna: F[N[A]]) => {
+
+          }: N[_]
+          ): F[_]
+        }
+        )
+    }
 }
 
 sealed trait Validation[+E, +A]
@@ -237,7 +261,7 @@ object Applicative {
   }
   // fpinscala Stream
   val streamApplicative = new Applicative[fpinscala.laziness.Stream] {
-    def unit[A](a: => A): Stream[A] = Stream._constant(a)
+    def unit[A](a: => A): Stream[A] = pStream._constant(a)
     def map2[A,B,C](sa: Stream[A], sb: Stream[B])(f: (A,B)=>C): Stream[C] =
       sa.map2(sb)(f)
 
@@ -356,16 +380,33 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
    def zipWithIndexState[A](as: List[A]): State[Int, List[(Int,A)]]
    in Monad -- listing 11.8
    */
-  def _zipWithIndex[A](ta: F[A]): F[(A,Int)] = 
-    traverseS(ta)((a:A) => (for {
-      // type "hint" given to   
-      //   def get[S]: State[S,S] = State((s:S)=>(s,s))
-      i <- get[Int]
-      _ <- set(i+1)
-    } yield (a, i))).run(0)._1
+  def _zipWithIndex[A](ta: F[A]): F[(A,Int)] = {
+    // val aToState = (a:A) => for {
+    //   // type "hint" given to
+    //   //   def get[S]: State[S,S] = State((s:S)=>(s,s))
+    //   i <- get[Int]
+    //   _ <- set(i+1)
+    // } yield (a, i)
+    val stateIntInt: State[Int,Int] = get[Int]
+    val stateIntSet: State[Int, Unit] = 
+      stateIntInt.flatMap((i: Int)=>{set(i+1)})
+    val aToState = (a: A) => stateIntSet.map((i: Int)=>(a,i))
+
+    val stateOfFunctor: State[Int, F[(A,Int)]] = traverseS(ta)(aToState)
+
+    val ranState: (F[(A,Int)], Int) = stateOfFunctor.run(0)
+    val lastFunctor: F[(A,Int)] = ranState._1
+    lastFunctor
 
 
+  }
 
+
+  /* 
+   Exercise 12.16 check law
+   toList(reverse(x)) ++ toList(reverse(y)) ==
+   reverse(toList(y) ++ toList(x))
+   */
   // def reverse[A](fa: F[A]): F[A] = {
 
   // }
@@ -388,19 +429,22 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
   }
 
   def compose[G[_]](implicit G: Traverse[G]): 
-      Traverse[({type f[x] = F[G[x]]})#f] = {
+      Traverse[({type f[x] = F[G[x]]})#f] = { //traverseF =>
     val traverseF = this
-    new Traverse[({type f[x] = F[G[x]]})#f] {
+    new Traverse[({type f[x] = F[G[x]]})#f] { //traverseFG =>
+      val traverseFG = this
       // implement method traverse or sequence
       // def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]]
       // def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]]
 
       // G is getting defined more than once here...
-      override def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] = {
+      override def traverse[A,B](fa: F[A])(
+        f: A => G[B]): G[F[B]] = {
         val fgb: F[G[B]] = traverseF.map(fa)(f)
-
-
-        }
+        // circular dependency??
+        //traverseFG.sequence[G, B](fgb)
+        traverseF.sequence[G,B](fgb)
+      }
     }
   }
 }
@@ -571,6 +615,12 @@ object TraverseTests {
     println(ASCII)
     val partialAlphabet: Option[List[Char]] = 
       listTraverse.traverse(ASCII)(charConverter)
+
+    println("indexed partial alphabet")
+    val optionIndexedPartialAlphabet: Option[List[(Char,Int)]] =
+      partialAlphabet.flatMap((lc: List[Char])=>
+        Some(listTraverse.zipWithIndex(lc)))
+    println(optionIndexedPartialAlphabet)
 
   }
 }
