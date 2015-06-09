@@ -389,7 +389,7 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     // } yield (a, i)
     val stateIntInt: State[Int,Int] = get[Int]
     val stateIntSet: State[Int, Unit] = 
-      stateIntInt.flatMap((i: Int)=>{set(i+1)})
+      stateIntInt.flatMap((i: Int)=>set(i+1))
     val aToState = (a: A) => stateIntSet.map((i: Int)=>(a,i))
 
     val stateOfFunctor: State[Int, F[(A,Int)]] = traverseS(ta)(aToState)
