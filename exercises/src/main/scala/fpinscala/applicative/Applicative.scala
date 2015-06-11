@@ -290,7 +290,7 @@ object Applicative {
         case (_, _) => None
       }
   }
-
+  
   def validationApplicative[E]:
       Applicative[({type f[x] = Validation[E,x]})#f] =
     new Applicative[({type f[x] = Validation[E,x]})#f] {
@@ -307,6 +307,9 @@ object Applicative {
           Failure(e1, vecE1 ++ Vector[E](e2) ++ vecE2)
       }
     }
+
+  def stateApplicative[S] =
+    new Applicative
 
   type Const[A, B] = A
 
@@ -346,6 +349,7 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     traverse[Id, A, B](fa)(f)(idMonad)
 
   import Applicative._
+  import StateUtil._
 
   override def foldMap[A,B](as: F[A])(f: A => B)(mb: Monoid[B]): B = {
     // def applicativeMonoidB =   //[M]: Applicative[Const[B,M]] =
@@ -369,6 +373,28 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
   override def toList[A](fa: F[A]): List[A] =
     mapAccum(fa, List[A]())((a, s) => ((), a :: s))._2.reverse
 
+  // listing 12.10 with for comp made explicit
+  def _toList[A](fa: F[A]): List[A] = {
+    // traverseS(fa)((a: A) => (for {
+    //   as <- get[List[A]]
+    //   _ <- set(a::as)
+    // } yield ())).run(Nil)._2.reverse
+
+    val stateListList: State[List[A],List[A]] = get[List[A]]
+    //val stateListUnit: State[List[A],Unit] = set(a::as)
+
+    val aToState: A => State[List[A], Unit] = (a: A) => {
+      stateListList.flatMap((as: List[A]) => {
+        set(a::as)
+      }
+      )
+    }
+
+    val traversed: State[List[A], F[Unit]] = traverseS(fa)(aToState)
+    val stateOut: Tuple2[F[Unit], List[A]]  = traversed.run(List[A]())
+    val listOut: List[A] = stateOut._2
+    listOut
+    }
   def zipWithIndex[A](fa: F[A]): F[(A, Int)] =
     mapAccum(fa, 0)((a, s) => ((a, s), s + 1))._1
 
