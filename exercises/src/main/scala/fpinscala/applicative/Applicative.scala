@@ -490,7 +490,9 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
         val fgb: F[G[B]] = traverseF.map(fa)(f)
         // circular dependency??
         //traverseFG.sequence[G, B](fgb)
-        traverseF.sequence[G,B](fgb)
+        // could not find implicit value for evidence parameter of type fpinscala.applicative.Applicative[G]
+        //traverseF.sequence[G,B](fgb)
+        traverseF.sequence[G[_]:Applicative,B](fgb)
       }
     }
   }
