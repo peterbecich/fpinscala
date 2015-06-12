@@ -214,11 +214,11 @@ object Monad4 {
 
   // exercise 12.20
   def composeM[F[_],N[_]](
-    implicit monadF: Monad4[F], monadN: Monad4[N], traverseT: Traverse[N]):
+    implicit monadF: Monad4[F], monadN: Monad4[N], traverseN: Traverse[N]):
       Monad4[({type f[x] = F[N[x]]})#f] = 
     new Monad4[({type f[x] = F[N[x]]})#f]{
       /*
-       implement join and apply
+       implement unit, map, and join
        Traverse instance for functor N provided
        Dealt with several circular dependencies recently.  Part of the 
        problem is a misunderstanding of scope.
@@ -228,14 +228,31 @@ object Monad4 {
        Using the methods of monadF or monadN to implement monadFN's
        'join' and 'apply' is not a circular dependency.
        */
-      override def join[A](fnfna: F[N[F[N[A]]]]): F[N[A]] = 
-        monadF.flatMap(fnfna)((nfna: N[F[N[A]]]) => {
-          monadN.flatMap(nfna)((fna: F[N[A]]) => {
-
-          }: N[_]
-          ): F[_]
+      override def join[A](fnfna: F[N[F[N[A]]]]): F[N[A]] = {
+        // answer laid out in section 12.7.6
+        val ffnna: F[F[N[N[A]]]] = monadF.map(fnfna)((nfna: N[F[N[A]]])=>{
+          traverseN.sequence(nfna)
         }
         )
+        val fnna: F[N[N[A]]] = monadF.join(ffnna)
+        val fna: F[N[A]] = monadF.map(fnna)((nna: N[N[A]])=>{
+          monadN.join(nna)
+        }
+        )
+        fna
+      }
+      override def unit[A](a: => A): F[N[A]] = {
+        val na: N[A] = monadN.unit(a)
+        val fna: F[N[A]] = monadF.unit(na)
+        fna
+      }
+      override def map[A,B](fna: F[N[A]])(f: A => B): F[N[B]] = {
+        val fnb: F[N[B]] = monadF.map(fna)((na: N[A]) => {
+          monadN.map(na)((a: A) => f(a))
+        }
+        )
+        fnb
+      }
     }
 }
 
@@ -261,7 +278,7 @@ object Applicative {
   }
   // fpinscala Stream
   val streamApplicative = new Applicative[fpinscala.laziness.Stream] {
-    def unit[A](a: => A): Stream[A] = pStream._constant(a)
+    def unit[A](a: => A): Stream[A] = Stream._constant(a)
     def map2[A,B,C](sa: Stream[A], sb: Stream[B])(f: (A,B)=>C): Stream[C] =
       sa.map2(sb)(f)
 
@@ -308,8 +325,8 @@ object Applicative {
       }
     }
 
-  def stateApplicative[S] =
-    new Applicative
+  // def stateApplicative[S] =
+  //   new Applicative
 
   type Const[A, B] = A
 
