@@ -407,24 +407,28 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
    in Monad -- listing 11.8
    */
   def _zipWithIndex[A](ta: F[A]): F[(A,Int)] = {
-    // val aToState = (a:A) => for {
-    //   // type "hint" given to
-    //   //   def get[S]: State[S,S] = State((s:S)=>(s,s))
-    //   i <- get[Int]
-    //   _ <- set(i+1)
-    // } yield (a, i)
-    val stateIntInt: State[Int,Int] = get[Int]
-    val stateIntSet: State[Int, Unit] = 
-      stateIntInt.flatMap((i: Int)=>set(i+1))
-    val aToState = (a: A) => stateIntSet.map((i: Int)=>(a,i))
+    val aToState = (a:A) => for {
+      // type "hint" given to
+      //   def get[S]: State[S,S] = State((s:S)=>(s,s))
+      i <- get[Int]
+      _ <- set(i+1)
+    } yield (a, i)
+    // val stateIntInt: State[Int,Int] = get[Int]
+    // val stateIntUnit: State[Int, Unit] = 
+    //   stateIntInt.flatMap((i: Int)=>set(i+1))
+    // val aToState = (a: A) => {
+    //   stateIntInt.flatMap((i: Int) => {
+    //     //set[Tuple2[A,Int]]((a,i+1))
+    //     set[Int](i+1)
+    //   }
+    //   )
+      
 
     val stateOfFunctor: State[Int, F[(A,Int)]] = traverseS(ta)(aToState)
 
     val ranState: (F[(A,Int)], Int) = stateOfFunctor.run(0)
     val lastFunctor: F[(A,Int)] = ranState._1
     lastFunctor
-
-
   }
 
 
