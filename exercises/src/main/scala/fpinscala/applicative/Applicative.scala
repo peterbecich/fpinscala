@@ -275,7 +275,20 @@ object Applicative {
     def map2[A,B,C](a: scala.Stream[A], b: scala.Stream[B])( // Combine elements pointwise
                     f: (A,B) => C): scala.Stream[C] =
       a zip b map f.tupled
+    //  ^^ Collections' Stream's built-in zip method
   }
+  //Collections' List
+  val listApplicative = new Applicative[List] {
+    override def unit[A](a: => A): List[A] = List[A](a)
+    override def map2[A,B,C](la: List[A], lb: List[B])(
+      f: (A,B)=>C): List[C] = {
+      // List[C] will be length of the shorter of List[A] and List[B]
+      val lab: List[(A,B)] = la.zip(lb)
+      val lc: List[C] = lab.map((ab: Tuple2[A,B]) => f(ab._1, ab._2))
+      lc
+    }
+  }
+
   // fpinscala Stream
   val streamApplicative = new Applicative[fpinscala.laziness.Stream] {
     def unit[A](a: => A): Stream[A] = Stream._constant(a)
@@ -325,6 +338,30 @@ object Applicative {
       }
     }
 
+  val treeApplicative: Applicative[Tree] = new Applicative[Tree] {
+    // implement map2 and unit
+    // override def apply[A,B](
+    //   treeAB: Tree[A => B])(treeA: Tree[A]): Tree[B] = {
+    // }
+
+    override def unit[A](a: => A): Tree[A] = 
+      Tree(a, List[Tree[A]]())
+
+    // assume trees are the same size
+    override def map2[A,B,C](ta: Tree[A], tb: Tree[B])(
+      f: (A,B) => C): Tree[C] = {
+      val headC = f(ta.head, tb.head)
+      // (List[Tree[A]], List[Tree[B]]) => List[Tree[C]]
+      //Applicative.listApplicative.map2(ta, tb)
+      val listTreeATreeB: List[(Tree[A], Tree[B])] =
+        ta.tail.zip(tb.tail)
+      val listTreeC: List[Tree[C]] = listTreeATreeB.map(
+        (tatb: Tuple2[Tree[A],Tree[B]]) => this.map2(tatb._1, tatb._2)(f))
+      Tree(headC, listTreeC)
+    }
+
+  }
+
   // def stateApplicative[S] =
   //   new Applicative
 
@@ -339,6 +376,13 @@ object Applicative {
       override def apply[A,B](m1: M)(m2: M): M = M.op(m1, m2)
     }
 }
+
+/*
+ Want the primitives of Foldable covered by Functor and Traverse.
+ This solves the problem of implementing foldLeft and foldRight for Tree.
+
+ Implement foldLeft and foldRight without circular dependencies
+ */
 
 trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
   /*
@@ -376,6 +420,34 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     traverse[({type f[x] = Const[B,x]})#f,A,Nothing](
       as)(f)(monoidApplicative(mb))
   }
+
+
+  /*
+   The same as implementations of foldLeft and foldRight in Monoid 
+   using foldMap.  Use the endo monoid.
+   */
+  def foldRight[A, B](as: F[A])(z: B)(f: (A, B) => B): B = {
+    type C = B => B
+    val g: A => C = f.curried
+    val endoMonoidC: Monoid[C] = Monoid.endoMonoid[B]
+
+    val bb: B=>B = this.foldMap(as)(g)(endoMonoidC)
+    val b: B = bb(z)
+    b
+  }
+
+  def foldLeft[A, B](as: F[A])(z: B)(f: (B, A) => B): B = {
+    type C = B => B
+    val g: A => C = (a: A) => {(b: B) => f(b,a)}
+    val endoMonoidC: Monoid[C] = Monoid.endoMonoid[B]
+    val dualEndoMonoidC = Monoid.dual(endoMonoidC)
+
+    val bb: B => B = foldMap(as)(g)(dualEndoMonoidC)
+    val b: B = bb(z)
+
+    b
+  }
+
 
   def traverseS[S,A,B](fa: F[A])(f: A => State[S, B]): State[S, F[B]] =
     traverse[({type f[x] = State[S,x]})#f,A,B](fa)(f)(Monad4.stateMonad)
@@ -491,8 +563,10 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
         // circular dependency??
         //traverseFG.sequence[G, B](fgb)
         // could not find implicit value for evidence parameter of type fpinscala.applicative.Applicative[G]
-        //traverseF.sequence[G,B](fgb)
-        traverseF.sequence[G[_]:Applicative,B](fgb)
+        // This syntax, G[_]: Applicative, is probably only valid
+        // in def
+        //traverseF.sequence[G[_]:Applicative,B](fgb)
+
       }
     }
   }
@@ -528,13 +602,23 @@ object Traverse {
    */
 
 
-  //val treeTraverse = new Traverse[Tree]{
-    // def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
-    //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-    //     Tree(f(head),List[Tree[B]]())
-    //   case Tree(head: A, tail: List[Tree[A]]) =>
-    //     Tree(f(head), tail.map((subtree:Tree[A])=>this.map(subtree)(f)))
-    // }
+  val treeTraverse = new Traverse[Tree]{
+    def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
+      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+        Tree(f(head),List[Tree[B]]())
+      case Tree(head: A, tail: List[Tree[A]]) =>
+        Tree(f(head), tail.map((subtree:Tree[A])=>this.map(subtree)(f)))
+    }
+
+    /* Instead of foldRight and foldLeft, implement
+       traverse or sequence
+     */
+
+    override def sequence[G[_]: Applicative, A](
+      tga: Tree[G[A]]): G[Tree[A]] = {
+      //val gTreeHead: G[Tree[A]] = G.unit(tga.head) // G is a type...
+
+    }
 
     // def foldRight[A,B](ta: Tree[A])(z: B)(f: (A,B)=>B): B = ta match {
     //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
@@ -557,7 +641,7 @@ object Traverse {
     //     val g = (b: B) => f(b,head)
     //     val tailB = foldLeft(
     //   }
-  //}
+  }
 }
 
 // The `get` and `set` functions on `State` are used above,
