@@ -84,20 +84,20 @@ trait Applicative[F[_]] extends Functor[F] {
    def product[G[_]](G: Applicative[G])
    def product[G[_]: Applicative](foo: G[_])
    */
-  def product[G[_]: Applicative](G: Applicative[G]):
+  def product[G[_]: Applicative](applicativeG: Applicative[G]):
       Applicative2[({type f[x] = (F[x], G[x])})#f] = {
     val applicativeF: Applicative[F] = this
 
     new Applicative2[({type f[x] = (F[x], G[x])})#f]{
       // implement primitives unit and apply
       override def unit[A](a: => A): (F[A], G[A]) =
-        (applicativeF.unit(a), G.unit(a))
+        (applicativeF.unit(a), applicativeG.unit(a))
 
       // apply is easier than map2, in this case
       override def apply[A,B](fabgab: (F[A => B], G[A => B]))(
         faga: (F[A], G[A])):  (F[B], G[B]) = {
         val fb: F[B] = applicativeF.apply(fabgab._1)(faga._1)
-        val gb: G[B] = G.apply(fabgab._2)(faga._2)
+        val gb: G[B] = applicativeG.apply(fabgab._2)(faga._2)
         (fb,gb)
         }
     }
@@ -535,8 +535,8 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
   //override def foldLeft[A,B](fa: F[A])(z: B)(f: (B, A) => B): B = 
 
 
-  def fuse[G[_],H[_],A,B](fa: F[A])(f: A => G[B], g: A => H[B])
-                         (implicit G: Applicative[G], H: Applicative[H]):
+  def fuse[G[_],H[_],A,B](fa: F[A])(f: A => G[B], g: A => H[B])(
+    implicit applicativeG: Applicative[G], applicativeH: Applicative[H]):
       (G[F[B]], H[F[B]]) = {
     val fgb: F[G[B]] = this.map(fa)(f)
     val fhb: F[H[B]] = this.map(fa)(g)
@@ -547,11 +547,18 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
     (gfb, hfb)
   }
 
-  def compose[G[_]](implicit G: Traverse[G]): 
+  def compose[G[_]](implicit traverseG: Traverse[G]): 
       Traverse[({type f[x] = F[G[x]]})#f] = { //traverseF =>
     val traverseF = this
     new Traverse[({type f[x] = F[G[x]]})#f] { //traverseFG =>
       val traverseFG = this
+
+      override def map[A,B](fga: F[G[A]])(ab: A => B): F[G[B]] = {
+        traverseF.map(fga)((ga: G[A]) => {
+          traverseG.map(ga)(ab)
+        }
+        )
+      }
       // implement method traverse or sequence
       // def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]]
       // def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]]
@@ -566,7 +573,7 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
         // This syntax, G[_]: Applicative, is probably only valid
         // in def
         //traverseF.sequence[G[_]:Applicative,B](fgb)
-
+        traverseF.foldLeft(fgb)(traverseG.unit
       }
     }
   }
@@ -602,46 +609,48 @@ object Traverse {
    */
 
 
-  val treeTraverse = new Traverse[Tree]{
-    def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
-      case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-        Tree(f(head),List[Tree[B]]())
-      case Tree(head: A, tail: List[Tree[A]]) =>
-        Tree(f(head), tail.map((subtree:Tree[A])=>this.map(subtree)(f)))
-    }
+//   val treeTraverse = new Traverse[Tree]{
+//     def map[A,B](ta: Tree[A])(f: A=>B): Tree[B] = ta match {
+//       case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+//         Tree(f(head),List[Tree[B]]())
+//       case Tree(head: A, tail: List[Tree[A]]) =>
+//         Tree(f(head), tail.map((subtree:Tree[A])=>this.map(subtree)(f)))
+//     }
 
-    /* Instead of foldRight and foldLeft, implement
-       traverse or sequence
-     */
+//     /* Instead of foldRight and foldLeft, implement
+//        traverse or sequence
+//      */
 
-    override def sequence[G[_]: Applicative, A](
-      tga: Tree[G[A]]): G[Tree[A]] = {
-      //val gTreeHead: G[Tree[A]] = G.unit(tga.head) // G is a type...
+//     override def sequence[G[_]: Applicative, A](
+//       tga: Tree[G[A]])(implicit applicativeG: Applicative[G]): G[Tree[A]] = {
+//       // book's syntax used G as both type and (implicit) type
+//       val gTreeHead: G[Tree[A]] = applicativeG.unit(tga.head)
 
-    }
 
-    // def foldRight[A,B](ta: Tree[A])(z: B)(f: (A,B)=>B): B = ta match {
-    //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-    //     f(head, z): B
-    //   case Tree(head: A, tail: List[Tree[A]]) => {
-    //     val listB: List[B] =
-    //       tail.map((subtree:Tree[A])=>this.foldRight(subtree)(z)(f))
-    //     val tailB = listB.foldRight(
-    //     f(head, tailB)
-    //   }
+//     }
 
-    // }
+//     // def foldRight[A,B](ta: Tree[A])(z: B)(f: (A,B)=>B): B = ta match {
+//     //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+//     //     f(head, z): B
+//     //   case Tree(head: A, tail: List[Tree[A]]) => {
+//     //     val listB: List[B] =
+//     //       tail.map((subtree:Tree[A])=>this.foldRight(subtree)(z)(f))
+//     //     val tailB = listB.foldRight(
+//     //     f(head, tailB)
+//     //   }
 
-    // }
-    // @annotation.tailrec
-    // def foldLeft[A,B](ta: Tree[A])(z: B)(f: (B,A)=>B): B = ta match {
-    //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
-    //     f(z, head)
-    //   case Tree(head: A, tail: List[Tree[A]]) => {
-    //     val g = (b: B) => f(b,head)
-    //     val tailB = foldLeft(
-    //   }
-  }
+//     // }
+
+//     // }
+//     // @annotation.tailrec
+//     // def foldLeft[A,B](ta: Tree[A])(z: B)(f: (B,A)=>B): B = ta match {
+//     //   case Tree(head: A, tail: List[Tree[A]]) if tail == List[Tree[A]]() =>
+//     //     f(z, head)
+//     //   case Tree(head: A, tail: List[Tree[A]]) => {
+//     //     val g = (b: B) => f(b,head)
+//     //     val tailB = foldLeft(
+//     //   }
+//   }
 }
 
 // The `get` and `set` functions on `State` are used above,
