@@ -393,9 +393,11 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
    to be implemented by the concrete Traverse instance, 
    Traverse[Option], Traverse[List], etc., breaking the circular dependency.
    */
-  def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] =
+  def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B])(
+    implicit applicativeG: Applicative[G]): G[F[B]] =
     sequence(map(fa)(f))
-  def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]] =
+  def sequence[G[_]:Applicative,A](fma: F[G[A]])(
+    implicit applicativeG: Applicative[G]): G[F[A]] =
     traverse(fma)(ma => ma)
 
   type Id[A] = A
@@ -560,20 +562,27 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
         )
       }
       // implement method traverse or sequence
-      // def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]]
-      // def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]]
+      // override def traverse[G[_]:Applicative,A,B](fga: F[G[A]])(f: A => G[F[B]])(
+      //   implicit applicativeFG: Applicative[G]): G[F[B]] = {
+        // val fgb: F[G[B]] = traverseF.map(fa)(f)
+        /*
+         traverseF.sequence signature is F[G[A]] => G[F[A]]
+         Must be the same "A" as in "fa" above.  
+         Need F[G[B]] => G[F[B]]
 
-      // G is getting defined more than once here...
-      override def traverse[A,B](fa: F[A])(
-        f: A => G[B]): G[F[B]] = {
-        val fgb: F[G[B]] = traverseF.map(fa)(f)
-        // circular dependency??
-        //traverseFG.sequence[G, B](fgb)
-        // could not find implicit value for evidence parameter of type fpinscala.applicative.Applicative[G]
-        // This syntax, G[_]: Applicative, is probably only valid
-        // in def
-        //traverseF.sequence[G[_]:Applicative,B](fgb)
-        traverseF.foldLeft(fgb)(traverseG.unit
+         ""Parameter type in structural refinement may not refer to an abstract type defined outside that refinement""
+        traverseF.sequence(fgb)
+         */
+      //   traverseF.traverse(fa)(f)(applicativeG)
+      // }
+
+      override def sequence[G[_]:Applicative, H[_]:Applicative, A](
+        fgha: F[G[H[A]]])(implicit applicativeG: Applicative[G], 
+        applicativeH: Applicative[H]):
+          H[F[G[A]]] = {
+        // F[G[H[A]]] => H[F[G[A]]]
+        // analogous to F[G[A]] => G[F[A]]
+
       }
     }
   }
