@@ -576,13 +576,18 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
       //   traverseF.traverse(fa)(f)(applicativeG)
       // }
 
+
+      // applicativeH: Applicative[H]
       override def sequence[G[_]:Applicative, H[_]:Applicative, A](
-        fgha: F[G[H[A]]])(implicit applicativeG: Applicative[G], 
-        applicativeH: Applicative[H]):
+        fgha: F[G[H[A]]])(implicit applicativeG: Applicative[G]):
           H[F[G[A]]] = {
         // F[G[H[A]]] => H[F[G[A]]]
         // analogous to F[G[A]] => G[F[A]]
-
+// type mismatch;  found   : H[G(in method compose)[A]]  required: H[G(in method sequence)[A]]
+        val fhga: F[H[G[A]]] = traverseF.map(fgha)((gha: G[H[A]]) => {
+          traverseG.sequence[H,A](gha)})
+        val hfga: H[F[G[A]]] = traverseF.sequence(fhga)
+        hfga
       }
     }
   }
