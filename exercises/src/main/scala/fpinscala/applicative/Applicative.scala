@@ -393,12 +393,25 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
    to be implemented by the concrete Traverse instance, 
    Traverse[Option], Traverse[List], etc., breaking the circular dependency.
    */
-  def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B])(
-    implicit applicativeG: Applicative[G]): G[F[B]] =
-    sequence(map(fa)(f))
-  def sequence[G[_]:Applicative,A](fma: F[G[A]])(
-    implicit applicativeG: Applicative[G]): G[F[A]] =
-    traverse(fma)(ma => ma)
+  val traverseF = this
+  // def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B])(
+  //   implicit applicativeG: Applicative[G]): G[F[B]] = {
+  //   val fgb: F[G[B]] = traverseF.map[A,G[B]](fa)(f)
+  //   traverseF.sequence[G,B](fgb)(applicativeG)
+  // }
+  // def sequence[G[_]:Applicative,A](fma: F[G[A]])(
+  //   implicit applicativeG: Applicative[G]): G[F[A]] = {
+  //   val gaga: G[A] => G[A] = (ga: G[A]) => ga
+  //   traverseF.traverse(fma)(gaga)(applicativeG)
+  // }
+  def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] = {
+    val fgb: F[G[B]] = traverseF.map[A,G[B]](fa)(f)
+    traverseF.sequence[G,B](fgb)
+  }
+  def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]] = {
+    val gaga: G[A] => G[A] = (ga: G[A]) => ga
+    traverseF.traverse(fma)(gaga)
+  }
 
   type Id[A] = A
   val idMonad = new Monad4[Id] {
@@ -551,16 +564,22 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
 
   def compose[G[_]](implicit traverseG: Traverse[G]): 
       Traverse[({type f[x] = F[G[x]]})#f] = { //traverseF =>
-    val traverseF = this
+                                              // ^^ alias to "this"?
+    //val traverseF = this
     new Traverse[({type f[x] = F[G[x]]})#f] { //traverseFG =>
       val traverseFG = this
 
-      override def map[A,B](fga: F[G[A]])(ab: A => B): F[G[B]] = {
-        traverseF.map(fga)((ga: G[A]) => {
-          traverseG.map(ga)(ab)
-        }
-        )
-      }
+      // override def map[A,B](fga: F[G[A]])(ab: A => B): F[G[B]] = {
+        //val agb: A => G[B] = 
+      // }
+
+      // {
+      //   traverseF.map[G[A],G[B]](fga)((ga: G[A]) => {
+      //     val gb: G[B] = traverseG.map(ga)(ab)
+      //     gb
+      //   }
+      //   ): F[G[B]]
+      // }
       // implement method traverse or sequence
       // override def traverse[G[_]:Applicative,A,B](fga: F[G[A]])(f: A => G[F[B]])(
       //   implicit applicativeFG: Applicative[G]): G[F[B]] = {
@@ -578,16 +597,20 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
 
 
       // applicativeH: Applicative[H]
-      override def sequence[G[_]:Applicative, H[_]:Applicative, A](
-        fgha: F[G[H[A]]])(implicit applicativeG: Applicative[G]):
+      // G defined by 'compose'
+      // is G an applicative or a traverse?
+      // implicit applicativeH: Applicative[H])
+      override def sequence[H[_]:Applicative, A](fgha: F[G[H[A]]]):
           H[F[G[A]]] = {
         // F[G[H[A]]] => H[F[G[A]]]
         // analogous to F[G[A]] => G[F[A]]
-// type mismatch;  found   : H[G(in method compose)[A]]  required: H[G(in method sequence)[A]]
-        val fhga: F[H[G[A]]] = traverseF.map(fgha)((gha: G[H[A]]) => {
-          traverseG.sequence[H,A](gha)})
-        val hfga: H[F[G[A]]] = traverseF.sequence(fhga)
-        hfga
+        val ghahga: G[H[A]] => H[G[A]] = 
+          (gha: G[H[A]]) => traverseG.sequence[H,A](gha)
+        // val fhga: F[H[G[A]]] = traverseF.map(fgha)(ghahga)
+        // val hfga: H[F[G[A]]] = traverseF.sequence(fhga)
+        // hfga
+        //traverseF.traverse[H,A,A](fgha)(
+        traverseF.map[G[H[A]],H[G[A]]](fgha)(ghahga)
       }
     }
   }
