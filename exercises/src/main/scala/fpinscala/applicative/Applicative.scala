@@ -384,7 +384,7 @@ object Applicative {
  Implement foldLeft and foldRight without circular dependencies
  */
 
-trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
+trait Traverse[F[_]] extends Functor[F] with Foldable[F] { self =>
   /*
    A trace of a call to traverse or sequence may prove that this 
    seemingly circular dependency actually terminates.
@@ -566,8 +566,8 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
       Traverse[({type f[x] = F[G[x]]})#f] = { //traverseF =>
                                               // ^^ alias to "this"?
     //val traverseF = this
-    new Traverse[({type f[x] = F[G[x]]})#f] { //traverseFG =>
-      val traverseFG = this
+    // new Traverse[({type f[x] = F[G[x]]})#f] { //traverseFG =>
+    //   val traverseFG = this
 
       // override def map[A,B](fga: F[G[A]])(ab: A => B): F[G[B]] = {
         //val agb: A => G[B] = 
@@ -600,19 +600,33 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] {
       // G defined by 'compose'
       // is G an applicative or a traverse?
       // implicit applicativeH: Applicative[H])
-      override def sequence[H[_]:Applicative, A](fgha: F[G[H[A]]]):
-          H[F[G[A]]] = {
+      // override def sequence[H[_]:Applicative, A](fgha: F[G[H[A]]]):
+      //     H[F[G[A]]] = {
         // F[G[H[A]]] => H[F[G[A]]]
         // analogous to F[G[A]] => G[F[A]]
-        val ghahga: G[H[A]] => H[G[A]] = 
-          (gha: G[H[A]]) => traverseG.sequence[H,A](gha)
+        // val ghahga: G[H[A]] => H[G[A]] = 
+        //   (gha: G[H[A]]) => traverseG.sequence[H,A](gha)
         // val fhga: F[H[G[A]]] = traverseF.map(fgha)(ghahga)
         // val hfga: H[F[G[A]]] = traverseF.sequence(fhga)
         // hfga
         //traverseF.traverse[H,A,A](fgha)(
-        traverseF.map[G[H[A]],H[G[A]]](fgha)(ghahga)
-      }
+      //   traverseF.map[G[H[A]],H[G[A]]](fgha)(ghahga)
+      // }
+
+    //   override def traverse[H[_]:Applicative,A,B](
+    //     fa: F[G[A]])(f: A => H[B]): H[F[G[B]]] =
+    //     traverseF.traverse(fa)((ga: G[A]) => 
+    //       traverseG.traverse(ga)(f))
+
+    // }
+
+    new Traverse[({type f[x] = F[G[x]]})#f] {
+      override def traverse[M[_]:Applicative,A,B](
+        fa: F[G[A]])(f: A => M[B]): M[F[G[B]]] =
+        self.traverse(fa)((ga: G[A]) => traverseG.traverse(ga)(f))
+      // ^^ Traverse[F]
     }
+
   }
 }
 
