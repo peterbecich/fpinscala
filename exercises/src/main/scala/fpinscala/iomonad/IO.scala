@@ -80,15 +80,28 @@ object IO1 {
 
   // We can now express the example
 
-  def ReadLine: IO[String] = IO { readLine }
-  def PrintLine(msg: String): IO[Unit] = IO { println(msg) }
+  def ReadLine: IO[String] = IO.apply[String](readLine)
+  //                     IO { readLine }
+  // syntactic sugar for IO.apply[String](readLine)
+  def PrintLine(msg: String): IO[Unit] = IO.apply[Unit](println(msg))
+    //IO { println(msg) }
   import IO0.fahrenheitToCelsius
 
-  def converter: IO[Unit] = for {
-    _ <- PrintLine("Enter a temperature in degrees Fahrenheit: ")
-    d <- ReadLine.map(_.toDouble)
-    _ <- PrintLine(fahrenheitToCelsius(d).toString)
-  } yield ()
+  // def converter: IO[Unit] = for {
+  //   _ <- PrintLine("Enter a temperature in degrees Fahrenheit: ")
+  //   d <- ReadLine.map(_.toDouble)
+  //   _ <- PrintLine(fahrenheitToCelsius(d).toString)
+  // } yield ()
+
+  val tempPrompt: IO[Unit] = PrintLine("Enter a temperature in degrees Fahrenheit: ")
+  val tempEntered: IO[Double] = ReadLine.map(_.toDouble)
+  val printCelsius: Double => IO[Unit] = 
+    (fahrenheit: Double) => PrintLine(
+      fahrenheitToCelsius(fahrenheit).toString)
+
+  def converter: IO[Unit] = tempPrompt.flatMap(Unit =>
+    tempEntered.flatMap(printCelsius)
+  )
 
   /*                         Some other examples                      */
 
@@ -150,6 +163,13 @@ object IO1 {
       } yield () }
     }
   )
+}
+
+object IO1Tests {
+  import IO1._
+  def main(args: Array[String]): Unit = {
+    converter.run
+  }
 }
 
 
