@@ -102,6 +102,11 @@ object IO1 {
   def converter: IO[Unit] = tempPrompt.flatMap(Unit =>
     tempEntered.flatMap(printCelsius)
   )
+  //                                  ^^
+  //                          Unit => foo syntax works here
+  //               but not in type of pattern match:
+ //                  case Suspend(r: Unit => A) => ...
+
 
   /*                         Some other examples                      */
 
@@ -153,6 +158,23 @@ object IO1 {
     result <- acc.get
   } yield result
 
+
+  // same confusion that has shown up in other conversions of
+  // for comps to explicit flatMaps and maps...
+  // def factorial(n: Int): IO[Int] = {
+  //   val oneToN: Stream[Int] = (1 to n).toStream
+  //   val iOIORefOne: IO[IORef[Int]] = ref(1)
+  //   iOIORefOne.flatMap((acc: Int) => {
+  //     // def modify(f: A => A): IO[A] = get flatMap (a => set(f(a)))
+  //     val ioUnit: IO[Unit] = 
+  //       foreachM (oneToN) ((i: Int) => acc.modify(_ * i).skip)
+  //     acc
+  //   }
+  //   )
+  // }
+
+
+
   val factorialREPL: IO[Unit] = sequence_(
     IO { println(helpstring) },
     doWhile { IO { readLine } } { line =>
@@ -167,8 +189,18 @@ object IO1 {
 
 object IO1Tests {
   import IO1._
+  val fibPrompt: IO[Unit] = PrintLine("Enter n and the nth Fibonacci number will print")
+  val fib: IO[Int] = readInt.flatMap((n: Int) => factorial(n))
+  val fibPrint: IO[Unit] = fib.flatMap((f: Int) => PrintLine(f.toString))
+  val fibSequence: IO[Unit] = IO1.IO.sequence_(fibPrompt, fibPrint)
+
   def main(args: Array[String]): Unit = {
     converter.run
+    println("single Fibonacci number")
+    fibSequence.run
+    println("Fibonacci REPL")
+    factorialREPL.run
+
   }
 }
 
@@ -177,7 +209,7 @@ object IO2a {
 
   /*
   The previous IO representation overflows the stack for some programs.
-  The problem is that `run` call itself recursively, which means that
+  The problem is that `run` calls itself recursively, which means that
   an infinite or long running IO computation will have a chain of regular
   calls to `run`, eventually overflowing the stack.
 
@@ -195,6 +227,7 @@ object IO2a {
   case class Suspend[A](resume: () => A) extends IO[A]
   case class FlatMap[A,B](sub: IO[A], k: A => IO[B]) extends IO[B]
 
+  // now IO is object rather than class
   object IO extends Monad[IO] { // Notice that none of these operations DO anything
     def unit[A](a: => A): IO[A] = Return(a)
     def flatMap[A,B](a: IO[A])(f: A => IO[B]): IO[B] = a flatMap f
@@ -203,7 +236,7 @@ object IO2a {
   def printLine(s: String): IO[Unit] =
     Suspend(() => Return(println(s)))
 
-  val p = IO.forever(printLine("Still going..."))
+  val p: IO[Unit] = IO.forever(printLine("Still going..."))
 
   val actions: Stream[IO[Unit]] =
     Stream.fill(100000)(printLine("Still going..."))
@@ -214,14 +247,29 @@ object IO2a {
   // tail-recursive function, the one tricky case is left-nested
   // flatMaps, as in `((a flatMap f) flatMap g)`, which we
   // reassociate to the right as `a flatMap (ar => f(a) flatMap g)`
+  //                               ^^ tail recursive
   @annotation.tailrec def run[A](io: IO[A]): A = io match {
-    case Return(a) => a
+    case Return(a: A) => a
     case Suspend(r) => r()
-    case FlatMap(x, f) => x match {
-      case Return(a) => run(f(a))
+    //case Suspend(r:  => A) => r()
+  //   case class Suspend[A](resume: () => A) extends IO[A]
+  // note type () => A allowed in case class definition,
+  // but not in pattern match
+    //case FlatMap(x: IO[A], f) => x match {
+    case FlatMap(x: IO[A], f: A => IO[A]) => x match {
+      case Return(a: A) => run(f(a))
       case Suspend(r) => run(f(r()))
-      case FlatMap(y, g) => run(y flatMap (a => g(a) flatMap f))
+      case FlatMap(y: IO[A], g) => run(y flatMap (a => g(a) flatMap f))
     }
+  }
+}
+
+object IO2aTests {
+  import IO2a._
+  def main(args: Array[String]): Unit = {
+    println("using the IO2a monad, which makes 'run' tail recursive")
+    //p.run
+    IO2a.run(IO2a.p)
   }
 }
 
