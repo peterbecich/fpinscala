@@ -248,18 +248,31 @@ object IO2a {
   // flatMaps, as in `((a flatMap f) flatMap g)`, which we
   // reassociate to the right as `a flatMap (ar => f(a) flatMap g)`
   //                               ^^ tail recursive
-  @annotation.tailrec def run[A](io: IO[A]): A = io match {
-    case Return(a: A) => a
-    case Suspend(r) => r()
-    //case Suspend(r:  => A) => r()
-  //   case class Suspend[A](resume: () => A) extends IO[A]
-  // note type () => A allowed in case class definition,
-  // but not in pattern match
-    //case FlatMap(x: IO[A], f) => x match {
-    case FlatMap(x: IO[A], f: A => IO[A]) => x match {
-      case Return(a: A) => run(f(a))
-      case Suspend(r) => run(f(r()))
-      case FlatMap(y: IO[A], g) => run(y flatMap (a => g(a) flatMap f))
+  // @annotation.tailrec def run[A](io: IO[A]): A = {
+  //   type rType = Unit => A
+  //   type fType = A => IO[A]
+  //   type gType = A => IO[A]
+  //   io match {
+  //     case Return(a: A) => a
+  //     case Suspend(r: rType) => r()
+  //     case FlatMap(x: IO[A], f: fType) => x match {
+  //       case Return(a: A) => run(f(a))
+  //       case Suspend(r: rType) => run(f(r()))
+  //       case FlatMap(y: IO[A], g: gType) => 
+  //         run(y flatMap (a => g(a) flatMap f))
+  //     }
+  //   }
+  // }
+  @annotation.tailrec def run[A](io: IO[A]): A = {
+    io match {
+      case Return(a) => a
+      case Suspend(r) => r()
+      case FlatMap(x, f) => x match {
+        case Return(a) => run(f(a))
+        case Suspend(r) => run(f(r()))
+        case FlatMap(y, g) => 
+          run(y flatMap (a => g(a) flatMap f))
+      }
     }
   }
 }
@@ -332,6 +345,7 @@ object IO2c {
   case class Suspend[A](resume: Par[A]) extends Async[A] // notice this is a `Par`
   case class FlatMap[A,B](sub: Async[A], k: A => Async[B]) extends Async[B]
 
+  // Async IO
   object Async extends Monad[Async] {
     def unit[A](a: => A): Async[A] = Return(a)
     def flatMap[A,B](a: Async[A])(f: A => Async[B]): Async[B] = a flatMap f
@@ -366,6 +380,7 @@ object IO3 {
   */
 
   sealed trait Free[F[_],A] {
+    // answers for exercise 13.1
     def flatMap[B](f: A => Free[F,B]): Free[F,B] =
       FlatMap(this, f)
     def map[B](f: A => B): Free[F,B] =
@@ -377,14 +392,33 @@ object IO3 {
                                f: A => Free[F, B]) extends Free[F, B]
 
   // Exercise 1: Implement the free monad
-  def freeMonad[F[_]]: Monad[({type f[a] = Free[F,a]})#f] = ???
-
+  // Using def instead of 'object freeMonad extends Monad...'
+  // because of type parameter?
+  def freeMonad[F[_]]: Monad[({type f[a] = Free[F,a]})#f] = 
+    new Monad[({type f[a] = Free[F,a]})#f] {
+      // abstract primitives unit and flatMap made concrete
+      // why does IO1.IO monad implement apply?
+      def unit[A](a: => A): Free[F,A] = Return(a)
+      def flatMap[A,B](freeA: Free[F,A])(
+        aFreeB: A => Free[F,B]): Free[F,B] = 
+        freeA.flatMap(aFreeB)
+      // freeA match {
+      //   case Return[F,A](a) => aFreeB(a)
+      //   case Suspend[F,A](
+      // }
+    }
   // Exercise 2: Implement a specialized `Function0` interpreter.
   // @annotation.tailrec
-  def runTrampoline[A](a: Free[Function0,A]): A = ???
+  def runTrampoline[A](a: Free[Function0,A]): A = {
+    // Function0 being a function with no input
+    // what is the output type of Function0?
+
+  }
 
   // Exercise 3: Implement a `Free` interpreter which works for any `Monad`
-  def run[F[_],A](a: Free[F,A])(implicit F: Monad[F]): F[A] = ???
+  def run[F[_],A](a: Free[F,A])(implicit F: Monad[F]): F[A] = {
+    
+  }
 
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
   // @annotation.tailrec
