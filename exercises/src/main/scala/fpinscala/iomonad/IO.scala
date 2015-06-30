@@ -308,7 +308,7 @@ object IO2b {
 
   object TailRec extends Monad[TailRec] {
     def unit[A](a: => A): TailRec[A] = Return(a)
-    def flatMap[A,B](a: TailRec[A])(f: A => TailRec[B]): TailRec[B] = a flatMap f
+    def flatMap[A,B](tra: TailRec[A])(f: A => TailRec[B]): TailRec[B] = tra flatMap f
   }
 
   @annotation.tailrec def run[A](t: TailRec[A]): A = t match {
@@ -317,10 +317,55 @@ object IO2b {
     case FlatMap(x, f) => x match {
       case Return(a) => run(f(a))
       case Suspend(r) => run(f(r()))
+      /*
+       FlatMap(
+         FlatMap(y: TailRec[A], g: A => TailRec[A]):
+           TailRec[A], 
+       f: A => TailRec[B]): TailRec[B] => 
+       run(
+         y.flatMap(
+           (a: A) => g(a).flatMap(f): TailRec[B]
+         ): TailRec[B]
+       ): B
+
+       Notice this is not only a translation of TailRec[A]
+       to a tail recursive form...
+       It is TailRec[A] => A, in tail recursive form
+       */
       case FlatMap(y, g) => run(y flatMap (a => g(a) flatMap f))
     }
   }
 }
+
+object IO2bTests {
+  import IO2b._
+  import fpinscala.iomonad.Monad
+  import fpinscala.laziness.Stream
+
+  object streamMonad extends Monad[Stream] {
+    def unit[A](a: => A): Stream[A] = Stream.apply(a)
+    def flatMap[A,B](sa: Stream[A])(aSb: A => Stream[B]): Stream[B] =
+      sa.flatMap(aSb)
+  }
+
+  val streamHundred = Stream.from(1).take(100)
+
+  val naiveSum = streamHundred.foldRight(0)(_+_)
+
+  val tailRecStreamHundred: TailRec[Stream[Int]] = TailRec.unit(streamHundred)
+
+
+
+  def main(args: Array[String]): Unit = {
+    println("using the IO2b monad (TailRec)")
+    println("Only difference with IO2a is name of trait/object")
+    println("Revealed that trampolining is not limited to I/O")
+    println("Imagine a Stream of integers which we want to recursively sum")
+
+
+  }
+}
+
 
 object IO2c {
 
@@ -358,13 +403,17 @@ object IO2c {
     case _ => async
   }
 
-  def run[A](async: Async[A]): Par[A] = step(async) match {
-    case Return(a) => Par.unit(a)
-    case Suspend(r) => r
-    case FlatMap(x, f) => x match {
-      case Suspend(r) => Par.flatMap(r)(a => run(f(a)))
-      case _ => sys.error("Impossible, since `step` eliminates these cases")
+  def run[A](async0: Async[A]): Par[A] = {
+    val async1: Async[A] = step(async0)
+    val runOut: Par[A] = async1 match {
+      case Return(a) => Par.unit(a)
+      case Suspend(r) => r
+      case FlatMap(x, f) => x match {
+        case Suspend(r) => Par.flatMap(r)(a => run(f(a)))
+        case _ => sys.error("Impossible, since `step` eliminates these cases")
+      }
     }
+    runOut
   }
   // The fact that `run` only uses the `unit` and `flatMap` functions of
   // `Par` is a clue that choosing `Par` was too specific of a choice,
