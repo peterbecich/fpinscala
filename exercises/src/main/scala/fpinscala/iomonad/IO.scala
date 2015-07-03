@@ -231,6 +231,8 @@ object IO2a {
   object IO extends Monad[IO] { // Notice that none of these operations DO anything
     def unit[A](a: => A): IO[A] = Return(a)
     def flatMap[A,B](a: IO[A])(f: A => IO[B]): IO[B] = a flatMap f
+    def suspend[A](a: => IO[A]): IO[A] = Suspend(() => ()).flatMap{
+      _ => a }
   }
 
   def printLine(s: String): IO[Unit] =
@@ -242,6 +244,8 @@ object IO2a {
     Stream.fill(100000)(printLine("Still going..."))
   val composite: IO[Unit] =
     actions.foldLeft(IO.unit(())) { (acc, a) => acc flatMap { _ => a } }
+
+  // effectively turning (y flatMap g) flatMap f into y flatMap (a => g(a) flatMap f)
 
   // There is only one sensible way to implement this as a
   // tail-recursive function, the one tricky case is left-nested
@@ -279,10 +283,69 @@ object IO2a {
 
 object IO2aTests {
   import IO2a._
+
+  /*
+   https://github.com/fpinscala/fpinscala/wiki/Errata
+   Pg 240: REPL session has a typo, should be:
+
+   val g = List.fill(100000)(f).foldLeft(f) {
+   (a, b) => x => Suspend(() => ()).flatMap { _ => a(x).flatMap(b)}
+   }
+
+   Note: we could write a little helper function to make this nicer:
+
+   def suspend[A](a: => IO[A]) = Suspend(() => ()).flatMap { _ => a }
+
+   val g = List.fill(100000)(f).foldLeft(f) {
+   (a, b) => x => suspend { a(x).flatMap(b) }
+   }
+
+   */
+  val f: Int => IO[Int] = (x: Int) => Return(x)
+  // val g: Int => IO[Int] =
+  //   List.fill(10000)(f).foldLeft(f){
+  //     (x: Function1[Int,IO[Int]],
+  //       y: Function1[Int,IO[Int]]) => {
+  //       (i: Int) => Suspend(() => x(i).flatMap(y))
+  //     }//: Function1[Int,IO[Int]]
+  //   }//: Int => IO[Int]
+
+  // val g =
+  //   List.fill(10000)(f).foldLeft(f){
+  //     (x, y) => {
+  //       (i: Int) => Suspend(() => x(i).flatMap(y))
+  //     }
+  //   }
+
+  val g =
+    List.fill(10000)(f).foldLeft(f){
+      (x, y) => {
+        (i: Int) => IO.suspend(x(i).flatMap(y))
+      }
+    }
+
+  val h: Int => Int = (x: Int) => x
+  val j: Int => Int = List.fill(10000)(h).foldLeft(h){
+    (x: Function1[Int,Int], y: Function1[Int,Int]) =>
+    x.compose(y)
+  }
+
+
+
+
   def main(args: Array[String]): Unit = {
     println("using the IO2a monad, which makes 'run' tail recursive")
     //p.run
-    IO2a.run(IO2a.p)
+    //IO2a.run(IO2a.p)
+    println(IO2a.run(g(40)))
+
+    println("naive way")
+    println("composing 10,001 copies of (x:Int)=>x without tail recursion")
+    j(40)
+    // [error] (run-main-5) java.lang.StackOverflowError
+    // java.lang.StackOverflowError
+
+
   }
 }
 
@@ -309,6 +372,8 @@ object IO2b {
   object TailRec extends Monad[TailRec] {
     def unit[A](a: => A): TailRec[A] = Return(a)
     def flatMap[A,B](tra: TailRec[A])(f: A => TailRec[B]): TailRec[B] = tra flatMap f
+    def suspend[A](a: => TailRec[A]): TailRec[A] =
+      Suspend(() => ()).flatMap{ _ => a }
   }
 
   @annotation.tailrec def run[A](t: TailRec[A]): A = t match {
@@ -341,26 +406,63 @@ object IO2bTests {
   import IO2b._
   import fpinscala.iomonad.Monad
   import fpinscala.laziness.Stream
+  import fpinscala.laziness._
 
-  object streamMonad extends Monad[Stream] {
-    def unit[A](a: => A): Stream[A] = Stream.apply(a)
-    def flatMap[A,B](sa: Stream[A])(aSb: A => Stream[B]): Stream[B] =
-      sa.flatMap(aSb)
-  }
+  // object streamMonad extends Monad[Stream] {
+  //   def unit[A](a: => A): Stream[A] = Stream.apply(a)
+  //   def flatMap[A,B](sa: Stream[A])(aSb: A => Stream[B]): Stream[B] =
+  //     sa.flatMap(aSb)
+  // }
 
-  val streamHundred = Stream.from(1).take(100)
+  // val streamHundred = Stream.from(1).take(100)
 
-  val naiveSum = streamHundred.foldRight(0)(_+_)
+  //val naiveSum = streamHundred.foldRight(0)(_+_)
+  //val naiveSum = streamHundred.
 
-  val tailRecStreamHundred: TailRec[Stream[Int]] = TailRec.unit(streamHundred)
+  // for Streams of definite length only...
+  // def sum(s: Stream[Int]):  = s match {
+  //   case Cons(h, t) => Con
 
+  // val tailRecStreamHundred: TailRec[Stream[Int]] = TailRec.unit(streamHundred)
+
+
+  // Stream is too complicated for this
+  // Just copy section 13.3.2: function g passed a value
+  // through an identity function 10,000 times
+
+  // stack overflow
+  // val f = (x: Int) => x
+  // val g = List.fill(10000)(f).foldLeft(f){
+  //   (x: Function1[Int,Int], y: Function1[Int,Int]) => x.compose(y)
+  // }
+
+  val f: Int => TailRec[Int] = (i: Int) => Return(i)
+
+  val g: Int => TailRec[Int] =
+    List.fill(10000)(f).foldLeft(f){
+      (x: Function1[Int, TailRec[Int]],
+        y: Function1[Int, TailRec[Int]]) => {
+        (i: Int) => TailRec.suspend(x(i).flatMap(y))
+      }
+    }
 
 
   def main(args: Array[String]): Unit = {
     println("using the IO2b monad (TailRec)")
     println("Only difference with IO2a is name of trait/object")
     println("Revealed that trampolining is not limited to I/O")
-    println("Imagine a Stream of integers which we want to recursively sum")
+
+    val gForty = g(40)
+
+    print("g(40) = ")
+    println(gForty)
+
+    print("run(g(40)) = ")
+    println(run(gForty))
+
+
+    // do Stream example in Free monad
+    //println("Imagine a Stream of integers which we want to recursively sum")
 
 
   }
@@ -461,12 +563,12 @@ object IO3 {
   def runTrampoline[A](a: Free[Function0,A]): A = {
     // Function0 being a function with no input
     // what is the output type of Function0?
-
+    ???
   }
 
   // Exercise 3: Implement a `Free` interpreter which works for any `Monad`
   def run[F[_],A](a: Free[F,A])(implicit F: Monad[F]): F[A] = {
-    
+    ???
   }
 
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
@@ -669,3 +771,28 @@ object IO3 {
   // Provides the `IO { ... }` syntax for synchronous IO blocks.
   def IO[A](a: => A): IO[A] = Suspend { Par.delay(a) }
 }
+
+object IO3Tests {
+  import IO3._
+  import fpinscala.iomonad.Monad
+  import fpinscala.laziness.Stream
+
+  object streamMonad extends Monad[Stream] {
+    def unit[A](a: => A): Stream[A] = Stream.apply(a)
+    def flatMap[A,B](sa: Stream[A])(aSb: A => Stream[B]): Stream[B] =
+      sa.flatMap(aSb)
+  }
+
+  val streamHundred = Stream.from(1).take(100)
+
+  val naiveSum = streamHundred.foldRight(0)(_+_)
+
+  // val tailRecStreamHundred: [Stream[Int]] = TailRec.unit(streamHundred)
+
+
+
+  def main(args: Array[String]): Unit = {
+
+  }
+}
+
