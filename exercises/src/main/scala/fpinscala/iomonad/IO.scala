@@ -487,6 +487,9 @@ object IO2c {
       FlatMap(this, f)
     def map[B](f: A => B): Async[B] =
       flatMap(f andThen (Return(_)))
+    // def suspend[A](a: => Async[A]): Async[A] =
+    //   Suspend(() => ()).flatMap{_ => a }
+
   }
   case class Return[A](a: A) extends Async[A]
   case class Suspend[A](resume: Par[A]) extends Async[A] // notice this is a `Par`
@@ -499,11 +502,13 @@ object IO2c {
   }
 
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
-  @annotation.tailrec def step[A](async: Async[A]): Async[A] = async match {
-    case FlatMap(FlatMap(x, f), g) => step(x flatMap (a => f(a) flatMap g))
-    case FlatMap(Return(x), f) => step(f(x))
-    case _ => async
-  }
+  @annotation.tailrec def step[A](async: Async[A]): Async[A] =
+    async match {
+      case FlatMap(FlatMap(x, f), g) =>
+        step(x flatMap (a => f(a) flatMap g))
+      case FlatMap(Return(x), f) => step(f(x))
+      case _ => async
+    }
 
   def run[A](async0: Async[A]): Par[A] = {
     val async1: Async[A] = step(async0)
@@ -521,6 +526,39 @@ object IO2c {
   // `Par` is a clue that choosing `Par` was too specific of a choice,
   // this interpreter could be generalized to work with any monad.
 }
+object IO2cTests {
+  import IO2c._
+
+  val f: Int => Async[Int] = (i: Int) => Return(i)
+
+  val g: Int => Async[Int] =
+    List.fill(10000)(f).foldLeft(f){
+      (x: Function1[Int, Async[Int]],
+        y: Function1[Int, Async[Int]]) => {
+        (i: Int) => Async.suspend(x(i).flatMap(y))
+      }
+    }
+
+
+  def main(args: Array[String]): Unit = {
+    println("using the IO2c monad (Async)")
+
+    val gForty = g(40)
+
+    print("g(40) = ")
+    println(gForty)
+
+    print("run(g(40)) = ")
+    println(run(gForty))
+
+
+    // do Stream example in Free monad
+    //println("Imagine a Stream of integers which we want to recursively sum")
+
+
+  }
+}
+
 
 
 object IO3 {
