@@ -510,6 +510,7 @@ object IO2c {
       case _ => async
     }
 
+  // Async[A] => Par[A]
   def run[A](async0: Async[A]): Par[A] = {
     val async1: Async[A] = step(async0)
     val runOut: Par[A] = async1 match {
