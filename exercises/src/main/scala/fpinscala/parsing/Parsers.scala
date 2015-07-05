@@ -8,6 +8,8 @@ import scala.language.higherKinds
 import scala.language.implicitConversions
 import fpinscala.monads.Monad
 
+
+
 /*
  All Parsers in this example take a String as input.  The parametric type A is the type "measured": a count, a string, a char.
  Parser[Int] that counts the number of chars "x" will require a Parser[Char] to function.
@@ -18,6 +20,14 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
   implicit def asStringParser[A](a: A)(
     implicit f: A => Parser[String]): ParserOps[String] =
     ParserOps(f(a))
+
+  type Parser[+A] = Location => Result[A]
+
+  trait Result[+A]
+  case class Success[+A](get: A, charsConsumed: Int) extends
+      Result[A]
+  case class Failure(get: ParseError) extends
+      Result[Nothing]
 
   val parserMonad = Monad.parserMonad[Parser](self)
 
