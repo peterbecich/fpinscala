@@ -71,6 +71,7 @@ object IO1 {
     def apply[A](a: => A): IO[A] = unit(a) // syntax for IO { .. }
 
     def ref[A](a: A): IO[IORef[A]] = IO { new IORef(a) }
+    // concepts from next chapter -- Ref
     sealed class IORef[A](var value: A) {
       def set(a: A): IO[A] = IO { value = a; a }
       def get: IO[A] = IO { value }
@@ -499,6 +500,9 @@ object IO2c {
   object Async extends Monad[Async] {
     def unit[A](a: => A): Async[A] = Return(a)
     def flatMap[A,B](a: Async[A])(f: A => Async[B]): Async[B] = a flatMap f
+    // def suspend[A](a: => Async[A]): Async[A] =
+    //   Suspend(() => ()).flatMap{_ => a }
+
   }
 
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
@@ -532,37 +536,38 @@ object IO2cTests {
 
   val f: Int => Async[Int] = (i: Int) => Return(i)
 
-  val g: Int => Async[Int] =
-    List.fill(10000)(f).foldLeft(f){
-      (x: Function1[Int, Async[Int]],
-        y: Function1[Int, Async[Int]]) => {
-        (i: Int) => Async.suspend(x(i).flatMap(y))
-      }
-    }
+  // val g: Int => Async[Int] =
+  //   List.fill(10000)(f).foldLeft(f){
+  //     (x: Function1[Int, Async[Int]],
+  //       y: Function1[Int, Async[Int]]) => {
+  //       (i: Int) => Async.suspend(x(i).flatMap(y))
+  //     }
+  //   }
 
 
-  def main(args: Array[String]): Unit = {
-    println("using the IO2c monad (Async)")
+  // def main(args: Array[String]): Unit = {
+  //   println("using the IO2c monad (Async)")
 
-    val gForty = g(40)
+  //   val gForty = g(40)
 
-    print("g(40) = ")
-    println(gForty)
+  //   print("g(40) = ")
+  //   println(gForty)
 
-    print("run(g(40)) = ")
-    println(run(gForty))
-
-
-    // do Stream example in Free monad
-    //println("Imagine a Stream of integers which we want to recursively sum")
+  //   print("run(g(40)) = ")
+  //   println(run(gForty))
 
 
-  }
+  //   // do Stream example in Free monad
+  //   //println("Imagine a Stream of integers which we want to recursively sum")
+
+
+  // }
 }
 
 
 
 object IO3 {
+  import fpinscala.parallelism.Nonblocking.Par
 
   /*
   We can generalize `TailRec` and `Async` to the type `Free`, which is
@@ -579,7 +584,10 @@ object IO3 {
   case class Return[F[_],A](a: A) extends Free[F, A]
   case class Suspend[F[_],A](s: F[A]) extends Free[F, A]
   case class FlatMap[F[_],A,B](s: Free[F, A],
-                               f: A => Free[F, B]) extends Free[F, B]
+    f: A => Free[F, B]) extends Free[F, B]
+
+  type TailRec[A] = Free[Function0, A]
+  type Async[A] = Free[Par, A]
 
   // Exercise 1: Implement the free monad
   // Using def instead of 'object freeMonad extends Monad...'
@@ -598,10 +606,35 @@ object IO3 {
       // }
     }
   // Exercise 2: Implement a specialized `Function0` interpreter.
-  // @annotation.tailrec
-  def runTrampoline[A](a: Free[Function0,A]): A = {
-    // Function0 being a function with no input
-    // what is the output type of Function0?
+  //@annotation.tailrec
+  def runTrampoline[A](tra: TailRec[A]): A = {
+    // tra: Free[Function0, A]
+
+/* Type annotations break tail recursion...
+      case Suspend(funcZeroA: Function0[A]) => funcZeroA()
+      case FlatMap(freeFuncZeroA: Function0[A],
+        aFreeFuncZeroB
+ */
+
+    // tra match {
+    //   case Return(a1) => a1
+    //   case Suspend(funcZeroA1) => funcZeroA1()
+    //   case FlatMap(freeFuncZeroA1, aFreeFuncZeroA1) => {
+    //     freeFuncZeroA1 match {
+    //       case Return(a2) =>
+    //         run(aFreeFuncZeroA1(a2))
+    //       case Suspend(funcZeroA2) =>
+    //         run(aFreeFuncZeroA1(funcZeroA2()))()
+    //       case FlatMap(freeFuncZeroA2, aFreeFuncZeroA2) => {
+    //         val freeFuncZero: Free[Function0,A] = freeFuncZeroA2.flatMap(
+    //           (a: A) => aFreeFuncZeroA2(a).flatMap(aFreeFuncZeroA1)
+    //         )
+    //         val funcZero: Function0[A] = run(freeFuncZero)
+    //         funcZero()
+    //       }
+    //     }
+    //   }
+    // }
     ???
   }
 
@@ -620,7 +653,7 @@ object IO3 {
   only console I/O effects.
   */
 
-  import fpinscala.parallelism.Nonblocking.Par
+  //import fpinscala.parallelism.Nonblocking.Par
 
   sealed trait Console[A] {
     def toPar: Par[A]
