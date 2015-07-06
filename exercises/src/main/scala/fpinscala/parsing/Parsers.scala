@@ -10,18 +10,26 @@ import fpinscala.monads.Monad
 
 
 
+// object Parser {
+//   type Parser[+A] = Location => Result[A]
+// }
+
 /*
  All Parsers in this example take a String as input.  The parametric type A is the type "measured": a count, a string, a char.
  Parser[Int] that counts the number of chars "x" will require a Parser[Char] to function.
  */
 trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call methods of trait
   implicit def string(s: String): Parser[String]
+  // not an implicit convesion String => Regex?
+  // Regex => Parser[String]??
+  //implicit def regex(r: Regex): Parser[String]
   implicit def operators[A](p: Parser[A]) = ParserOps[A](p)
   implicit def asStringParser[A](a: A)(
     implicit f: A => Parser[String]): ParserOps[String] =
     ParserOps(f(a))
 
   type Parser[+A] = Location => Result[A]
+  // import Parser.Parser
 
   trait Result[+A]
   case class Success[+A](get: A, charsConsumed: Int) extends
@@ -32,12 +40,22 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
   val parserMonad = Monad.parserMonad[Parser](self)
 
   def run[A](p: Parser[A])(input: String): Either[ParseError,A]
-
-  def map[A,B](p: Parser[A])(f: A=>B): Parser[B]
-
   def flatMap[A,B](p: Parser[A])(f: A=>Parser[B]): Parser[B]
 
-  def map2[A,B,C](p: Parser[A], p2: Parser[B])(f: (A,B)=>C): Parser[C] = {
+
+  def map[A,B](p: Parser[A])(f: A=>B): Parser[B] = {
+    // verify that 'succeed' serves as 'unit'
+    val g: A => Parser[B] = (a: A) => succeed(f(a))
+    p.flatMap(g)
+  }
+
+  def product[A,B](p: Parser[A], p2: => Parser[B]): Parser[(A,B)] =
+    p.flatMap((a: A) => {
+      p2.map((b: B) => (a,b))
+    }
+    )
+
+  def map2[A,B,C](p: Parser[A], p2: => Parser[B])(f: (A,B)=>C): Parser[C] = {
     val parserAB: Parser[(A,B)] = p.product(p2)
     val parserC: Parser[C] = parserAB.map(
       (tup: (A,B)) => f(tup._1, tup._2)
@@ -48,8 +66,6 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
   def succeed[A](a: A): Parser[A] =
     string("").map((s: String) => a)
 
-  def product[A,B](p: Parser[A], p2: Parser[B]): Parser[(A,B)]
-
 
   // parser returned recognized char c
   def char(c: Char): Parser[Char] =
@@ -59,7 +75,14 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
   //def string(s: String): Parser[String]
 
   // what does this do?
-  def many[A](p: Parser[A]): Parser[List[A]]
+  def many[A](p: Parser[A]): Parser[List[A]] = {
+    val ll: Parser[List[A]] = map2(p, many(p))(
+      (a: A, la: List[A]) => a::la)
+    val empty: Parser[List[A]] = succeed(List[A]())
+
+    val combined: Parser[List[A]] = ll.or(empty)
+    combined
+  }
 
   // "see what portion of the input string" is examined
   def slice[A](p: Parser[A]): Parser[String]
@@ -69,7 +92,7 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
   run(or(string("abra"),string("cadabra")))("abra") == Right("abra")
 run(or(string("abra"),string("cadabra")))("cadabra") == Right("cadabra")
    */
-  def or[A](p1: Parser[A], p2: Parser[A]): Parser[A]
+  def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A]
 
   // use map2 and succeed
   /*
@@ -79,8 +102,6 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
    */
 
   def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] = {
-    //import p._
-    //import P._
     if(n<=1){
       p.map((a: A)=>List(a))
     } else {
@@ -100,6 +121,8 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
     def map[B](f: A=>B): Parser[B] = self.map(p)(f)
     def map2[B,C](p2: Parser[B])(f: (A,B)=>C): Parser[C] =
       self.map2(p, p2)(f)
+    def flatMap[B](f: A => Parser[B]): Parser[B] =
+      self.flatMap(p)(f)
     def product[B](p2: Parser[B]): Parser[(A,B)] =
       self.product(p, p2)
     def **[B](p2: Parser[B]): Parser[(A,B)] = this.product(p2)
@@ -129,7 +152,19 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
       equal(p, p.map(a => a))(in)
 
     // run(succeed(a))(s) == Right(s)
-    //def succeedLaw[
+    def succeedLaw[A](genString: Gen[String], genA: Gen[A]): Prop = {
+      val genStringAndA: Gen[(String, A)] =
+        genString.**(genA)
+      forAll(genStringAndA)((tup: (String, A)) => {
+        val string: String = tup._1
+        val a: A = tup._2
+        val sucA: Parser[A] = succeed(a)
+        run(sucA)(string) == Right(a)
+      }
+      )
+    }
+
+
     // check the behavior of product ---> Monad Laws
     // def productLaw[A,B](pa: Parser[A], pb: Parser[B])(
     //   in: Gen[String]): Prop = {

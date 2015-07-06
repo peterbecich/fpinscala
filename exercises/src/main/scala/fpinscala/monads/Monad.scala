@@ -3,9 +3,9 @@ package monads
 
 import parsing._
 import testing._
-import parallelism._
+//import parallelism._
 import state._
-import parallelism.Par._
+import parallelism.Nonblocking.Par
 //import laziness.Stream
 
 
@@ -541,16 +541,17 @@ object Monad {
       ma flatMap f
   }
 
-  // val parMonad: Monad[Par] = new Monad[Par] {
-  //   def unit[A](a: => A): Par[A] = Par.unit(a)
-  //   override def flatMap[A,B](ma: Par[A])(f: A => Par[B]): Par[B] =
-  //need to fix implementation of Par
-  //     ma flatMap f
-  // }
+  // for Nonblocking Par
+  val parMonad: Monad[Par] = new Monad[Par] {
+    def unit[A](a: => A): Par[A] = Par.unit(a)
+    override def flatMap[A,B](ma: Par[A])(f: A => Par[B]): Par[B] =
+      Par.flatMap(ma)(f)
+  }
 
-  def parserMonad[P[+_]](p: Parsers[ParseError, P]): Monad[P] = new Monad[P] {
-    def unit[A](a: => A): P[A] = p.succeed(a)
-    def flatMap[A,B](pa: P[A])(f: A=>P[B]): P[B] =
+  def parserMonad[P[+_]](p: Parsers[ParseError, P]): Monad[P] =
+    new Monad[P] {
+    def unit[A](a: => A): Parser[A] = p.succeed(a)
+    def flatMap[A,B](pa: Parser[A])(f: A=>Parser[B]): Parser[B] =
       p.flatMap(f)
   }
 
