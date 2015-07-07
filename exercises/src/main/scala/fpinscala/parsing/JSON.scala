@@ -39,7 +39,7 @@ value
   case object JNull extends JSON
   case class JNumber(get: Double) extends JSON
   case class JString(get: String) extends JSON
-  case class JBool(get: Bool) extends JSON
+  case class JBool(get: Boolean) extends JSON
   case class JArray(get: IndexedSeq[JSON]) extends JSON
   case class JObject(get: Map[String, JSON]) extends JSON
 
@@ -59,9 +59,16 @@ value
 
    or(p1,p2) : Chooses between two parsers, first attempting p1 , and then p2 if p1 fails
 
+
+   Is the concrete implementation of type 'P' responsible
+   for 'run'?
+   def run[A](p: Parser[A])(input: String): Either[ParseError,A]
+
+
+
    */
 
-  def jsonParser[Err,Parser[+_]](P: Parsers[Err,Parser]):
+  def jsonParser[Err,Parser[+_]](P: Parsers[Parser]):
       Parser[JSON] = {
     import P._
 

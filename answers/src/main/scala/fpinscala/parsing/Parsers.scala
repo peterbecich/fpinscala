@@ -84,6 +84,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
 
   /** Parser which consumes zero or more whitespace characters. */
   def whitespace: Parser[String] = "\\s*".r
+  // uses implicit conversion Regex => Parser[String]
 
   /** Parser which consumes 1 or more digits. */
   def digits: Parser[String] = "\\d+".r

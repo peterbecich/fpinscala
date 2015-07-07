@@ -548,12 +548,12 @@ object Monad {
       Par.flatMap(ma)(f)
   }
 
-  def parserMonad[P[+_]](p: Parsers[ParseError, P]): Monad[P] =
+  def parserMonad[P[+_]](p: Parsers[P]): Monad[P] =
     new Monad[P] {
-    def unit[A](a: => A): Parser[A] = p.succeed(a)
-    def flatMap[A,B](pa: Parser[A])(f: A=>Parser[B]): Parser[B] =
-      p.flatMap(f)
-  }
+      def unit[A](a: => A): P[A] = p.succeed(a)
+      def flatMap[A,B](pa: P[A])(f: A=>P[B]): P[B] =
+        p.flatMap(pa)(f)
+    }
 
   val optionMonad: Monad[Option] = new Monad[Option] {
     def unit[A](a: => A): Option[A] = Some(a)

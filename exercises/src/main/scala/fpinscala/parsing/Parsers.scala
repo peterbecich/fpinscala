@@ -3,7 +3,7 @@ package fpinscala.parsing
 import java.util.regex._
 import scala.util.matching.Regex
 import fpinscala.testing._
-import fpinscala.testing.Prop._
+import fpinscala.testing.Prop
 import scala.language.higherKinds
 import scala.language.implicitConversions
 import fpinscala.monads.Monad
@@ -18,7 +18,11 @@ import fpinscala.monads.Monad
  All Parsers in this example take a String as input.  The parametric type A is the type "measured": a count, a string, a char.
  Parser[Int] that counts the number of chars "x" will require a Parser[Char] to function.
  */
-trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call methods of trait
+// parametric type ParseError no longer needed -- made concrete
+//trait Parsers[ParseError, Parser[+_]] { self => // so
+
+// Keep parametric type Parser in Parsers signature -- part of lesson
+trait Parsers[Parser[+_]] { self => // so inner inner classes may call methods of trait
   implicit def string(s: String): Parser[String]
   // not an implicit convesion String => Regex?
   // Regex => Parser[String]??
@@ -27,21 +31,21 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
   implicit def asStringParser[A](a: A)(
     implicit f: A => Parser[String]): ParserOps[String] =
     ParserOps(f(a))
+  implicit def regex(r: Regex): Parser[String]
 
-  type Parser[+A] = Location => Result[A]
-  // import Parser.Parser
+  //val parserMonad = Monad.parserMonad[Parser](self)
 
-  trait Result[+A]
-  case class Success[+A](get: A, charsConsumed: Int) extends
-      Result[A]
-  case class Failure(get: ParseError) extends
-      Result[Nothing]
+  // trait Result[+A]
+  // case class Success[+A](get: A, charsConsumed: Int) extends
+  //     Result[A]
+  // case class Failure(get: ParseError) extends
+  //     Result[Nothing]
+  // from 9.6.2
 
-  val parserMonad = Monad.parserMonad[Parser](self)
-
-  def run[A](p: Parser[A])(input: String): Either[ParseError,A]
+  import Parsers.Result
+  def run[A](p: Parser[A])(input: String): Result[A]
   def flatMap[A,B](p: Parser[A])(f: A=>Parser[B]): Parser[B]
-
+  def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A]
 
   def map[A,B](p: Parser[A])(f: A=>B): Parser[B] = {
     // verify that 'succeed' serves as 'unit'
@@ -84,6 +88,16 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
     combined
   }
 
+
+  /*
+With many1 , we can now implement the parser for zero or more 'a' followed by one or more 'b' as follows:
+char('a').many.slice.map(_.size) ** char('b').many1.slice.map(_.size)
+   */
+  def many1[A](p: Parser[A]): Parser[List[A]] =
+    map2(p,many(p))((a: A, la: List[A]) => a::la)
+  // section 9.2.1 infers many1 is to be implemented with product
+//    product(p, many(p))
+
   // "see what portion of the input string" is examined
   def slice[A](p: Parser[A]): Parser[String]
 
@@ -92,7 +106,6 @@ trait Parsers[ParseError, Parser[+_]] { self => // so inner classes may call met
   run(or(string("abra"),string("cadabra")))("abra") == Right("abra")
 run(or(string("abra"),string("cadabra")))("cadabra") == Right("cadabra")
    */
-  def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A]
 
   // use map2 and succeed
   /*
@@ -146,7 +159,7 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
     // map(p)(a => a) == p
 
     def equal[A](p1: Parser[A], p2: Parser[A])(in: Gen[String]): Prop =
-      forAll(in)((s: String) => run(p1)(s) == run(p2)(s))
+      Prop.forAll(in)((s: String) => run(p1)(s) == run(p2)(s))
 
     def mapLaw[A](p: Parser[A])(in: Gen[String]): Prop =
       equal(p, p.map(a => a))(in)
@@ -155,7 +168,7 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
     def succeedLaw[A](genString: Gen[String], genA: Gen[A]): Prop = {
       val genStringAndA: Gen[(String, A)] =
         genString.**(genA)
-      forAll(genStringAndA)((tup: (String, A)) => {
+      Prop.forAll(genStringAndA)((tup: (String, A)) => {
         val string: String = tup._1
         val a: A = tup._2
         val sucA: Parser[A] = succeed(a)
@@ -176,6 +189,74 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
        
     //    */
     // }
+
+  }
+}
+
+object Parsers {
+
+  // section 9.6.1
+  // replaced by section 9.6.2
+  // type Parser[+A] = String => Either[ParseError, A]
+  trait Result[+A]
+  case class Success[+A](get: A, charsConsumed: Int) extends
+      Result[A]
+  case class Failure(get: ParseError) extends
+      Result[Nothing]
+  type LocationResultParser[+A] = Location => Result[A]
+
+
+  object SimpleParser extends Parsers[LocationResultParser]{
+
+    implicit def string(s: String): LocationResultParser[String] =
+      (in: Location) => {
+        val strIn: String = in.currentLine
+        if(strIn.startsWith(s))
+          Success(strIn, strIn.length) // why is strIn.length necessary?
+        else Failure(
+          ParseError(
+            List((in, strIn))
+          )
+        )
+      }
+
+    implicit def regex(r: Regex): LocationResultParser[String] =
+      string(r.regex)  // sure???
+
+    def run[A](p: LocationResultParser[A])(input: String): Result[A] =
+      p(Location(input))
+
+    def flatMap[A,B](p: LocationResultParser[A])(f: A=>LocationResultParser[B]): LocationResultParser[B] =
+      (locIn: Location) => {
+        val resultA: Result[A] = p(locIn)
+        //val resultB: Result[B] = f(resultA)
+        // not Result[B]! Parser[B].
+        val parserB: LocationResultParser[B] = resultA match {
+          case Success(a: A, charsConsumed: Int) => f(a)
+          case Failure(err: ParseError) =>
+            (failLoc: Location) => Failure(err: ParseError)
+        }
+        parserB(locIn)  // sure the same Location is used twice?
+      }
+
+    def or[A](p1: LocationResultParser[A], p2: => LocationResultParser[A]): LocationResultParser[A] =
+    (locIn: Location) => {
+      val result1: Result[A] = p1(locIn)
+      lazy val result2: Result[A] = p2(locIn)
+      result1 match {
+        case suc1: Success[A] => suc1
+        case Failure(err1: ParseError) => result2 match {
+          case suc2: Success[A] => suc2
+          case Failure(err2: ParseError) => {
+            val combinedErr: ParseError =
+              ParseError(err1.stack,
+                err2 :: err1.otherFailures)
+            val combinedFailure: Failure = Failure(combinedErr)
+            combinedFailure
+          }
+        }
+      }
+    }
 
   }
 }
