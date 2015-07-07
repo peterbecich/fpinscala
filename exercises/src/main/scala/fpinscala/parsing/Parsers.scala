@@ -33,6 +33,8 @@ trait Parsers[Parser[+_]] { self => // so inner inner classes may call methods o
     ParserOps(f(a))
   implicit def regex(r: Regex): Parser[String]
 
+  val parserMonad: Monad[Parser] = Monad.parserMonad(this)
+
   //val parserMonad = Monad.parserMonad[Parser](self)
 
   // trait Result[+A]
@@ -47,25 +49,32 @@ trait Parsers[Parser[+_]] { self => // so inner inner classes may call methods o
   def flatMap[A,B](p: Parser[A])(f: A=>Parser[B]): Parser[B]
   def or[A](p1: Parser[A], p2: => Parser[A]): Parser[A]
 
-  def map[A,B](p: Parser[A])(f: A=>B): Parser[B] = {
-    // verify that 'succeed' serves as 'unit'
-    val g: A => Parser[B] = (a: A) => succeed(f(a))
-    p.flatMap(g)
-  }
+  def map[A,B](p: Parser[A])(f: A=>B): Parser[B] =
+    parserMonad.map(p)(f)
+
+  // {
+  //   // verify that 'succeed' serves as 'unit'
+  //   val g: A => Parser[B] = (a: A) => succeed(f(a))
+  //   p.flatMap(g)
+  // }
 
   def product[A,B](p: Parser[A], p2: => Parser[B]): Parser[(A,B)] =
-    p.flatMap((a: A) => {
-      p2.map((b: B) => (a,b))
-    }
-    )
+    parserMonad.product(p, p2)
+    // p.flatMap((a: A) => {
+    //   p2.map((b: B) => (a,b))
+    // }
+    // )
 
-  def map2[A,B,C](p: Parser[A], p2: => Parser[B])(f: (A,B)=>C): Parser[C] = {
-    val parserAB: Parser[(A,B)] = p.product(p2)
-    val parserC: Parser[C] = parserAB.map(
-      (tup: (A,B)) => f(tup._1, tup._2)
-    )
-    parserC
-  }
+  def map2[A,B,C](p: Parser[A], p2: => Parser[B])(f: (A,B)=>C): Parser[C] =
+    parserMonad.map2(p, p2)(f)
+
+  // {
+  //   val parserAB: Parser[(A,B)] = p.product(p2)
+  //   val parserC: Parser[C] = parserAB.map(
+  //     (tup: (A,B)) => f(tup._1, tup._2)
+  //   )
+  //   parserC
+  // }
   // akin to unit?
   def succeed[A](a: A): Parser[A] =
     string("").map((s: String) => a)
@@ -114,14 +123,17 @@ run(listOfN(3, "ab" | "cad"))("cadabab") == Right(List("cad","ab","ab"))
 run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
    */
 
-  def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] = {
-    if(n<=1){
-      p.map((a: A)=>List(a))
-    } else {
-      val pla: Parser[List[A]] = listOfN(n-1, p)
-      p.map2(pla)((a: A, la: List[A]) => a::la)
-    }
-  }
+  def listOfN[A](n: Int, p: Parser[A]): Parser[List[A]] =
+    parserMonad.replicateM(n, p)
+
+  // {
+  //   if(n<=1){
+  //     p.map((a: A)=>List(a))
+  //   } else {
+  //     val pla: Parser[List[A]] = listOfN(n-1, p)
+  //     p.map2(pla)((a: A, la: List[A]) => a::la)
+  //   }
+  // }
 
 
   // [error]  Note: implicit method operators is not applicable here because it comes after the application point and it lacks an explicit result type
