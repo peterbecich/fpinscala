@@ -232,8 +232,8 @@ object IO2a {
   object IO extends Monad[IO] { // Notice that none of these operations DO anything
     def unit[A](a: => A): IO[A] = Return(a)
     def flatMap[A,B](a: IO[A])(f: A => IO[B]): IO[B] = a flatMap f
-    def suspend[A](a: => IO[A]): IO[A] = Suspend(() => ()).flatMap{
-      _ => a }
+    def suspend[A](a: => IO[A]) =
+      Suspend(() => ()).flatMap { _ => a }
   }
 
   def printLine(s: String): IO[Unit] =
