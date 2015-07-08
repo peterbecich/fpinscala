@@ -68,10 +68,11 @@ value
 
    */
 
-  def jsonParser[Err,Parser[+_]](P: Parsers[Parser]):
+  // provide SimpleParser
+  def jsonParser[Parser[+_]](P: Parsers[Parser]):
       Parser[JSON] = {
     import P._
-
+    // Success(JNumber), Success(JArray(JBool, JString, ...)), etc.
     
   }
 

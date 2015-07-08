@@ -217,7 +217,12 @@ object Parsers {
       Result[Nothing]
   type LocationResultParser[+A] = Location => Result[A]
 
-
+  /*
+   Parametric type Err no longer gives any benefit in signature
+   of Parsers.  The concrete type of Err is now baked into the
+   concrete type of Parser.  We are not limited in what 
+   concrete Err type we can use, then.
+   */
   object SimpleParser extends Parsers[LocationResultParser]{
 
     implicit def string(s: String): LocationResultParser[String] =
