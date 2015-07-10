@@ -72,8 +72,13 @@ value
   def jsonParser[Parser[+_]](P: Parsers[Parser]):
       Parser[JSON] = {
     import P._
-    // Success(JNumber), Success(JArray(JBool, JString, ...)), etc.
-    
+    // Location(String) => Success(JNumber), Success(JArray(JBool, JString, ...)), etc.
+    // given concrete Parser
+    // Parser above is abstract
+
+
+
+
   }
 
 

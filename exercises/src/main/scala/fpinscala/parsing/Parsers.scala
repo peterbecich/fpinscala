@@ -27,10 +27,13 @@ trait Parsers[Parser[+_]] { self => // so inner inner classes may call methods o
   // not an implicit convesion String => Regex?
   // Regex => Parser[String]??
   //implicit def regex(r: Regex): Parser[String]
+
+  // connects methods below to instances of Parser
   implicit def operators[A](p: Parser[A]) = ParserOps[A](p)
   implicit def asStringParser[A](a: A)(
     implicit f: A => Parser[String]): ParserOps[String] =
     ParserOps(f(a))
+
   implicit def regex(r: Regex): Parser[String]
 
   val parserMonad: Monad[Parser] = Monad.parserMonad(this)
@@ -44,6 +47,9 @@ trait Parsers[Parser[+_]] { self => // so inner inner classes may call methods o
   //     Result[Nothing]
   // from 9.6.2
 
+
+  // Parsers has knowledge of Result, but not of Location
+  // So concrete type Parser is restricted to Something => Result
   import Parsers.Result
   def run[A](p: Parser[A])(input: String): Result[A]
   def flatMap[A,B](p: Parser[A])(f: A=>Parser[B]): Parser[B]
@@ -108,7 +114,14 @@ char('a').many.slice.map(_.size) ** char('b').many1.slice.map(_.size)
 //    product(p, many(p))
 
   // "see what portion of the input string" is examined
+  // need an example...
   def slice[A](p: Parser[A]): Parser[String]
+
+  def label[A](msg: String)(p: Parser[A]): Parser[A]
+
+  def errorLocation(e: ParseError): Location
+
+  def errorMessage(e: ParseError): String
 
   // parser returned recognizes either p1 or p2
   /*
@@ -167,6 +180,16 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
   }
 
   object Laws {
+    /*
+     These laws test the concrete type of Parser,
+     the concrete implementation of trait Parsers,
+     and the various instances of Parser[A]: Parser[String],
+     Parser[Int], etc.
+
+     What about Parsers[JSON]?
+     */
+
+
     //run(char(c))(c.toString) == Right(c)
     // map(p)(a => a) == p
 
@@ -188,6 +211,18 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
       }
       )
     }
+
+    // listing 9.2
+    def labelLaw[A](p: Parser[A], inputs: SGen[String]): Prop =
+      forAll(inputs ** Gen.string) { case (input, msg) =>
+        //                           ^ make explicit
+        // http://stackoverflow.com/questions/754166/how-is-pattern-matching-in-scala-implemented-at-the-bytecode-level
+        run(label(msg)(p))(input) match {
+          case Left(e) => errorMessage(e) == msg
+            // ^^  extract error message from failed parser
+          case _ => true
+        }
+      }
 
 
     // check the behavior of product ---> Monad Laws
@@ -243,17 +278,31 @@ object Parsers {
     def run[A](p: LocationResultParser[A])(input: String): Result[A] =
       p(Location(input))
 
-    def flatMap[A,B](p: LocationResultParser[A])(f: A=>LocationResultParser[B]): LocationResultParser[B] =
-      (locIn: Location) => {
-        val resultA: Result[A] = p(locIn)
-        //val resultB: Result[B] = f(resultA)
-        // not Result[B]! Parser[B].
-        val parserB: LocationResultParser[B] = resultA match {
-          case Success(a: A, charsConsumed: Int) => f(a)
-          case Failure(err: ParseError) =>
-            (failLoc: Location) => Failure(err: ParseError)
+    // def flatMap[A,B](p: LocationResultParser[A])(f: A=>LocationResultParser[B]): LocationResultParser[B] =
+    //   (locIn: Location) => {
+    //     val resultA: Result[A] = p(locIn)
+    //     //val resultB: Result[B] = f(resultA)
+    //     // not Result[B]! Parser[B].
+    //     val parserB: LocationResultParser[B] = resultA match {
+    //       case Success(a: A, charsConsumed: Int) => f(a)
+    //       case Failure(err: ParseError) =>
+    //         (failLoc: Location) => Failure(err: ParseError)
+    //     }
+    //     parserB(locIn)  // sure the same Location is used twice?
+    //   }
+
+    // improved flatMap from Listing 9.3
+    def flatMap[A,B](lrpa: LocationResultParser[A])(
+      alrpb: A => LocationResultParser[B]): LocationResultParser[B] = 
+      (locIn: Location) => lrpa(locIn) match {
+        case Success(a: A, charsConsumed: Int) => {
+          val parserB: LocationResultParser[B] = alrpb(a)
+          val advancedLocation: Location =
+            locIn.advanceBy(charsConsumed)
+          val resultB: Result[B] = parserB(advancedLocation)
+          resultB
         }
-        parserB(locIn)  // sure the same Location is used twice?
+        case fail@Failure(_) => fail
       }
 
     def or[A](p1: LocationResultParser[A], p2: => LocationResultParser[A]): LocationResultParser[A] =
