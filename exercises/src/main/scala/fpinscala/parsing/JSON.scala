@@ -75,7 +75,7 @@ value
     // Location(String) => Success(JNumber), Success(JArray(JBool, JString, ...)), etc.
     // given concrete Parser
     // Parser above is abstract
-
+    val spaces = char(' ').many.slice
 
 
 

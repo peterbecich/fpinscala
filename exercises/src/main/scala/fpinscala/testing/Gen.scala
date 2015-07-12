@@ -311,6 +311,12 @@ object Gen {
     genListInt.map((li: List[Int]) => li.toString())
   }
 
+  // up to length 100
+  def string: Gen[String] = {
+    val genLength = choose(10, 100)
+    genLength.flatMap(length => stringOfLength(length))
+  }
+
   // no randomness here
   // Gen is limited to using State[RNG,A]
   // So it's not possible to create a Gen of State[Int, Int],

@@ -5,8 +5,13 @@ import scala.util.matching.Regex
 
 object ReferenceTypes {
 
+  // one choice of type Parser
   /** A parser is a kind of state action that can fail. */
   type Parser[+A] = ParseState => Result[A]
+  // preceeding simpler choices were
+  // type Parser[+A] = String => Either[ParseError,A]
+  // and
+  // type Parser[+A] = Location => Result[A]
 
   /** `ParseState` wraps a `Location` and provides some extra
     * convenience functions. The sliceable parsers defined

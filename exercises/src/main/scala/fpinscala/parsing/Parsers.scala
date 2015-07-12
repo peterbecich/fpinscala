@@ -214,7 +214,7 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
 
     // listing 9.2
     def labelLaw[A](p: Parser[A], inputs: SGen[String]): Prop =
-      forAll(inputs ** Gen.string) { case (input, msg) =>
+      Prop.forAll(product(inputs, Gen.string)) { case (input, msg) =>
         //                           ^ make explicit
         // http://stackoverflow.com/questions/754166/how-is-pattern-matching-in-scala-implemented-at-the-bytecode-level
         run(label(msg)(p))(input) match {
@@ -274,6 +274,8 @@ object Parsers {
 
     implicit def regex(r: Regex): LocationResultParser[String] =
       string(r.regex)  // sure???
+
+    
 
     def run[A](p: LocationResultParser[A])(input: String): Result[A] =
       p(Location(input))
