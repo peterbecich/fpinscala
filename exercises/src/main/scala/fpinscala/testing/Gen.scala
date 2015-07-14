@@ -284,6 +284,16 @@ case class Gen[A](sample: State.Rand[A]){
     def unapply[A, B](p: (A, B)) = Some(p)
   }
 
+  def product[B](g: Gen[B]): Gen[(A, B)] =
+    this.map2(g)({(a: A, b: B) => {
+      (a, b): Tuple2[A, B]
+    }}: (A, B) => Tuple2[A, B]
+    ): Gen[Tuple2[A, B]]
+
+  object product {
+    def unapply[A, B](p: (A, B)) = Some(p)
+  }
+
   def unsized: SGen[A] = SGen((i: Int) => this)  // i ignored?
 
 }

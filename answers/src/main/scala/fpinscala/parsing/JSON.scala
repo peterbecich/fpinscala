@@ -13,6 +13,26 @@ object JSON {
   case class JArray(get: IndexedSeq[JSON]) extends JSON
   case class JObject(get: Map[String, JSON]) extends JSON
 
+  // def printer(js: JSON): Unit =
+  //   println(toString(js))
+
+  def toString(js: JSON): String = js match {
+    case JNull => "JNull"
+    case JNumber(jNumber) => "JNumber("+jNumber.toString()+")"
+    case JString(jString) => "JString("+jString+")"
+    case JBool(jBool) => "JBool("+jBool.toString()+")"
+    case JArray(jArray) => {
+      val stringArray = jArray.map(json => "\t"+toString(json))
+      "JArray("+stringArray.foldLeft("")(
+        (acc: String, string: String) => acc + "\n" + string
+      )+")"
+    }
+    case JObject(mp) => "JObject("+mp.foldRight("")(
+      (kv: Tuple2[String, JSON], acc: String) =>
+      acc + "\n" + kv._1 + "\t:\t" + toString(kv._2)
+    )+")"
+  }
+
 
   def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[JSON] = {
     // we'll hide the string implicit conversion and promote strings to tokens instead
@@ -72,11 +92,24 @@ object JSONExample extends App {
 
   def printResult[E](e: Either[E,JSON]) =
     e.fold(println, println)
+  //e.fold((err: E) => println(err), (json: JSON) => println(JSON))
 
+  def printResult2[E](e: Either[E,JSON]): Unit =
+    e.fold(println, (js: JSON) => println(JSON.toString(js)))
+  
   val json: Parser[JSON] = JSON.jsonParser(P)
-  printResult { P.run(json)(jsonTxt) }
-  println("--")
-  printResult { P.run(json)(malformedJson1) }
-  println("--")
-  printResult { P.run(json)(malformedJson2) }
+  println("well formed JSON")
+  println(jsonTxt)
+  println("result")
+  printResult2 { P.run(json)(jsonTxt) }
+  println("-----------------------------")
+  println("malformed JSON")
+  println(malformedJson1)
+  println("result")
+  printResult2 { P.run(json)(malformedJson1) }
+  println("-----------------------------")
+  println("malformed JSON 2")
+  println(malformedJson2)
+  println("result")
+  printResult2 { P.run(json)(malformedJson2) }
 }

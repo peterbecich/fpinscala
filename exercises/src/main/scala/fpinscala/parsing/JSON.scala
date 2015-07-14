@@ -7,7 +7,7 @@ import fpinscala.testing.Prop._
 import scala.language.higherKinds
 import scala.language.implicitConversions
 import fpinscala.monads.Monad
-
+import fpinscala.parsing.Parsers._
 
 trait JSON
 object JSON {
@@ -78,7 +78,11 @@ value
     val spaces = char(' ').many.slice
 
 
-
+    // the mistake is assuming the concrete type of Parser...
+    // val parserJson: Parser[JSON] = (loc: Location) => {
+    //   Success(JNull, 0)
+    // }
+    // parserJson
   }
 
 
