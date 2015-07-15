@@ -69,21 +69,36 @@ value
    */
 
   // provide SimpleParser
-  def jsonParser[Parser[+_]](P: Parsers[Parser]):
-      Parser[JSON] = {
-    import P._
-    // Location(String) => Success(JNumber), Success(JArray(JBool, JString, ...)), etc.
-    // given concrete Parser
-    // Parser above is abstract
-    val spaces = char(' ').many.slice
+  // def jsonParser[Parser[+_]](P: Parsers[Parser]):
+  //     Parser[JSON] = {
+  //   import P._
+  //   // Location(String) => Success(JNumber), Success(JArray(JBool, JString, ...)), etc.
+  //   // given concrete Parser
+  //   // Parser above is abstract
+  //   val spaces = char(' ').many.slice
 
 
-    // the mistake is assuming the concrete type of Parser...
-    // val parserJson: Parser[JSON] = (loc: Location) => {
-    //   Success(JNull, 0)
-    // }
-    // parserJson
-  }
+  //   // the mistake is assuming the concrete type of Parser...
+  //   // val parserJson: Parser[JSON] = (loc: Location) => {
+  //   //   Success(JNull, 0)
+  //   // }
+  //   // parserJson
+
+  //   // Parser[JSON] returned by methods of P: Parsers[Parser]
+  //   // with abstract type Parser.
+  //   // Implement the primitives of P: Parsers[Parser] so that you
+  //   // can use them directly.
+  //   // Note you are not instantiating a concrete instance of Parsers.
+  //   // You want to implement these primitives so you can string
+  //   // them together into an instance of Parser[JSON] for abstract
+  //   // type Parser.
+  //   // The implementations of these primitives in SimpleParser
+  //   // assume a concrete type of Parser.
+  //   def flatMap[B](p: Parser[JSON])(f: JSON=>Parser[B]): Parser[B] =
+
+    
+
+  // }
 
 
   // note input is still string

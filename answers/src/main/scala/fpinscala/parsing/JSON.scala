@@ -37,7 +37,7 @@ object JSON {
   def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[JSON] = {
     // we'll hide the string implicit conversion and promote strings to tokens instead
     // this is a bit nicer than having to write token everywhere
-    import P.{string => _, _}
+    import P.{string => _, _} // remove def string
     implicit def tok(s: String) = token(P.string(s))
 
     def array = surround("[","]")(

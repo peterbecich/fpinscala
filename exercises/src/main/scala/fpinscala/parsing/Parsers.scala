@@ -214,14 +214,25 @@ run(listOfN(3, "ab" | "cad"))("ababab") == Right(List("ab","ab","ab"))
 
     // listing 9.2
     def labelLaw[A](p: Parser[A], inputs: Gen[String]): Prop =
-      Prop.forAll(inputs.product(Gen.string)) { case (input, msg) =>
+      Prop.forAll(inputs.product(Gen.string)) { case (input, msg) => {
         //                                       ^ make explicit
         // http://stackoverflow.com/questions/754166/how-is-pattern-matching-in-scala-implemented-at-the-bytecode-level
-        run(label(msg)(p))(input) match {
-          case Left(e) => errorMessage(e) == msg
-            // ^^  extract error message from failed parser
+        /*
+         While type Parser is still abstract, we have restricted its
+         concrete implementations to returning a Result (so it's only
+         partially abstract...)
+         */
+        import Parsers.Failure
+        val resultA: Result[A] = run(label(msg)(p))(input)
+        resultA match {
+          case Failure(parseErr, optionLabel) => {
+            // check embedded error message equals generated
+            // error message.  Failed Parser is intentional.
+            errorMessage(parseErr) == msg
+          }
           case _ => true
         }
+      }
       }
 
 
@@ -248,8 +259,8 @@ object Parsers {
   trait Result[+A]
   case class Success[+A](get: A, charsConsumed: Int) extends
       Result[A]
-  case class Failure(get: ParseError) extends
-      Result[Nothing]
+  case class Failure(get: ParseError,
+    failLabel: Option[String] = None) extends Result[Nothing]
   type LocationResultParser[+A] = Location => Result[A]
 
   /*
@@ -304,7 +315,7 @@ object Parsers {
           val resultB: Result[B] = parserB(advancedLocation)
           resultB
         }
-        case fail@Failure(_) => fail
+        case fail@Failure(_,_) => fail
       }
 
     def or[A](p1: LocationResultParser[A], p2: => LocationResultParser[A]): LocationResultParser[A] =
@@ -313,9 +324,9 @@ object Parsers {
       lazy val result2: Result[A] = p2(locIn)
       result1 match {
         case suc1: Success[A] => suc1
-        case Failure(err1: ParseError) => result2 match {
+        case Failure(err1: ParseError, optionLabel1) => result2 match {
           case suc2: Success[A] => suc2
-          case Failure(err2: ParseError) => {
+          case Failure(err2: ParseError, optionLabel2) => {
             val combinedErr: ParseError =
               ParseError(err1.stack,
                 err2 :: err1.otherFailures)
@@ -326,6 +337,49 @@ object Parsers {
       }
     }
 
+
+    // returns first error only -- should be improved!
+    // Shouldn't need to return a non-existent location
+    def errorLocation(e: ParseError): Location =
+      e.stack match {
+        case List(firstTup, tail) => firstTup._1
+        case Nil => Location("")
+      }
+    def errorMessage(e: ParseError): String =
+      e.stack match {
+        case List(firstTup, tail) => firstTup._2
+        case Nil => "no error; parse error is empty"
+      }
+    // label shows up if p: Parser fails
+    def label[A](msg: String)(p: LocationResultParser[A]):
+        LocationResultParser[A] =
+      (loc: Location) => {
+        val result0: Result[A] = p(loc)
+        val result1: Result[A] = result0 match {
+          case suc@Success(_,_) => suc
+          case Failure(parseErr, priorOptionMsg) =>
+            Failure(parseErr, Some(msg))
+        }
+        result1
+      }
+
+    /* 
+     Return the portion of the input string examined by the parser.
+     */
+    def slice[A](p: LocationResultParser[A]):
+        LocationResultParser[String] =
+      (loc: Location) => {
+        val result0: Result[A] = p(loc)
+        val result1: Result[String] = result0 match {
+          case suc@Success(a, charsConsumed) => {
+            val inputSlice: String =
+              loc.input.substring(charsConsumed)
+            Success(inputSlice, charsConsumed)
+          }
+          case fail@Failure(_,_) => fail
+        }
+        result1
+      }
   }
 }
 
