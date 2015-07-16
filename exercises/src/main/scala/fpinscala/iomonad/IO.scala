@@ -606,36 +606,35 @@ object IO3 {
       // }
     }
   // Exercise 2: Implement a specialized `Function0` interpreter.
-  //@annotation.tailrec
+  // narrow scope
+  @annotation.tailrec
   def runTrampoline[A](tra: TailRec[A]): A = {
-    // tra: Free[Function0, A]
-
 /* Type annotations break tail recursion...
       case Suspend(funcZeroA: Function0[A]) => funcZeroA()
       case FlatMap(freeFuncZeroA: Function0[A],
         aFreeFuncZeroB
  */
-
-    // tra match {
-    //   case Return(a1) => a1
-    //   case Suspend(funcZeroA1) => funcZeroA1()
-    //   case FlatMap(freeFuncZeroA1, aFreeFuncZeroA1) => {
-    //     freeFuncZeroA1 match {
-    //       case Return(a2) =>
-    //         run(aFreeFuncZeroA1(a2))
-    //       case Suspend(funcZeroA2) =>
-    //         run(aFreeFuncZeroA1(funcZeroA2()))()
-    //       case FlatMap(freeFuncZeroA2, aFreeFuncZeroA2) => {
-    //         val freeFuncZero: Free[Function0,A] = freeFuncZeroA2.flatMap(
-    //           (a: A) => aFreeFuncZeroA2(a).flatMap(aFreeFuncZeroA1)
-    //         )
-    //         val funcZero: Function0[A] = run(freeFuncZero)
-    //         funcZero()
-    //       }
-    //     }
-    //   }
-    // }
-    ???
+    tra match {
+      case Return(a1) => a1
+      case Suspend(funcZeroA1) => funcZeroA1()
+      case FlatMap(freeFuncZeroA1, aFreeFuncZeroA1) => {
+        freeFuncZeroA1 match {
+          case Return(a2) => {
+            val fr: Free[] = aFreeFuncZeroA1(a2)
+            run(fr)
+          }
+          case Suspend(funcZeroA2) =>
+            run(aFreeFuncZeroA1(funcZeroA2()))()
+          case FlatMap(freeFuncZeroA2, aFreeFuncZeroA2) => {
+            val freeFuncZero: Free[Function0,A] = freeFuncZeroA2.flatMap(
+              (a: A) => aFreeFuncZeroA2(a).flatMap(aFreeFuncZeroA1)
+            )
+            val funcZero: Function0[A] = run(freeFuncZero)
+            funcZero()
+          }
+        }
+      }
+    }
   }
 
   // Exercise 3: Implement a `Free` interpreter which works for any `Monad`
@@ -855,15 +854,40 @@ object IO3Tests {
       sa.flatMap(aSb)
   }
 
-  val streamHundred = Stream.from(1).take(100)
+  // val streamHundred = Stream.from(1).take(100)
 
-  val naiveSum = streamHundred.foldRight(0)(_+_)
+  // val naiveSum = streamHundred.foldRight(0)(_+_)
 
   // val tailRecStreamHundred: [Stream[Int]] = TailRec.unit(streamHundred)
 
 
+  val recursiveFactorial: Int => Int = (i: Int) =>
+  if(i>1) i * recursiveFactorial(i-1)
+  else 1
+
+  // only saves one recursion...
+  // val tailRecursiveFactorial: Int => TailRec[Int] =
+  //   (i: Int) => Return(recursiveFactorial(i))
+
+  val tailRecursiveFactorial: Int => TailRec[Int] =
+    (i: Int) =>
+  if(i>1) {
+    val next: TailRec[Int] = tailRecursiveFactorial(i-1)
+    val flatten: Int => TailRec[Int] = (i1: Int) => Return(i*i1)
+    FlatMap(next, flatten)
+  }
+  else Return(1)
+
+
 
   def main(args: Array[String]): Unit = {
+    println("tailRecursiveFactorial: Int => TailRec[Int]")
+    println("tailRecursiveFactorial(100)")
+    val tailRecFact100: TailRec[Int] = tailRecursiveFactorial(100)
+    println(tailRecFact100)
+    println("factorial")
+    val fact100: Int = runTrampoline(tailRecFact100)
+    println(fact100)
 
   }
 }

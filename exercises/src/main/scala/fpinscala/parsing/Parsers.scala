@@ -117,11 +117,13 @@ char('a').many.slice.map(_.size) ** char('b').many1.slice.map(_.size)
   // need an example...
   def slice[A](p: Parser[A]): Parser[String]
 
+  //def scope[A]
+
   def label[A](msg: String)(p: Parser[A]): Parser[A]
 
-  def errorLocation(e: ParseError): Location
+  def errorLocation(e: ParseError): Option[Location]
 
-  def errorMessage(e: ParseError): String
+  def errorMessage(e: ParseError): Option[String]
 
   // parser returned recognizes either p1 or p2
   /*
@@ -340,16 +342,28 @@ object Parsers {
 
     // returns first error only -- should be improved!
     // Shouldn't need to return a non-existent location
-    def errorLocation(e: ParseError): Location =
+    // def errorLocation(e: ParseError): Location =
+    //   e.stack match {
+    //     case List(firstTup, tail) => firstTup._1
+    //     case Nil => Location("")
+    //   }
+    // def errorMessage(e: ParseError): String =
+    //   e.stack match {
+    //     case List(firstTup, tail) => firstTup._2
+    //     case Nil => "no error; parse error is empty"
+    //   }
+
+    def errorLocation(e: ParseError): Option[Location] =
       e.stack match {
-        case List(firstTup, tail) => firstTup._1
-        case Nil => Location("")
+        case List(firstTup, tail) => Some(firstTup._1)
+        case Nil => None
       }
-    def errorMessage(e: ParseError): String =
+    def errorMessage(e: ParseError): Option[String] =
       e.stack match {
-        case List(firstTup, tail) => firstTup._2
-        case Nil => "no error; parse error is empty"
+        case List(firstTup, tail) => Some(firstTup._2)
+        case Nil => None
       }
+
     // label shows up if p: Parser fails
     def label[A](msg: String)(p: LocationResultParser[A]):
         LocationResultParser[A] =
