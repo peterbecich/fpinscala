@@ -606,45 +606,107 @@ object IO3 {
       // }
     }
   // Exercise 2: Implement a specialized `Function0` interpreter.
-  // narrow scope
+  // narrow scope for TailRec
   @annotation.tailrec
-  def runTrampoline[A](tra: TailRec[A]): A = {
-/* Type annotations break tail recursion...
-      case Suspend(funcZeroA: Function0[A]) => funcZeroA()
-      case FlatMap(freeFuncZeroA: Function0[A],
-        aFreeFuncZeroB
- */
+  def runTrampoline[A](tra: Free[Function0,A]): A =
     tra match {
+      // Return(A)
       case Return(a1) => a1
-      case Suspend(funcZeroA1) => funcZeroA1()
-      case FlatMap(freeFuncZeroA1, aFreeFuncZeroA1) => {
-        freeFuncZeroA1 match {
+      // Suspend(Function0[A])
+      case Suspend(unitA1) => {
+        val a1 = unitA1()
+        a1
+      }
+      // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]
+      case FlatMap(free1, aFree2) => {
+        free1 match {
+          // Return(A)
           case Return(a2) => {
-            val fr: Free[] = aFreeFuncZeroA1(a2)
-            run(fr)
+            val free2 = aFree2(a2)
+            // could not find implicit value for parameter F: fpinscala.iomonad.Monad[Function0]
+            val unitA3 = run(free2)(function0Monad)
+            val a3 = unitA3()
+            a3
           }
-          case Suspend(funcZeroA2) =>
-            run(aFreeFuncZeroA1(funcZeroA2()))()
-          case FlatMap(freeFuncZeroA2, aFreeFuncZeroA2) => {
-            val freeFuncZero: Free[Function0,A] = freeFuncZeroA2.flatMap(
-              (a: A) => aFreeFuncZeroA2(a).flatMap(aFreeFuncZeroA1)
-            )
-            val funcZero: Function0[A] = run(freeFuncZero)
-            funcZero()
+          // Suspend(Function0[A])
+          case Suspend(unitA) => {
+            val a2 = unitA()
+            val free2 = aFree2(a2)
+            val unitA3 = run(free2)(function0Monad)
+            val a3 = unitA3()
+            a3
           }
+          // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]
+          // case FlatMap(free2, aFree3) => {
+            // val unitA2: Function0[A] = run(free2)(function0Monad)
+            // val a2: A = unitA2()
+            // val freeA3: Free[Function0,A] = aFree3(a2)
+            // from answers...
+            /*
+             type mismatch;  found   : Unit  required: A
+             type mismatch;  
+             found   : fpinscala.iomonad.IO3.Free[Function0,Any]  
+             required: fpinscala.iomonad.IO3.Free[Function0,A] 
+             Note: Any >: A, 
+             but trait Free is invariant in type A. 
+             You may wish to define A as -A instead. (SLS 4.5)
+             */
+          //   val combined: Free[Function0,A] =
+          //     free2.flatMap(a=>aFree3(a))
+          //   //runTrampoline(free2.flatMap(a=>aFree3(a)))
+          //   runTrampoline(combined)
+
+            // }
+          case FlatMap(a0,g) =>
+            runTrampoline {
+              a0 flatMap { a0 => g(a0) flatMap aFree2 } }
+
         }
       }
     }
-  }
 
-  // Exercise 3: Implement a `Free` interpreter which works for any `Monad`
-  def run[F[_],A](a: Free[F,A])(implicit F: Monad[F]): F[A] = {
-    ???
-  }
 
+  // Exercise 3:
+  // Implement a `Free` interpreter which works for any `Monad`
+
+  // run's signature for TailRec[A]:
+  // run[Function0[_],A](Free[Function0,A])(Monad[Function0]):
+  //                                        Function0[A]
+  // will return Par[A], Async[A]...
+  def run[F[_],A](freeFA: Free[F,A])(implicit F: Monad[F]): F[A] =
+    step(freeFA) match {
+      case Return(a) => F.unit(a)
+      case Suspend(fa) => fa //F.flatMap(fa)((a: A) => run(a))
+      case FlatMap(Suspend(r), f) => F.flatMap(r)(a => run(f(a)))
+        // ^^ why is this different to typechecker
+        // than what is below??
+      // case FlatMap(freeFA2, f) => freeFA2 match {
+      //   case Suspend(fa2) => F.flatMap(fa2)((a: A) => run(f(a)))
+      //   case _ => sys.error("run(FlatMap(...)) in impossible state.  See listing 13.5")
+      // }
+    }
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
   // @annotation.tailrec
-  def step[F[_],A](a: Free[F,A]): Free[F,A] = ???
+  def step[F[_],A](freeFA: Free[F,A]): Free[F,A] =
+    freeFA match {
+      // FlatMap(FlatMap(Free[F,A], A=>Free[F,A]), A=>Free[F,A])
+      case FlatMap(FlatMap(x,f),g) =>
+        step(x.flatMap(a => f(a).flatMap(g)))
+        /*
+         Why does type annotation of 'a' matter?
+         type mismatch;  
+         found   : A => fpinscala.iomonad.IO3.Free[F,A]  
+         required: Any => fpinscala.iomonad.IO3.Free[F,A]  
+         Note: implicit value parMonad is not applicable here
+         because it comes after the application point and it
+         lacks an explicit result type
+
+         because 'a' without type annotation can be Any?
+         */
+        //step(x.flatMap((a: A) => f(a).flatMap(g)))
+      case FlatMap(Return(x), f) => step(f(x))
+      case _ => freeFA
+    }
 
   /*
   The type constructor `F` lets us control the set of external requests our
