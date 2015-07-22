@@ -441,8 +441,8 @@ object IO2bTests {
 
   val g: Int => TailRec[Int] =
     List.fill(10000)(f).foldLeft(f){
-      (x: Function1[Int, TailRec[Int]],
-        y: Function1[Int, TailRec[Int]]) => {
+      (x: Function1[Int, TailRec[Int]], y: Function1[Int, TailRec[Int]])
+      => {
         (i: Int) => TailRec.suspend(x(i).flatMap(y))
       }
     }
@@ -931,14 +931,82 @@ object IO3Tests {
   // val tailRecursiveFactorial: Int => TailRec[Int] =
   //   (i: Int) => Return(recursiveFactorial(i))
 
+  // type TailRec[A] = Free[Function0, A]
+  // def runTrampoline[A](tra: Free[Function0,A]): A
+  // def run[F[_],A](freeFA: Free[F,A])(implicit F: Monad[F]): F[A]
+  // def run[F[_],A](
+  //   freeFA: Free[Function0,A])(implicit F: Monad[Function0]):
+  //   Function0[A]
+  // def step[F[_],A](freeFA: Free[F,A]): Free[F,A]
+  // def step[F[_],A](freeFA: Free[Function0,A]): Free[Function0,A]
+
+  // val tailRecursiveFactorial: Int => TailRec[Int] =
+  //   (i: Int) =>
+  // Suspend {
+  //   if(i>1) {
+  //     val next: TailRec[Int] = tailRecursiveFactorial(i-1)
+  //     val flatten: Int => TailRec[Int] = (i1: Int) => Return(i*i1)
+  //     //FlatMap(next, flatten)
+
+
+  //   } else () => 1
+  // }
+
+  // http://matt.might.net/articles/by-example-continuation-passing-style/
+
+  /*
+Example: Naive factorial
+
+Here's the standard naive factorial:
+function fact(n) {
+  if (n == 0)
+    return 1 ;
+  else
+    return n * fact(n-1) ;
+}
+
+Here it is in CPS:
+function fact(n,ret) {
+  if (n == 0)
+    ret(1) ;
+  else
+    fact(n-1, function (t0) {
+     ret(n * t0) }) ;
+}
+
+And, to "use" the function, we pass it a callback:
+fact (5, function (n) { 
+  console.log(n) ; // Prints 120 in Firebug.
+})
+Example: Tail-recursive factorial
+
+Here's tail-recursive factorial:
+function fact(n) {
+  return tail_fact(n,1) ;
+}
+ 
+function tail_fact(n,a) {
+  if (n == 0)
+    return a ;
+  else
+    return tail_fact(n-1,n*a) ;
+}
+
+And, in CPS:
+function fact(n,ret) {
+  tail_fact(n,1,ret) ;
+} 
+ 
+function tail_fact(n,a,ret) {
+  if (n == 0)
+    ret(a) ;
+  else
+    tail_fact(n-1,n*a,ret) ;
+}
+   */
   val tailRecursiveFactorial: Int => TailRec[Int] =
-    (i: Int) =>
-  if(i>1) {
-    val next: TailRec[Int] = tailRecursiveFactorial(i-1)
-    val flatten: Int => TailRec[Int] = (i1: Int) => Return(i*i1)
-    FlatMap(next, flatten)
-  }
-  else Return(1)
+  (fact: Int) => {
+    val streamInt = Stream.from(1).take(fact)
 
 
 
