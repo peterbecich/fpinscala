@@ -727,7 +727,7 @@ object IO3 {
 
   case object ReadLine extends Console[Option[String]] {
     def toPar = Par.lazyUnit(run)
-    def toThunk = () => run
+    def toThunk: Function0[Option[String]] = () => run
 
     def run: Option[String] =
       try Some(readLine())
@@ -1040,6 +1040,31 @@ function tail_fact(n,a,ret) {
 
   // }
 
+  // http://blog.higher-order.com/blog/2015/06/18/easy-performance-wins-with-scalaz/
+
+  def ackermannNaive(m: Int, n: Int): Int = (m,n) match {
+    case (0, _) => n+1
+    case (m, 0) => ackermannNaive(m-1, 1)
+    case (m, n) => ackermannNaive(m-1, ackermannNaive(m, n-1))
+  }
+
+  def tailRecAckermann: (Int,Int) => TailRec[Int] =
+    (m: Int, n: Int) => (m,n) match {
+      case (0, _) => Return(n+1)
+      case (m, 0) => tailRecAckermann(m-1,1)
+      case (m, n) =>
+        FlatMap(tailRecAckermann(m, n-1),
+          (p:Int) => tailRecAckermann(m-1,p)
+        )
+      // case (m, 0) => Suspend(tailRecAckermann(m-1,1))
+      // case (m, n) =>
+      //   FlatMap(Suspend(tailRecAckermann(m, n-1)),
+      //     (p:Int) => Suspend(tailRecAckermann(m-1,p))
+      //   )
+    }
+
+  val tailRecAckermann2020: TailRec[Int] = tailRecAckermann(20,20)
+
   def main(args: Array[String]): Unit = {
     println("tailRecursiveFactorial: Int => TailRec[Int]")
     println("tailRecursiveFactorial(100)")
@@ -1048,7 +1073,16 @@ function tail_fact(n,a,ret) {
     println("factorial")
     val fact100: Int = runTrampoline(tailRecFact100)
     println(fact100)
-
+    println("naive Ackermann function")
+    println("ackermannNaive(20,20)")
+    println("[error] (run-main-0) java.lang.StackOverflowError")
+    //println(ackermannNaive(20,20))
+    println("tail recursive Ackermann function")
+    println("tailRecAckermann(20,20)")
+    println(tailRecAckermann2020)
+    println("run trampoline")
+    //java.lang.StackOverflowError
+    println(runTrampoline(tailRecAckermann2020))
   }
 }
 
