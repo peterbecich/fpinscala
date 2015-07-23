@@ -789,19 +789,28 @@ object IO3 {
     step(free) match {
       case Return(a) => G.unit(a)
       case Suspend(r) => t(r)
-      case FlatMap(Suspend(r), f) => G.flatMap(t(r))(a => runFree(f(a))(t))
-      case _ => sys.error("Impossible, since `step` eliminates these cases")
+      case FlatMap(Suspend(r), f) =>
+        G.flatMap(t(r))(a => runFree(f(a))(t))
+      case _ =>
+        sys.error("Impossible, since `step` eliminates these cases")
     }
 
-  val consoleToFunction0 =
-    new (Console ~> Function0) { def apply[A](a: Console[A]) = a.toThunk }
-  val consoleToPar =
-    new (Console ~> Par) { def apply[A](a: Console[A]) = a.toPar }
+  val consoleToFunction0: Translate[Console, Function0] =
+    new (Console ~> Function0) {
+    //  ^^ instance of trait Translate[Console[_], Function0[_]]
+      def apply[A](a: Console[A]) = a.toThunk
+    }
+  val consoleToPar: Translate[Console, Par] =
+    new (Console ~> Par) {
+      def apply[A](a: Console[A]) = a.toPar
+    }
 
   def runConsoleFunction0[A](a: Free[Console,A]): () => A =
     runFree[Console,Function0,A](a)(consoleToFunction0)
+  // uses implicit Monad[Function0]
   def runConsolePar[A](a: Free[Console,A]): Par[A] =
     runFree[Console,Par,A](a)(consoleToPar)
+  // uses implicit Monad[Par]
 
   /*
   The `runConsoleFunction0` implementation is unfortunately not stack safe,
@@ -813,9 +822,20 @@ object IO3 {
   // Exercise 4 (optional, hard): Implement `runConsole` using `runFree`,
   // without going through `Par`. Hint: define `translate` using `runFree`.
 
-  def translate[F[_],G[_],A](f: Free[F,A])(fg: F ~> G): Free[G,A] = ???
+  def translate[F[_],G[_],A](f: Free[F,A])(fg: F ~> G): Free[G,A] =
+    ???
 
-  def runConsole[A](a: Free[Console,A]): A = ???
+  def runConsole[A](freeConsoleA: Free[Console,A]): A = {
+    // val function0A: () => A = runConsoleFunction0(a)
+    // function0A()
+    // ^^^ not stack safe?
+    // val freeFunction0A: Free[Function0,A] =
+    //   translate(freeConsoleA)(consoleToFunction0)
+    // val function0A: Function0[A] =
+    //   runFree(
+
+    ???
+  }
 
   /*
   There is nothing about `Free[Console,A]` that requires we interpret
@@ -940,17 +960,21 @@ object IO3Tests {
   // def step[F[_],A](freeFA: Free[F,A]): Free[F,A]
   // def step[F[_],A](freeFA: Free[Function0,A]): Free[Function0,A]
 
-  // val tailRecursiveFactorial: Int => TailRec[Int] =
-  //   (i: Int) =>
-  // Suspend {
-  //   if(i>1) {
-  //     val next: TailRec[Int] = tailRecursiveFactorial(i-1)
-  //     val flatten: Int => TailRec[Int] = (i1: Int) => Return(i*i1)
-  //     //FlatMap(next, flatten)
-
-
-  //   } else () => 1
-  // }
+  /*
+  The opposite of tail recursion is general recursion
+  tailRecursiveFactorial optimizes an intentionally
+  generally recursive factorial function.
+  It would be easy enough to write a tail recursive factorial
+  without needing CPS.  That's not the point of this exercise.
+    */
+  val tailRecursiveFactorial: Int => TailRec[Int] =
+    (i: Int) =>
+    if(i>1) {
+      val next: TailRec[Int] = tailRecursiveFactorial(i-1)
+      //println(i)
+      val flatten: Int => TailRec[Int] = (i1: Int) => Return(i*i1)
+      FlatMap(next, flatten)
+    } else Return(1)
 
   // http://matt.might.net/articles/by-example-continuation-passing-style/
 
@@ -1004,11 +1028,17 @@ function tail_fact(n,a,ret) {
     tail_fact(n-1,n*a,ret) ;
 }
    */
-  val tailRecursiveFactorial: Int => TailRec[Int] =
-  (fact: Int) => {
-    val streamInt = Stream.from(1).take(fact)
+  // def naiveFactorial2(fact: Int): Int = {
+  //   val st: Stream[Int] = Stream.seq(fact,(i: Int)=>i-1,1)
+  //   //st.foldRight(()=>1)(naiveFactorialLambda)
 
+  // }
+  // //def naiveFactorialLambda(i: Int, i2:=> Int): Int = i*i2
 
+  // def tailRecursiveFactorial2(fact: Int): TailRec[Int] = {
+  //   val streamInt: Stream[Int] = Stream.from(1).take(fact)
+
+  // }
 
   def main(args: Array[String]): Unit = {
     println("tailRecursiveFactorial: Int => TailRec[Int]")
@@ -1019,6 +1049,32 @@ function tail_fact(n,a,ret) {
     val fact100: Int = runTrampoline(tailRecFact100)
     println(fact100)
 
+  }
+}
+
+
+object ConsoleTests {
+  import IO3._
+  import IO3.Console._
+  import fpinscala.iomonad.Monad
+  import fpinscala.laziness.Stream
+
+  val helloConsole: ConsoleIO[Unit] =
+    printLn("Hello console! (I can only interact with the console...).  Enter something:")
+
+  // page 244
+  val f1: Free[Console, Option[String]] =
+    helloConsole.flatMap(_ => readLn)
+
+  val f1NotStackSafe: Function0[Option[String]] =
+    runConsoleFunction0(f1)
+  val f1Result1: Option[String] = f1NotStackSafe()
+
+  //val f1Runnable: Free[Function0, Option[String]] =
+    
+  def main(args: Array[String]): Unit = {
+    println("f1 obtained without stack safety")
+    println(f1Result1)
   }
 }
 

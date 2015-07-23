@@ -15,7 +15,8 @@ trait Stream[+A] {
 
   def foldRight[C, B<:C](z: => B)(f: (A, => B) => B): C = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match {
-      case Stream.cons(h,t) => f(h, t.foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
+      case Stream.cons(h,t) => f(h, t.foldRight(z)(f))
+      // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
     }
 
@@ -400,7 +401,19 @@ object Stream {
     if(i<=0x7E) Some((i.toChar, i+1)) else None
   }
 
+  def seq[A](start: => A, increment: A => A): Stream[A] =
+    Cons(() => start, () => seq(increment(start), increment))
 
+  def seq[A](start: => A, increment: A => A, end: A): Stream[A] =
+    if(start!=end)
+      Cons(() => start, () => seq(increment(start), increment))
+    else
+      Cons(() => start, () => Empty)
+
+
+  // If `f` doesn't evaluate its second argument, the recursion never occurs
+  // def until[A](st: Stream[A], end: A): Stream[A] =
+  //   st.foldRight(Empty)((sa
 
 
 }
@@ -483,6 +496,11 @@ object StreamTests {
       }
       }
     letteredNumbers.feedback
+
+    val reverseNumbers: Stream[Int] =
+      Stream.seq(150, (i:Int)=>i-1, 1)
+    println("reversed numbers")
+    reverseNumbers.feedback
 
   }
 
