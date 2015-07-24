@@ -639,6 +639,72 @@ object IO3 {
           }
       }
     }
+  //@annotation.tailrec
+  def runTrampoline3[A](tra: Free[Function0,A]): A =
+    tra match {
+      // Return(A)
+      case Return(a1) => a1
+      // Suspend(Function0[A])
+      case Suspend(function0A1) => {
+        val a1 = function0A1()
+        a1
+      }
+      // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]
+      case FlatMap(free1, aFree2) => free1 match {
+        // Return(A)
+        case Return(a2) => {
+          val free2 = aFree2(a2)
+          val a3 = runTrampoline3(free2)
+          a3
+        }
+        // Suspend(Function0[A])
+        case Suspend(function0A) => {
+          val a2 = function0A()
+          val free2 = aFree2(a2)
+          val a3 = runTrampoline3(free2)
+          a3
+        }
+        case FlatMap(a0,g) =>
+          runTrampoline3 {
+            a0 flatMap { a0 => g(a0) flatMap aFree2 }
+          }
+      }
+    }
+
+  // http://stackoverflow.com/a/21640639/1007926
+  //import scala.reflect.runtime.universe._
+  import shapeless.Typeable._
+
+  /*
+   runTrampoline4 is identical to runTrampoline, and has expanded
+   syntax.  It demonstrates that for some reason this breaks
+   tail recursion.
+   I think this has something to do with writing a Unit to a val.  
+   This does not happen in runTrampoline.
+
+   Possibly related to: http://stackoverflow.com/questions/31058950/scala-type-annotations-make-tail-recursion-check-fail
+   */
+  //@annotation.tailrec
+  def runTrampoline4[A](tra: Free[Function0,A]): A =
+    tra match {
+      // Return(A)
+      case Return(a1: A) => a1
+      // Suspend(Function0[A])
+      case Suspend(function0A1: Function0[A]) => function0A1()
+      // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]
+      case FlatMap(free1: Free[Function0,A],
+        aFree2: Function1[A,Free[Function0,A]]) => free1 match {
+        // Return(A)
+        case Return(a2: A) => runTrampoline4(aFree2(a2))
+        // Suspend(Function0[A])
+        case Suspend(function0A: Function0[A]) =>
+          runTrampoline4(aFree2(function0A()))
+        case FlatMap(a0: A, g: Function1[A,Free[Function0,A]]) =>
+          runTrampoline4 {
+            a0 flatMap { a0 => g(a0) flatMap aFree2 }
+          }
+      }
+    }
 
 
   // Exercise 3:

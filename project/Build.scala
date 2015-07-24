@@ -3,9 +3,17 @@ import Keys._
 
 object FPInScalaBuild extends Build {
   val opts = Project.defaultSettings ++ Seq(
-    scalaVersion := "2.11.5",
+    scalaVersion := "2.11.7",
     scalacOptions ++= Seq("-feature","-deprecation"),
-    resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
+    resolvers ++= Seq(
+      "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/",
+      Resolver.sonatypeRepo("releases"),
+      Resolver.sonatypeRepo("snapshots")
+    ),
+    libraryDependencies ++= Seq(
+      "org.scala-lang" % "scala-reflect" % "2.11.7",
+      "com.chuusai" %% "shapeless" % "2.2.5"
+    )
   )
 
   lazy val root =
