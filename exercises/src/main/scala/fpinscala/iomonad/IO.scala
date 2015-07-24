@@ -626,27 +626,13 @@ object IO3 {
       // Return(A)
       case Return(a1) => a1
       // Suspend(Function0[A])
-      case Suspend(function0A1) => {
-        val a1 = function0A1()
-        a1
-      }
+      case Suspend(function0A1) => function0A1()
       // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]
       case FlatMap(free1, aFree2) => free1 match {
         // Return(A)
-        case Return(a2) => {
-          val free2 = aFree2(a2)
-          val function0A3 = run(free2)(function0Monad)
-          val a3 = function0A3()
-          a3
-        }
+        case Return(a2) => runTrampoline(aFree2(a2))
         // Suspend(Function0[A])
-        case Suspend(function0A) => {
-          val a2 = function0A()
-          val free2 = aFree2(a2)
-          val function0A3 = run(free2)(function0Monad)
-          val a3 = function0A3()
-          a3
-        }
+        case Suspend(function0A) => runTrampoline(aFree2(function0A()))
         case FlatMap(a0,g) =>
           runTrampoline {
             a0 flatMap { a0 => g(a0) flatMap aFree2 }
