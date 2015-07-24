@@ -606,6 +606,20 @@ object IO3 {
     }
   // Exercise 2: Implement a specialized `Function0` interpreter.
   // narrow scope for TailRec
+  // Exercise 2: Implement a specialized `Function0` interpreter.
+  @annotation.tailrec
+  def runTrampoline2[A](a: Free[Function0,A]): A = a match {
+    case Return(a) => a
+    case Suspend(r) => r()
+    case FlatMap(x,f) => x match {
+      case Return(a) => runTrampoline2 { f(a) }
+      case Suspend(r) => runTrampoline2 { f(r()) }
+      case FlatMap(a0,g) => runTrampoline2 {
+        a0 flatMap { a0 => g(a0) flatMap f }
+      }
+    }
+  }
+
   @annotation.tailrec
   def runTrampoline[A](tra: Free[Function0,A]): A =
     tra match {
@@ -621,7 +635,6 @@ object IO3 {
         // Return(A)
         case Return(a2) => {
           val free2 = aFree2(a2)
-          // could not find implicit value for parameter F: fpinscala.iomonad.Monad[Function0]
           val function0A3 = run(free2)(function0Monad)
           val a3 = function0A3()
           a3
@@ -634,27 +647,6 @@ object IO3 {
           val a3 = function0A3()
           a3
         }
-          // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]
-          // case FlatMap(free2, aFree3) => {
-          // val function0A2: Function0[A] = run(free2)(function0Monad)
-          // val a2: A = function0A2()
-          // val freeA3: Free[Function0,A] = aFree3(a2)
-          // from answers...
-          /*
-           type mismatch;  found   : Unit  required: A
-           type mismatch;  
-           found   : fpinscala.iomonad.IO3.Free[Function0,Any]  
-           required: fpinscala.iomonad.IO3.Free[Function0,A] 
-           Note: Any >: A, 
-           but trait Free is invariant in type A. 
-           You may wish to define A as -A instead. (SLS 4.5)
-           */
-          //   val combined: Free[Function0,A] =
-          //     free2.flatMap(a=>aFree3(a))
-          //   //runTrampoline(free2.flatMap(a=>aFree3(a)))
-          //   runTrampoline(combined)
-
-        // }
         case FlatMap(a0,g) =>
           runTrampoline {
             a0 flatMap { a0 => g(a0) flatMap aFree2 }

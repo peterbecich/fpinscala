@@ -738,6 +738,7 @@ object IO3Tests {
   def tailRecAckermann: (Int,Int) => TailRec[Int] =
   (m: Int, n: Int) =>
   IO3.suspend {
+    println(s"$m $n");
     (m,n) match {
       case (0, _) => Return(n+1)
       case (m, 0) => tailRecAckermann(m-1,1)
@@ -747,7 +748,7 @@ object IO3Tests {
         )
     }
   }
-  val tailRecAckermann2020: TailRec[Int] = tailRecAckermann(20,20)
+  val tailRecAckermann2020: TailRec[Int] = tailRecAckermann(5,5)
 
   def main(args: Array[String]): Unit = {
     println("passThru: Int => TailRec[Int]")
@@ -769,11 +770,11 @@ object IO3Tests {
     // println("ackermannNaive(20,20)")
     // println("[error] (run-main-0) java.lang.StackOverflowError")
     // //println(ackermannNaive(20,20))
-    println("tail recursive Ackermann function")
-    println("tailRecAckermann(20,20)")
-    println(tailRecAckermann2020)
-    println("run trampoline")
-    println(runTrampoline(tailRecAckermann2020))
+    // println("tail recursive Ackermann function")
+    // println("tailRecAckermann(20,20)")
+    // println(tailRecAckermann2020)
+    // println("run trampoline")
+    // println(runTrampoline(tailRecAckermann2020))
   }
 }
 
