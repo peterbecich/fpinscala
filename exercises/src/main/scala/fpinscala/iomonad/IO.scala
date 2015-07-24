@@ -225,7 +225,7 @@ object IO2a {
       flatMap(f andThen (Return(_)))
   }
   case class Return[A](a: A) extends IO[A]
-  case class Suspend[A](resume: () => A) extends IO[A]
+  case class Suspend[A](resume: Function0[A]) extends IO[A]
   case class FlatMap[A,B](sub: IO[A], k: A => IO[B]) extends IO[B]
 
   // now IO is object rather than class
@@ -276,7 +276,9 @@ object IO2a {
         case Return(a) => run(f(a))
         case Suspend(r) => run(f(r()))
         case FlatMap(y, g) => 
-          run(y flatMap (a => g(a) flatMap f))
+          run {
+            y flatMap (a => g(a) flatMap f)
+          }
       }
     }
   }
@@ -303,27 +305,13 @@ object IO2aTests {
 
    */
   val f: Int => IO[Int] = (x: Int) => Return(x)
-  // val g: Int => IO[Int] =
-  //   List.fill(10000)(f).foldLeft(f){
-  //     (x: Function1[Int,IO[Int]],
-  //       y: Function1[Int,IO[Int]]) => {
-  //       (i: Int) => Suspend(() => x(i).flatMap(y))
-  //     }//: Function1[Int,IO[Int]]
-  //   }//: Int => IO[Int]
-
-  // val g =
-  //   List.fill(10000)(f).foldLeft(f){
-  //     (x, y) => {
-  //       (i: Int) => Suspend(() => x(i).flatMap(y))
-  //     }
-  //   }
-
-  val g =
-    List.fill(10000)(f).foldLeft(f){
-      (x, y) => {
+  val g: Int => IO[Int] =
+    List.fill(100000)(f).foldLeft(f){
+      (x: Function1[Int,IO[Int]],
+        y: Function1[Int,IO[Int]]) => {
         (i: Int) => IO.suspend(x(i).flatMap(y))
-      }
-    }
+      }//: Function1[Int,IO[Int]]
+    }//: Int => IO[Int]
 
   val h: Int => Int = (x: Int) => x
   val j: Int => Int = List.fill(10000)(h).foldLeft(h){
@@ -340,9 +328,9 @@ object IO2aTests {
     //IO2a.run(IO2a.p)
     println(IO2a.run(g(40)))
 
-    println("naive way")
-    println("composing 10,001 copies of (x:Int)=>x without tail recursion")
-    j(40)
+    // println("naive way")
+    // println("composing 10,001 copies of (x:Int)=>x without tail recursion")
+    // j(40)
     // [error] (run-main-5) java.lang.StackOverflowError
     // java.lang.StackOverflowError
 
@@ -580,9 +568,20 @@ object IO3 {
       FlatMap(this, f)
     def map[B](f: A => B): Free[F,B] =
       flatMap(f andThen (Return(_)))
+    // generalize the helper function in Errata to Free from TailRec
+    // def suspend: Free[F,A] =
+    //   IO3.suspend(this)
   }
+
+  // def suspend[F[_],A](a: => Free[F,A]): Free[F,A] =
+  //   Suspend(() => ()).flatMap { _ => a }
+
+  def suspend[F[_],A](a: => TailRec[A]): TailRec[A] =
+    Suspend(() => ()).flatMap { _ => a }
+
   case class Return[F[_],A](a: A) extends Free[F, A]
   case class Suspend[F[_],A](s: F[A]) extends Free[F, A]
+  // TailRec/Suspend(Function0[A])
   case class FlatMap[F[_],A,B](s: Free[F, A],
     f: A => Free[F, B]) extends Free[F, B]
 
@@ -613,55 +612,53 @@ object IO3 {
       // Return(A)
       case Return(a1) => a1
       // Suspend(Function0[A])
-      case Suspend(unitA1) => {
-        val a1 = unitA1()
+      case Suspend(function0A1) => {
+        val a1 = function0A1()
         a1
       }
       // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]
-      case FlatMap(free1, aFree2) => {
-        free1 match {
-          // Return(A)
-          case Return(a2) => {
-            val free2 = aFree2(a2)
-            // could not find implicit value for parameter F: fpinscala.iomonad.Monad[Function0]
-            val unitA3 = run(free2)(function0Monad)
-            val a3 = unitA3()
-            a3
-          }
-          // Suspend(Function0[A])
-          case Suspend(unitA) => {
-            val a2 = unitA()
-            val free2 = aFree2(a2)
-            val unitA3 = run(free2)(function0Monad)
-            val a3 = unitA3()
-            a3
-          }
+      case FlatMap(free1, aFree2) => free1 match {
+        // Return(A)
+        case Return(a2) => {
+          val free2 = aFree2(a2)
+          // could not find implicit value for parameter F: fpinscala.iomonad.Monad[Function0]
+          val function0A3 = run(free2)(function0Monad)
+          val a3 = function0A3()
+          a3
+        }
+        // Suspend(Function0[A])
+        case Suspend(function0A) => {
+          val a2 = function0A()
+          val free2 = aFree2(a2)
+          val function0A3 = run(free2)(function0Monad)
+          val a3 = function0A3()
+          a3
+        }
           // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]
           // case FlatMap(free2, aFree3) => {
-            // val unitA2: Function0[A] = run(free2)(function0Monad)
-            // val a2: A = unitA2()
-            // val freeA3: Free[Function0,A] = aFree3(a2)
-            // from answers...
-            /*
-             type mismatch;  found   : Unit  required: A
-             type mismatch;  
-             found   : fpinscala.iomonad.IO3.Free[Function0,Any]  
-             required: fpinscala.iomonad.IO3.Free[Function0,A] 
-             Note: Any >: A, 
-             but trait Free is invariant in type A. 
-             You may wish to define A as -A instead. (SLS 4.5)
-             */
+          // val function0A2: Function0[A] = run(free2)(function0Monad)
+          // val a2: A = function0A2()
+          // val freeA3: Free[Function0,A] = aFree3(a2)
+          // from answers...
+          /*
+           type mismatch;  found   : Unit  required: A
+           type mismatch;  
+           found   : fpinscala.iomonad.IO3.Free[Function0,Any]  
+           required: fpinscala.iomonad.IO3.Free[Function0,A] 
+           Note: Any >: A, 
+           but trait Free is invariant in type A. 
+           You may wish to define A as -A instead. (SLS 4.5)
+           */
           //   val combined: Free[Function0,A] =
           //     free2.flatMap(a=>aFree3(a))
           //   //runTrampoline(free2.flatMap(a=>aFree3(a)))
           //   runTrampoline(combined)
 
-            // }
-          case FlatMap(a0,g) =>
-            runTrampoline {
-              a0 flatMap { a0 => g(a0) flatMap aFree2 } }
-
-        }
+        // }
+        case FlatMap(a0,g) =>
+          runTrampoline {
+            a0 flatMap { a0 => g(a0) flatMap aFree2 }
+          }
       }
     }
 
@@ -673,6 +670,7 @@ object IO3 {
   // run[Function0[_],A](Free[Function0,A])(Monad[Function0]):
   //                                        Function0[A]
   // will return Par[A], Async[A]...
+  
   def run[F[_],A](freeFA: Free[F,A])(implicit F: Monad[F]): F[A] =
     step(freeFA) match {
       case Return(a) => F.unit(a)
@@ -686,7 +684,7 @@ object IO3 {
       // }
     }
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
-  // @annotation.tailrec
+  @annotation.tailrec
   def step[F[_],A](freeFA: Free[F,A]): Free[F,A] =
     freeFA match {
       // FlatMap(FlatMap(Free[F,A], A=>Free[F,A]), A=>Free[F,A])
@@ -784,6 +782,7 @@ object IO3 {
     def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
   }
 
+  //@annotation.tailrec
   def runFree[F[_],G[_],A](free: Free[F,A])(t: F ~> G)(
                            implicit G: Monad[G]): G[A] =
     step(free) match {
@@ -822,8 +821,16 @@ object IO3 {
   // Exercise 4 (optional, hard): Implement `runConsole` using `runFree`,
   // without going through `Par`. Hint: define `translate` using `runFree`.
 
-  def translate[F[_],G[_],A](f: Free[F,A])(fg: F ~> G): Free[G,A] =
-    ???
+  def translate[F[_],G[_],A](freefa: Free[F,A])(fg: F ~> G): Free[G,A] = {
+    // from answers...
+    type FreeG[A] = Free[G,A]
+    val translation: Translate[F,FreeG] =
+      new Translate[F,FreeG]{
+        def apply[A](fa: F[A]): FreeG[A] = Suspend(fg(fa))
+      }
+    runFree(freefa)(translation)(freeMonad[G])
+  }
+
 
   def runConsole[A](freeConsoleA: Free[Console,A]): A = {
     // val function0A: () => A = runConsoleFunction0(a)
@@ -834,7 +841,15 @@ object IO3 {
     // val function0A: Function0[A] =
     //   runFree(
 
-    ???
+    val translation: Translate[Console,Function0] =
+      new Translate[Console,Function0] {
+        def apply[A](ca: Console[A]): Function0[A] = ca.toThunk
+      }
+    //val translated: Free[Function0,A] =
+    val function0A: Function0[A] =
+      runFree(freeConsoleA)(translation)(function0Monad)
+    val a: A = function0A()
+    a
   }
 
   /*
@@ -978,56 +993,22 @@ object IO3Tests {
 
   // http://matt.might.net/articles/by-example-continuation-passing-style/
 
-  /*
-Example: Naive factorial
+  // page 240
+  val id: Int => TailRec[Int] = (x: Int) => Return(x)
+  val passThru: Int => TailRec[Int] =
+    List.fill(100000)(id).foldLeft(id){
+      (a: Function1[Int,TailRec[Int]],
+        b: Function1[Int,TailRec[Int]]) => {
+        (x: Int) => IO3.suspend{
+          a(x).flatMap(b)
+        }
 
-Here's the standard naive factorial:
-function fact(n) {
-  if (n == 0)
-    return 1 ;
-  else
-    return n * fact(n-1) ;
-}
+      }
+    }
+  val passThru123: TailRec[Int] = passThru(123)
 
-Here it is in CPS:
-function fact(n,ret) {
-  if (n == 0)
-    ret(1) ;
-  else
-    fact(n-1, function (t0) {
-     ret(n * t0) }) ;
-}
 
-And, to "use" the function, we pass it a callback:
-fact (5, function (n) { 
-  console.log(n) ; // Prints 120 in Firebug.
-})
-Example: Tail-recursive factorial
 
-Here's tail-recursive factorial:
-function fact(n) {
-  return tail_fact(n,1) ;
-}
- 
-function tail_fact(n,a) {
-  if (n == 0)
-    return a ;
-  else
-    return tail_fact(n-1,n*a) ;
-}
-
-And, in CPS:
-function fact(n,ret) {
-  tail_fact(n,1,ret) ;
-} 
- 
-function tail_fact(n,a,ret) {
-  if (n == 0)
-    ret(a) ;
-  else
-    tail_fact(n-1,n*a,ret) ;
-}
-   */
   // def naiveFactorial2(fact: Int): Int = {
   //   val st: Stream[Int] = Stream.seq(fact,(i: Int)=>i-1,1)
   //   //st.foldRight(()=>1)(naiveFactorialLambda)
@@ -1049,40 +1030,44 @@ function tail_fact(n,a,ret) {
   }
 
   def tailRecAckermann: (Int,Int) => TailRec[Int] =
-    (m: Int, n: Int) => (m,n) match {
+  (m: Int, n: Int) =>
+  IO3.suspend {
+    (m,n) match {
       case (0, _) => Return(n+1)
       case (m, 0) => tailRecAckermann(m-1,1)
       case (m, n) =>
         FlatMap(tailRecAckermann(m, n-1),
           (p:Int) => tailRecAckermann(m-1,p)
         )
-      // case (m, 0) => Suspend(tailRecAckermann(m-1,1))
-      // case (m, n) =>
-      //   FlatMap(Suspend(tailRecAckermann(m, n-1)),
-      //     (p:Int) => Suspend(tailRecAckermann(m-1,p))
-      //   )
     }
-
+  }
   val tailRecAckermann2020: TailRec[Int] = tailRecAckermann(20,20)
 
   def main(args: Array[String]): Unit = {
-    println("tailRecursiveFactorial: Int => TailRec[Int]")
-    println("tailRecursiveFactorial(100)")
-    val tailRecFact100: TailRec[Int] = tailRecursiveFactorial(100)
-    println(tailRecFact100)
-    println("factorial")
-    val fact100: Int = runTrampoline(tailRecFact100)
-    println(fact100)
-    println("naive Ackermann function")
-    println("ackermannNaive(20,20)")
-    println("[error] (run-main-0) java.lang.StackOverflowError")
-    //println(ackermannNaive(20,20))
-    println("tail recursive Ackermann function")
-    println("tailRecAckermann(20,20)")
-    println(tailRecAckermann2020)
-    println("run trampoline")
-    //java.lang.StackOverflowError
-    println(runTrampoline(tailRecAckermann2020))
+    println("passThru: Int => TailRec[Int]")
+    println("equivalent to")
+    println("passThru: Int => Free[Function0, Int]")
+
+    println("passThru123: TailRec[Int]")
+    println(runTrampoline(passThru123))
+
+
+    // println("tailRecursiveFactorial: Int => TailRec[Int]")
+    // println("tailRecursiveFactorial(100)")
+    // val tailRecFact100: TailRec[Int] = tailRecursiveFactorial(100)
+    // println(tailRecFact100)
+    // println("factorial")
+    // val fact100: Int = runTrampoline(tailRecFact100)
+    // println(fact100)
+    // println("naive Ackermann function")
+    // println("ackermannNaive(20,20)")
+    // println("[error] (run-main-0) java.lang.StackOverflowError")
+    // //println(ackermannNaive(20,20))
+    // // println("tail recursive Ackermann function")
+    // println("tailRecAckermann(20,20)")
+    // println(tailRecAckermann2020)
+    // println("run trampoline")
+    // println(runTrampoline(tailRecAckermann2020))
   }
 }
 
@@ -1105,10 +1090,32 @@ object ConsoleTests {
   val f1Result1: Option[String] = f1NotStackSafe()
 
   //val f1Runnable: Free[Function0, Option[String]] =
+
+  // Free[Console, Unit]
+  val yourName: ConsoleIO[Unit] =
+    printLn("What's your name").flatMap(_ =>
+      readLn.flatMap(opname =>
+        opname match {
+          case Some(name) => printLn(s"Hello, $name!")
+          case None => printLn(s"Fine, be that way...")
+        }
+      )
+    )
+  val yourNameFunction0: Free[Function0, Unit] =
+    translate(yourName)(consoleToFunction0)
     
   def main(args: Array[String]): Unit = {
     println("f1 obtained without stack safety")
     println(f1Result1)
+    println("-------------------------")
+    println("yourName: ConsoleIO[Unit]")
+    println(yourName)
+    println("runConsoleFunction0")
+    runConsoleFunction0(yourName): Unit
+    // println("runTrampoline")
+    // runTrampoline(yourName)
+    println("yourNameFunction0: Free[Function0, Unit]")
+    runTrampoline(yourNameFunction0)
   }
 }
 

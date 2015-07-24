@@ -262,6 +262,9 @@ object IO2b {
       FlatMap(this, f)
     def map[B](f: A => B): TailRec[B] =
       flatMap(f andThen (Return(_)))
+    // from errata
+    def suspend[A](a: => TailRec[A]) =
+      Suspend(() => ()).flatMap { _ => a }
   }
   case class Return[A](a: A) extends TailRec[A]
   case class Suspend[A](resume: () => A) extends TailRec[A]
@@ -368,7 +371,19 @@ object IO3 {
       FlatMap(this, f)
     def map[B](f: A => B): Free[F,B] =
       flatMap(f andThen (Return(_)))
+    //def suspend[A](a: => Free[Function0,A]) =
+    // def suspend[A](a: => TailRec[A]) =
+    //   Suspend(() => ()).flatMap { _ => a }
   }
+
+  def suspend[F[_],A](a: => TailRec[A]): TailRec[A] =
+    Suspend(() => ()).flatMap { _ => a }
+
+
+  type TailRec[A] = Free[Function0, A]
+  //type Async[A] = Free[Par, A]
+
+
   case class Return[F[_],A](a: A) extends Free[F, A]
   case class Suspend[F[_],A](s: F[A]) extends Free[F, A]
   case class FlatMap[F[_],A,B](s: Free[F, A],
@@ -490,8 +505,10 @@ object IO3 {
     step(free) match {
       case Return(a) => G.unit(a)
       case Suspend(r) => t(r)
-      case FlatMap(Suspend(r), f) => G.flatMap(t(r))(a => runFree(f(a))(t))
-      case _ => sys.error("Impossible, since `step` eliminates these cases")
+      case FlatMap(Suspend(r), f) =>
+        G.flatMap(t(r))(a => runFree(f(a))(t))
+      case _ =>
+        sys.error("Impossible, since `step` eliminates these cases")
     }
 
   val consoleToFunction0 =
@@ -627,3 +644,137 @@ object IO3 {
       })
     }
 }
+
+
+object IO3Tests {
+  import IO3._
+  import fpinscala.answers.iomonad.Monad
+  import fpinscala.answers.laziness.Stream
+
+  object streamMonad extends Monad[Stream] {
+    def unit[A](a: => A): Stream[A] = Stream.apply(a)
+    def flatMap[A,B](sa: Stream[A])(aSb: A => Stream[B]): Stream[B] =
+      sa.flatMap(aSb)
+  }
+
+  // val streamHundred = Stream.from(1).take(100)
+
+  // val naiveSum = streamHundred.foldRight(0)(_+_)
+
+  // val tailRecStreamHundred: [Stream[Int]] = TailRec.unit(streamHundred)
+
+
+  val recursiveFactorial: Int => Int = (i: Int) =>
+  if(i>1) i * recursiveFactorial(i-1)
+  else 1
+
+  // only saves one recursion...
+  // val tailRecursiveFactorial: Int => TailRec[Int] =
+  //   (i: Int) => Return(recursiveFactorial(i))
+
+  // type TailRec[A] = Free[Function0, A]
+  // def runTrampoline[A](tra: Free[Function0,A]): A
+  // def run[F[_],A](freeFA: Free[F,A])(implicit F: Monad[F]): F[A]
+  // def run[F[_],A](
+  //   freeFA: Free[Function0,A])(implicit F: Monad[Function0]):
+  //   Function0[A]
+  // def step[F[_],A](freeFA: Free[F,A]): Free[F,A]
+  // def step[F[_],A](freeFA: Free[Function0,A]): Free[Function0,A]
+
+  /*
+  The opposite of tail recursion is general recursion
+  tailRecursiveFactorial optimizes an intentionally
+  generally recursive factorial function.
+  It would be easy enough to write a tail recursive factorial
+  without needing CPS.  That's not the point of this exercise.
+    */
+  val tailRecursiveFactorial: Int => TailRec[Int] =
+    (i: Int) =>
+    if(i>1) {
+      val next: TailRec[Int] = tailRecursiveFactorial(i-1)
+      //println(i)
+      val flatten: Int => TailRec[Int] = (i1: Int) => Return(i*i1)
+      FlatMap(next, flatten)
+    } else Return(1)
+
+  // http://matt.might.net/articles/by-example-continuation-passing-style/
+
+  // page 240
+  val id: Int => TailRec[Int] = (x: Int) => Return(x)
+  val passThru: Int => TailRec[Int] =
+    List.fill(100000)(id).foldLeft(id){
+      (a: Function1[Int,TailRec[Int]],
+        b: Function1[Int,TailRec[Int]]) => {
+        (x: Int) => IO3.suspend{
+          a(x).flatMap(b)
+        }
+
+      }
+    }
+  val passThru123: TailRec[Int] = passThru(123)
+
+
+
+  // def naiveFactorial2(fact: Int): Int = {
+  //   val st: Stream[Int] = Stream.seq(fact,(i: Int)=>i-1,1)
+  //   //st.foldRight(()=>1)(naiveFactorialLambda)
+
+  // }
+  // //def naiveFactorialLambda(i: Int, i2:=> Int): Int = i*i2
+
+  // def tailRecursiveFactorial2(fact: Int): TailRec[Int] = {
+  //   val streamInt: Stream[Int] = Stream.from(1).take(fact)
+
+  // }
+
+  // http://blog.higher-order.com/blog/2015/06/18/easy-performance-wins-with-scalaz/
+
+  def ackermannNaive(m: Int, n: Int): Int = (m,n) match {
+    case (0, _) => n+1
+    case (m, 0) => ackermannNaive(m-1, 1)
+    case (m, n) => ackermannNaive(m-1, ackermannNaive(m, n-1))
+  }
+
+  def tailRecAckermann: (Int,Int) => TailRec[Int] =
+  (m: Int, n: Int) =>
+  IO3.suspend {
+    (m,n) match {
+      case (0, _) => Return(n+1)
+      case (m, 0) => tailRecAckermann(m-1,1)
+      case (m, n) =>
+        FlatMap(tailRecAckermann(m, n-1),
+          (p:Int) => tailRecAckermann(m-1,p)
+        )
+    }
+  }
+  val tailRecAckermann2020: TailRec[Int] = tailRecAckermann(20,20)
+
+  def main(args: Array[String]): Unit = {
+    println("passThru: Int => TailRec[Int]")
+    println("equivalent to")
+    println("passThru: Int => Free[Function0, Int]")
+
+    println("passThru123: TailRec[Int]")
+    println(runTrampoline(passThru123))
+
+
+    // println("tailRecursiveFactorial: Int => TailRec[Int]")
+    // println("tailRecursiveFactorial(100)")
+    // val tailRecFact100: TailRec[Int] = tailRecursiveFactorial(100)
+    // println(tailRecFact100)
+    // println("factorial")
+    // val fact100: Int = runTrampoline(tailRecFact100)
+    // println(fact100)
+    // println("naive Ackermann function")
+    // println("ackermannNaive(20,20)")
+    // println("[error] (run-main-0) java.lang.StackOverflowError")
+    // //println(ackermannNaive(20,20))
+    println("tail recursive Ackermann function")
+    println("tailRecAckermann(20,20)")
+    println(tailRecAckermann2020)
+    println("run trampoline")
+    println(runTrampoline(tailRecAckermann2020))
+  }
+}
+
+
