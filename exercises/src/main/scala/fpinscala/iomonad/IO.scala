@@ -673,7 +673,7 @@ object IO3 {
 
   // http://stackoverflow.com/a/21640639/1007926
   //import scala.reflect.runtime.universe._
-  import shapeless.Typeable._
+  //import shapeless.Typeable._
 
   /*
    runTrampoline4 is identical to runTrampoline, and has expanded
@@ -1026,14 +1026,50 @@ object IO3Tests {
   It would be easy enough to write a tail recursive factorial
   without needing CPS.  That's not the point of this exercise.
     */
-  val tailRecursiveFactorial: Int => TailRec[Int] =
+  val tailRecursiveFactorial: Long => TailRec[Long] =
+    (i: Long) =>
+  suspend {
+    if(i>1) {
+      //println(i)
+      tailRecursiveFactorial(i-1).flatMap{
+        (x: Long) => {
+          //println(x*i)
+          Suspend(()=>x*i)
+        }
+      }
+      // val next: TailRec[Int] = tailRecursiveFactorial(i-1)
+      // val flatten: Int => TailRec[Int] =
+      //   (i1: Int) => Return(i*i1)
+      // val flattened: TailRec[Int] = FlatMap(next, flatten)
+      // flattened
+    } else Return(1)
+  }
+
+
+  val tailRecursiveFactorial2: Int => TailRec[BigInt] =
+    (i: Int) =>
+  suspend {
+    if(i>1) {
+      //println(i)
+      tailRecursiveFactorial2(i-1).flatMap{
+        (x: BigInt) => {
+          Suspend(()=>x*i)
+        }
+      }
+    } else Return(1.toLong)
+  }
+
+  val tailRecursiveFactorial3: Int => TailRec[BigInt] =
     (i: Int) =>
     if(i>1) {
-      val next: TailRec[Int] = tailRecursiveFactorial(i-1)
       //println(i)
-      val flatten: Int => TailRec[Int] = (i1: Int) => Return(i*i1)
-      FlatMap(next, flatten)
-    } else Return(1)
+      tailRecursiveFactorial2(i-1).flatMap{
+        (x: BigInt) => {
+          Return(x*i)
+        }
+      }
+    } else Return(1.toLong)
+
 
   // http://matt.might.net/articles/by-example-continuation-passing-style/
 
@@ -1049,7 +1085,14 @@ object IO3Tests {
 
       }
     }
-  val passThru123: TailRec[Int] = passThru(123)
+
+  val passThru2: Int => TailRec[Int] =
+    List.fill(999)(id).foldLeft(id){
+      (a: Function1[Int,TailRec[Int]],
+        b: Function1[Int,TailRec[Int]]) => {
+        (x: Int) => a(x).flatMap(b)
+      }
+    }
 
 
 
@@ -1093,16 +1136,58 @@ object IO3Tests {
     println("passThru: Int => Free[Function0, Int]")
 
     println("passThru123: TailRec[Int]")
+    val passThru123: TailRec[Int] = passThru(123)
     println(runTrampoline(passThru123))
+    println("Flawed pass through; fewer than 10000 calls to identity function for sake of demonstration.")
+    println("Suspensions replaced with Returns, or nothing")
+    val passThru1232: TailRec[Int] = passThru2(123)
+    //println(passThru1232)
+    // don't even bother trampolining it...
+    // [error] (run-main-1d) java.lang.StackOverflowError
+
+    println("-------------------------")
 
 
-    // println("tailRecursiveFactorial: Int => TailRec[Int]")
-    // println("tailRecursiveFactorial(100)")
-    // val tailRecFact100: TailRec[Int] = tailRecursiveFactorial(100)
-    // println(tailRecFact100)
-    // println("factorial")
-    // val fact100: Int = runTrampoline(tailRecFact100)
-    // println(fact100)
+
+    println("Note that factorial isn't a great test for trampolining, because even the naive implemenation doesn't push much to the stack.  Fact(100) is only 99 recursions.")
+
+    println("tailRecursiveFactorial: Long => TailRec[Long]")
+    println("tailRecursiveFactorial(100)")
+    val tailRecFact100: TailRec[Long] = tailRecursiveFactorial(100)
+    println(tailRecFact100)
+    println("runTrampoline")
+    val fact100: Long = runTrampoline(tailRecFact100)
+    println("factorial of 100")
+    println(fact100)
+
+    println("tailRecursiveFactorial2: Int => TailRec[BigInt]")
+    println("tailRecursiveFactorial2(100)")
+    val tailRecFact1002: TailRec[BigInt] = tailRecursiveFactorial2(100)
+    println(tailRecFact1002)
+    println("runTrampoline")
+    val fact1002: BigInt = runTrampoline(tailRecFact1002)
+    println("factorial of 100")
+    println(fact1002)
+    println("-------------------------")
+
+    println("a flawed factorial")
+    println("tailRecursiveFactorial3: Int => TailRec[BigInt]")
+    println("tailRecursiveFactorial3(10)")
+    val tailRecFact3: TailRec[BigInt] = tailRecursiveFactorial3(10)
+    println(tailRecFact3)
+    println("Notice the extra first-class function in un-interpreted factorial.  Two suspensions have been removed from this factorial function.")
+    // println("runTrampoline")
+    // val fact3: BigInt = runTrampoline(tailRecFact3)
+    // println("factorial of 10")
+    // println(fact3)
+    println("Compare to tailRecursiveFactorial2")
+    println("tailRecursiveFactorial2: Int => TailRec[BigInt]")
+    println("tailRecursiveFactorial2(10)")
+    val tailRecFact4: TailRec[BigInt] = tailRecursiveFactorial2(10)
+    println(tailRecFact4)
+
+
+
     // println("naive Ackermann function")
     // println("ackermannNaive(20,20)")
     // println("[error] (run-main-0) java.lang.StackOverflowError")
