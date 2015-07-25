@@ -639,7 +639,7 @@ object IO3 {
           }
       }
     }
-  //@annotation.tailrec
+  @annotation.tailrec
   def runTrampoline3[A](tra: Free[Function0,A]): A =
     tra match {
       // Return(A)
@@ -654,15 +654,13 @@ object IO3 {
         // Return(A)
         case Return(a2) => {
           val free2 = aFree2(a2)
-          val a3 = runTrampoline3(free2)
-          a3
+          runTrampoline3(free2)
         }
         // Suspend(Function0[A])
         case Suspend(function0A) => {
           val a2 = function0A()
           val free2 = aFree2(a2)
-          val a3 = runTrampoline3(free2)
-          a3
+          runTrampoline3(free2)
         }
         case FlatMap(a0,g) =>
           runTrampoline3 {
@@ -1186,7 +1184,10 @@ object IO3Tests {
     val tailRecFact4: TailRec[BigInt] = tailRecursiveFactorial2(10)
     println(tailRecFact4)
 
-
+    println("--------------------------")
+    println("runTrampoline with expanded syntax")
+    println("runTrampoline3(tailRecursiveFactorial(100))")
+    println(runTrampoline3(tailRecFact1002))
 
     // println("naive Ackermann function")
     // println("ackermannNaive(20,20)")
