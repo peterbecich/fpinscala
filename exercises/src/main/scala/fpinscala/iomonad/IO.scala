@@ -1249,3 +1249,46 @@ object ConsoleTests {
   }
 }
 
+object ConsoleReaderTests {
+  import IO3._
+  import IO3.Console._
+  import fpinscala.iomonad.Monad
+  import fpinscala.laziness.Stream
+
+  val helloConsole: ConsoleIO[Unit] =
+    printLn("Hello console! (I can only interact with the console...).  Enter something:")
+  val somethingEntered: Free[Console, Option[String]] =
+    helloConsole.flatMap(_ => readLn)
+
+  val helloReader: ConsoleReader[Option[String]] =
+    runConsoleReader(somethingEntered)
+
+
+  // Free[Console, Unit]
+  val yourName: ConsoleIO[Unit] =
+    printLn("What's your name").flatMap(_ =>
+      readLn.flatMap(opname =>
+        opname match {
+          case Some(name) => printLn(s"Hello, $name!")
+          case None => printLn(s"Fine, be that way...")
+        }
+      )
+    )
+
+  val yourNameReader: ConsoleReader[Unit] = runConsoleReader(yourName)
+
+  // val yourNameFunction0: Free[Function0, Unit] =
+  //   translate(yourName)(consoleToFunction0)
+    
+  def main(args: Array[String]): Unit = {
+    println("console reader")
+    val somethingAlwaysEntered: Option[String] =
+      helloReader.run("same thing, every time")
+    println(s"entered: $somethingAlwaysEntered")
+
+    yourNameReader.run("Fritz")
+    // Unit evaporates...
+  }
+}
+
+
