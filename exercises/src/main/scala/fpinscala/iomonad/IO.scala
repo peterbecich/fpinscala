@@ -971,8 +971,18 @@ object IO3 {
   import java.nio.channels._
 
   def read(file: AsynchronousFileChannel,
-           fromPosition: Long,
-           numBytes: Int): Par[Either[Throwable, Array[Byte]]] = ???
+    fromPosition: Long,
+    numBytes: Int): Par[Either[Throwable, Array[Byte]]] = {
+
+    // AsychronousFileChannel =>
+    // Free[Par, Either[Throwable, Array[Byte]]] =>
+    // Par[Either[Throwable, Array[Byte]]]
+    
+    ???
+  }
+
+
+
 
   // Provides the syntax `Async { k => ... }` for asyncronous IO blocks.
   def Async[A](cb: (A => Unit) => Unit): IO[A] =
@@ -980,6 +990,31 @@ object IO3 {
 
   // Provides the `IO { ... }` syntax for synchronous IO blocks.
   def IO[A](a: => A): IO[A] = Suspend { Par.delay(a) }
+
+  trait Source {
+    def readBytes(
+      numBytes: Int,
+      callback: Either[Throwable, Array[Byte]] => Unit): Unit
+  }
+
+  val sourceExample: Source = new Source {
+    def readBytes(
+      numBytes: Int,
+      callback: Either[Throwable, Array[Byte]] => Unit): Unit = {
+      val incrementingBytes: Array[Byte] =
+        (1 to numBytes).map(_.toByte).toArray
+      val rightBytes = Right(incrementingBytes)
+      callback(rightBytes)
+    }
+  }
+
+  def nonblockingRead(source: Source, numBytes: Int):
+      IO[Either[Throwable,Array[Byte]]] =
+    Async {
+      (cb: Either[Throwable,Array[Byte]] => Unit) =>
+      source.readBytes(numBytes, cb)
+    }
+
 }
 
 object IO3Tests {
@@ -1288,6 +1323,55 @@ object ConsoleReaderTests {
 
     yourNameReader.run("Fritz")
     // Unit evaporates...
+  }
+}
+
+
+object AsynchronousReaderTests {
+  import IO3._
+  import IO3.Console._
+  import fpinscala.iomonad.Monad
+  import fpinscala.laziness.Stream
+  import fpinscala.parallelism.Nonblocking.Par
+    
+  def main(args: Array[String]): Unit = {
+    println("example Source; 64 incrementing bytes")
+    sourceExample.readBytes(64,
+      (either: Either[Throwable, Array[Byte]]) =>
+      either match {
+        case Left(throwable) => throw throwable
+        case Right(arrByte) => println(arrByte)
+      }
+    )
+
+    println("nonblocking read")
+    // Free[Par, Either[Throwable,Array[Byte]]]
+    val io: IO[Either[Throwable, Array[Byte]]] =
+      nonblockingRead(sourceExample, 64)
+    println("nonblocking read already initiated")
+    println("contained within an IO")
+    println(io)
+    println("run(IO[...])(Monad[Par])")
+    // val out: Either[Throwable, Array[Byte]] =
+    //   run(io)(parMonad)
+    val par: Par[Either[Throwable, Array[Byte]]] =
+      run(io)(parMonad)
+    println("Par[Either[Throwable, Array[Byte]]]")
+    println(par)
+
+    import java.util.concurrent.ExecutorService
+    import java.util.concurrent.Executors
+
+    val service = Executors.newFixedThreadPool(4)
+    val eitherArrByte: Either[Throwable, Array[Byte]] =
+      Par.run(service)(par)
+    println("byte array or thrown error")
+    eitherArrByte match {
+      case Left(throwable) => throw throwable
+      case Right(arrByte) => println(arrByte)
+    }
+    service.shutdown()
+
   }
 }
 
