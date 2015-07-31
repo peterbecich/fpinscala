@@ -973,12 +973,34 @@ object IO3 {
   def read(file: AsynchronousFileChannel,
     fromPosition: Long,
     numBytes: Int): Par[Either[Throwable, Array[Byte]]] = {
-
-    // AsychronousFileChannel =>
-    // Free[Par, Either[Throwable, Array[Byte]]] =>
-    // Par[Either[Throwable, Array[Byte]]]
-    
-    ???
+    val io: IO[Either[Throwable, Array[Byte]]] = Async {
+      // AsychronousFileChannel =>
+      // Free[Par, Either[Throwable, Array[Byte]]] =>
+      // Par[Either[Throwable, Array[Byte]]]
+      (cb: Either[Throwable,Array[Byte]] => Unit) => {
+        // http://stackoverflow.com/questions/4841340/what-is-the-use-of-bytebuffer-in-java
+        val buf = ByteBuffer.allocate(numBytes)
+        // val future: java.util.concurrent.Future[Integer] =
+        //   file.read(buf, fromPosition)
+        // future.
+        // from answers
+        file.read(
+          buf, fromPosition,
+          (), new CompletionHandler[Integer, Unit] {
+            def completed(bytesRead: Integer, ignore: Unit) = {
+              val arr = new Array[Byte](bytesRead)
+              buf.slice.get(arr, 0, bytesRead)
+              cb(Right(arr))
+            }
+            def failed(err: Throwable, ignore: Unit) =
+              cb(Left(err))
+          }
+        )
+      }
+    }
+    val par: Par[Either[Throwable, Array[Byte]]] =
+      run(io)(parMonad)
+    par
   }
 
 
@@ -1014,6 +1036,15 @@ object IO3 {
       (cb: Either[Throwable,Array[Byte]] => Unit) =>
       source.readBytes(numBytes, cb)
     }
+
+  trait Files[A]
+  case class OpenFileRead(file: String) extends Files[HandleR]
+  case class OpenFileWrite(file: String) extends Files[HandleW]
+  case class ReadFileLine(h: HandleR) extends Files[Option[String]]
+  case class WriteFileLine(h: HandleW, line: String) extends Files[Unit]
+
+  trait HandleR
+  trait HandleW
 
 }
 
@@ -1371,6 +1402,27 @@ object AsynchronousReaderTests {
       case Right(arrByte) => println(arrByte)
     }
     service.shutdown()
+
+  }
+}
+
+object MonolithicLoopRead {
+  import IO3._
+  import fpinscala.iomonad.Monad
+  import fpinscala.laziness.Stream
+  import fpinscala.parallelism.Nonblocking.Par
+
+  // page 252.  what is b?
+  // def loop(f: HandleR, c: HandleW): Free[Files, Unit] =
+  //   Suspend(ReadFileLine(f)).flatMap(line =>
+  //     line match {
+  //       case None => IO.unit(())
+  //       case Some(s) => Suspend {
+  //         WriteFileLine(fahrenheitToCelsius(s.toDouble))
+  //       }.flatMap(_ => loop(f,c))
+  //     }
+    
+  def main(args: Array[String]): Unit = {
 
   }
 }
