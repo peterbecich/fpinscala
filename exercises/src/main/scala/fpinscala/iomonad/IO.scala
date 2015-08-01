@@ -1412,6 +1412,9 @@ object MonolithicLoopRead {
   import fpinscala.laziness.Stream
   import fpinscala.parallelism.Nonblocking.Par
 
+  def fahrenheitToCelsius(fah: Double): Double =
+    (fah - 32.0)/1.8
+
   // page 252.  what is b?
   // def loop(f: HandleR, c: HandleW): Free[Files, Unit] =
   //   Suspend(ReadFileLine(f)).flatMap(line =>

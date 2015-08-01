@@ -803,12 +803,22 @@ object MonadTest {
   // listing 11.8 with for comprehension made explicit
   def zipWithIndexState[A](as: List[A]): State[Int, List[(Int,A)]] = {
 
-    as.foldLeft(Monad.stateMonad[Int].unit(List[(Int, A)]())){(acc,a)=>
-      for {
-        xs <- acc
-        n <- State.get
-        _ <- State.set(n+1)
-     } yield (n, a) :: xs }
+    // as.foldLeft(Monad.stateMonad[Int].unit(List[(Int, A)]())){(acc,a)=>
+    //   for {
+    //     xs <- acc
+    //     n <- State.get
+    //     _ <- State.set(n+1)
+    //  } yield (n, a) :: xs }
+    as.foldLeft(Monad.stateMonad[Int].unit(List[(Int, A)]())){
+      (acc,a) =>
+      acc.flatMap(xs =>
+        State.get.flatMap(n =>
+          State.set(n+1).flatMap(_ =>
+            State.unit((n,a)::xs)
+          )
+        )
+      )
+    }
 
     // .run(0)._1.reverse
     /*
