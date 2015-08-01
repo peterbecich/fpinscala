@@ -183,7 +183,7 @@ sealed abstract class STHashMap[S,K,V](
   def fill(map: Map[K,V]): ST[S,Unit] = 
     ST(map.foldLeft(ST(this)){
       //      (effect: ST[S,STHashMap[S,K,V]], keyValue: Tuple2[K,V])=>{
-      (effect: ST[S,Unit], keyValue: Tuple2[K,V])=>{
+      (effect: ST[S,STHashMap[S,K,V]], keyValue: Tuple2[K,V])=>{
         val key = keyValue._1
         val value = keyValue._2
         effect.flatMap(sthashmap =>
