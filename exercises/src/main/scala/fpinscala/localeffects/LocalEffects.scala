@@ -101,8 +101,25 @@ sealed abstract class STArray[S,A](implicit manifest: Manifest[A]) {
   // Turn the array into an immutable list
   def freeze: ST[S,List[A]] = ST(value.toList)
 
-  def fill(xs: Map[Int,A]): ST[S,Unit] = ???
+  // fill an existing array, up to this existing array's size
+  def fill(xs: Map[Int,A]): ST[S,Unit] = {
+    // val mapArr: ST[S,STArray[S,A]] =
+    //   STArray.fromList(xs.values.toList)
+    //val mapSize: Int = xs.size
+    //xs.foldLeft(z: B)(op: Function2[B, Tuple2[Int, A], B])
+    // xs.foldLeft(this){(st, keyvalue) => {
+    //   val key: Int = keyvalue._1
+    //   val value: A = keyvalue._2
+    //   if(key<size)
+    val starr = this
+    val runnable = new RunnableST[Unit] {
+      def apply[S]: ST[S,Unit] = {
+
+      }
+    }
+  }
  //   STArray.fromList(xs.values.toList)
+
 
   def swap(i: Int, j: Int): ST[S,Unit] =
     read(i).flatMap(x =>
@@ -140,6 +157,50 @@ object STArray {
 
 
 }
+
+import scala.collection.mutable.HashMap
+sealed abstract class STHashMap[S,K,V](
+  implicit manifestK: Manifest[K], manifestV: Manifest[V]
+) {
+  protected def hashmap: HashMap[K,V]
+  def size: ST[S,Int] = ST(hashmap.size)
+  def write(key: K, value: V): ST[S,Unit] = new ST[S,Unit] {
+    def run(s: S) = {
+      hashmap(key) = value
+      ((), s)
+    }
+  }
+
+  def read(key: K): ST[S,Option[V]] = ST {
+    hashmap.get(key)
+  }
+
+  def freeze: ST[S,HashMap[K,V]] = ST {
+    hashmap
+  }
+
+   //map.foldLeft(z: B)(op: Function2[B, Tuple2[K, V], B])
+  def fill(map: Map[K,V]): ST[S,Unit] = 
+    ST(map.foldLeft(ST(this)){
+      //      (effect: ST[S,STHashMap[S,K,V]], keyValue: Tuple2[K,V])=>{
+      (effect: ST[S,Unit], keyValue: Tuple2[K,V])=>{
+        val key = keyValue._1
+        val value = keyValue._2
+        effect.flatMap(sthashmap =>
+          sthashmap.write(key,value)
+        )
+      }
+    }
+    )
+
+
+
+
+
+
+  
+}
+
 
 object Immutable {
   def noop[S] = ST[S,Unit](())
