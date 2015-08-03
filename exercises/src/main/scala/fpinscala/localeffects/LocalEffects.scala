@@ -84,39 +84,44 @@ trait RunnableST[A] {
 
 // Scala requires an implicit Manifest for constructing arrays.
 sealed abstract class STArray[S,A](implicit manifest: Manifest[A]) {
-  protected def value: Array[A]
-  def size: ST[S,Int] = ST(value.size)
+  protected def array: Array[A]
+  def stSize: ST[S,Int] = ST(array.size)
 
   // Write a value at the give index of the array
   def write(i: Int, a: A): ST[S,Unit] = new ST[S,Unit] {
-    def run(s: S) = {
-      value(i) = a
+    def run(s: S): (Unit,S) = {
+      array(i) = a
       ((), s)
     }
   }
 
   // Read the value at the given index of the array
-  def read(i: Int): ST[S,A] = ST(value(i))
+  def read(i: Int): ST[S,A] = ST(array(i))
 
   // Turn the array into an immutable list
-  def freeze: ST[S,List[A]] = ST(value.toList)
+  def freeze: ST[S,List[A]] = ST(array.toList)
+  // freezeArray seems to garble output
+  def freezeArray: ST[S,Array[A]] = ST(array)
 
   // fill an existing array, up to this existing array's size
   def fill(xs: Map[Int,A]): ST[S,Unit] = {
-    // val mapArr: ST[S,STArray[S,A]] =
-    //   STArray.fromList(xs.values.toList)
     //val mapSize: Int = xs.size
     //xs.foldLeft(z: B)(op: Function2[B, Tuple2[Int, A], B])
-    // xs.foldLeft(this){(st, keyvalue) => {
-    //   val key: Int = keyvalue._1
-    //   val value: A = keyvalue._2
-    //   if(key<size)
-    val starr = this
-    val runnable = new RunnableST[Unit] {
-      def apply[S]: ST[S,Unit] = {
 
+    val initialEffect: ST[S,Unit] = ST(())
+    val foldEffect: ST[S,Unit] =
+      xs.foldLeft(initialEffect){
+        (effect: ST[S,Unit], keyValue: (Int,A)) => {
+          val key = keyValue._1
+          val value = keyValue._2
+          stSize.flatMap{(size: Int) =>
+            if(key<size)
+              effect.flatMap(_ => write(key,value))
+            else effect
+          }
+        }
       }
-    }
+    foldEffect
   }
  //   STArray.fromList(xs.values.toList)
 
@@ -142,18 +147,18 @@ object STArray {
   // Construct an array of the given size filled with the value v
   def apply[S,A:Manifest](sz: Int, v: A): ST[S, STArray[S,A]] =
     ST(new STArray[S,A] {
-      lazy val value = Array.fill(sz)(v)
+      lazy val array = Array.fill(sz)(v)
     })
 
   def fromList[S,A:Manifest](xs: List[A]): ST[S, STArray[S,A]] =
     ST(new STArray[S,A] {
-      lazy val value = xs.toArray
+      lazy val array = xs.toArray
     })
 
-  def partition[S](arr: STArray[S,Int],
-    n: Int, r: Int, pivot: Int): ST[S,Int]
+  // def partition[S](arr: STArray[S,Int],
+  //   n: Int, r: Int, pivot: Int): ST[S,Int]
 
-  def qs[S](a: STArray[S,Int], n: Int, r: Int): ST[S,Unit]
+  // def qs[S](a: STArray[S,Int], n: Int, r: Int): ST[S,Unit]
 
 
 }
@@ -163,7 +168,7 @@ sealed abstract class STHashMap[S,K,V](
   implicit manifestK: Manifest[K], manifestV: Manifest[V]
 ) {
   protected def hashmap: HashMap[K,V]
-  def size: ST[S,Int] = ST(hashmap.size)
+  def stSize: ST[S,Int] = ST(hashmap.size)
   def write(key: K, value: V): ST[S,Unit] = new ST[S,Unit] {
     def run(s: S) = {
       hashmap(key) = value
@@ -179,25 +184,19 @@ sealed abstract class STHashMap[S,K,V](
     hashmap
   }
 
-   //map.foldLeft(z: B)(op: Function2[B, Tuple2[K, V], B])
-  def fill(map: Map[K,V]): ST[S,Unit] = 
-    ST(map.foldLeft(ST(this)){
-      //      (effect: ST[S,STHashMap[S,K,V]], keyValue: Tuple2[K,V])=>{
-      (effect: ST[S,STHashMap[S,K,V]], keyValue: Tuple2[K,V])=>{
-        val key = keyValue._1
-        val value = keyValue._2
-        effect.flatMap(sthashmap =>
-          sthashmap.write(key,value)
-        )
+  // unlike 'fill' on STArray, expand the hash map if necessary
+  def fill(map: Map[K,V]): ST[S,Unit] = {
+    val initialEffect: ST[S,Unit] = ST(())
+    val foldEffect: ST[S,Unit] =
+      map.foldLeft(initialEffect){
+        (effect: ST[S,Unit], keyValue: (K,V)) => {
+          val key = keyValue._1
+          val value = keyValue._2
+          effect.flatMap(_ => write(key,value))
+        }
       }
-    }
-    )
-
-
-
-
-
-
+    foldEffect
+  }
   
 }
 
@@ -222,8 +221,8 @@ object Immutable {
     if (xs.isEmpty) xs else ST.runST(new RunnableST[List[Int]] {
       def apply[S] =
         STArray.fromList(xs).flatMap(arr =>
-          arr.size.flatMap(size =>
-            STArray.qs(arr, 0, size-1).flatMap(_ =>
+          arr.stSize.flatMap(size =>
+            qs(arr, 0, size-1).flatMap(_ =>
               arr.freeze.flatMap(sorted =>
                 ST(sorted)
               )
@@ -321,14 +320,89 @@ object STArrayTests {
   //import fpinscala.localeffects.RunnableST
 
 
+  val chars = (65 to 79).map(_.toChar).toList
+  val simpleMap = Map(1->'a',5->'p',2->'q')
+  //val st: ST[Nothing, STArray[Nothing, Char]] = fromList(chars)
+  def st[S] = STArray.fromList[S,Char](chars)
+
+  /*
+   simple scope enforcement example
+
+   def Variable[W]
+
+   object Foo {
+     def container[X] = {
+       val cannotEscape = Variable[X]
+       // X does not exist outside of the container
+     }
+   }
+
+
+   */
 
   def main(args: Array[String]): Unit = {
+    println("filling an STArray with a map")
+    println("map: ")
+    println(simpleMap)
+    println("list turned into STArray:")
+    println(chars)
+    println("ST containing STArray:")
+    println(st)
+    // to print the array, we need
+    // ST[Nothing, STArray[Nothing, Char]] =>
+    //   ST[Nothing, Array[Char]]
+    //val runnablePrint1 = printArr(st)
+    val runnablePrint1 = new RunnableST[Array[Char]] {
+      def apply[P]: ST[P,Array[Char]] = {
+        val stArr: ST[P,Array[Char]] = st.flatMap(stArr => stArr.freezeArray)
+        stArr
+      }
+    }
+    val runnablePrint2 = new RunnableST[List[Char]] {
+      def apply[P]: ST[P,List[Char]] = {
+        st.flatMap(stArr => stArr.freeze)
+      }
+    }
+
+    println("using a runnable to extract array; ST[...,Array[Char]].freezeArr")
+    val arr: Array[Char] = ST.runST(runnablePrint1)
+    println(arr)
+
+    println("extract list; ST[...,Array[Char]].freeze")
+    val list: List[Char] = ST.runST(runnablePrint2)
+    println(list)
+    // method run in trait ST cannot be accessed in fpinscala.localeffects.ST[Nothing,Unit]  Access to protected method run not permitted because  enclosing object STArrayTests in package localeffects is not a subclass of   trait ST in package localeffects where target is defined
+    // frozen1.flatMap(listChar => ST(println(listChar))).run
+
+
+
+
+
+    println("filled")
+    // val stFilled = st.flatMap(stArr => stArr.fill(simpleMap))
+    // println(stFilled)
+
+    // val runnablePrint3 = new RunnableST[List[Char]] {
+    //   def apply[P]: ST[P,List[Char]] = {
+    //     st.flatMap(stArr => stArr.freeze)
+    //     // ^^ note, reference to original ST persists
+    //     // not using stFilled
+    //   }
+    // }
+
+    // val filledList = ST.runST(runnablePrint3)
+
+    // println(filledList)
+
+
+    println("---------------------------")
     println("STArray and quick sort")
-    val random = Seq.fill(10)(scala.util.Random.nextInt)
+    import scala.util.Random
+    val random = Seq.fill(10)(Random.nextInt(20))
     println("sort this:")
     println(random)
-    val sorted = quicksort(random.toList)
-    println(sorted)
+    // val sorted = quicksort(random.toList)
+    // println(sorted)
   }
 }
 
