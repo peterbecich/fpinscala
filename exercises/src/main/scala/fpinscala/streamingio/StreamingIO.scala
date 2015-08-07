@@ -5,6 +5,9 @@ import scala.language.higherKinds
 import scala.language.postfixOps
 import scala.language.implicitConversions
 
+import scala.collection.immutable.{Stream => CollectionStream}
+import fpinscala.laziness.{Stream => FPStream}
+
 object ImperativeAndLazyIO {
 
   /*
@@ -50,13 +53,13 @@ object ImperativeAndLazyIO {
    a monolithic loop, and we must modify this loop directly if we want
    to change its behavior.
 
-   Now imagine if we had a `Stream[String]` for the lines of the file
-   and we could assemble functionality using all the `Stream` functions
+   Now imagine if we had a `CollectionStream[String]` for the lines of the file
+   and we could assemble functionality using all the `CollectionStream` functions
    we know and love.
    */
 
   object Examples {
-    val lines: Stream[String] = sys.error("defined elsewhere")
+    val lines: CollectionStream[String] = sys.error("defined elsewhere")
     val ex1 = lines.zipWithIndex.exists(_._2 + 1 >= 40000)
     val ex2 = lines.filter(!_.trim.isEmpty).zipWithIndex.exists(_._2 + 1 >= 40000)
     val ex3 = lines.take(40000).map(_.head).indexOfSlice("abracadabra".toList)
@@ -65,13 +68,13 @@ object ImperativeAndLazyIO {
   /*
 
    Could we actually write the above? Not quite. We could 'cheat' and
-   return an `IO[Stream[String]]` representing the lines of a file:
+   return an `IO[CollectionStream[String]]` representing the lines of a file:
 
    */
 
-  def lines(filename: String): IO[Stream[String]] = IO {
+  def lines(filename: String): IO[CollectionStream[String]] = IO {
     val src = io.Source.fromFile(filename)
-    src.getLines.toStream append { src.close; Stream.empty }
+    src.getLines.toStream append { src.close; CollectionStream.empty }
   }
   /*
 
@@ -101,14 +104,31 @@ object SimpleStreamTransducers {
      * A `Process[I,O]` can be used to transform a `Stream[I]` to a
      * `Stream[O]`.
      */
-    def apply(s: Stream[I]): Stream[O] = this match {
-      case Halt() => Stream()
-      case Await(recv) => s match {
-        case h #:: t => recv(Some(h))(t)
-        case xs => recv(None)(xs) // Stream is empty
-      }
-      case Emit(h,t) => h #:: t(s)
+    // def apply(s: CollectionStream[I]): CollectionStream[O] = this match {
+    //   case Halt() => CollectionStream()
+    //   case Await(recv) => s match {
+    //     case h #:: t => recv(Some(h))(t)
+    //     case xs => recv(None)(xs) // Stream is empty
+    //   }
+    //   case Emit(h,t) => h #:: t(s)
+    // }
+
+    //@annotation.tailrec
+    final def apply(s: FPStream[I]): FPStream[O] = this match {
+      case Halt() => FPStream.empty
+      case Await(recv: Function1[Option[I],Process[I,O]]) =>
+        s match {
+          case FPStream.cons(h, t) => {
+            val processIteration: Process[I,O] = recv(Some(h))
+            processIteration.apply(t)
+          }
+          case xs => recv(None)(xs) // Stream is empty
+        }
+      case Emit(h: O, t: Process[I,O]) => FPStream.cons(h, t(s))
+//                                                         ^^^
+// could not optimize @tailrec annotated method apply: it contains a recursive call not in tail position
     }
+
 
     /*
      * `Process` can be thought of as a sequence of values of type `O`
@@ -137,6 +157,7 @@ object SimpleStreamTransducers {
      * Exercise 5: Implement `|>`. Let the types guide your implementation.
      */
     def |>[O2](p2: Process[O,O2]): Process[I,O2] = ???
+
 
     /*
      * Feed `in` to this `Process`. Uses a tail recursive loop as long
@@ -220,7 +241,10 @@ object SimpleStreamTransducers {
       head: O,
       tail: Process[I,O] = Halt[I,O]())
         extends Process[I,O]
-
+    /*
+     Don't think Await is any sort of non-blocking, asynchronous
+     process
+     */
     case class Await[I,O](
       recv: Option[I] => Process[I,O])
         extends Process[I,O]
@@ -251,6 +275,7 @@ object SimpleStreamTransducers {
      */
     def await[I,O](f: I => Process[I,O],
       fallback: Process[I,O] = Halt[I,O]()): Process[I,O] =
+      //                     ^^ note default value
       Await[I,O] {
         (opI: Option[I]) => opI match {
           case Some(i) => f(i)
@@ -288,22 +313,92 @@ object SimpleStreamTransducers {
      * Here's a typical `Process` definition that requires tracking some
      * piece of state (in this case, the running total):
      */
-    def sum: Process[Double,Double] = {
+    def sum2: Process[Double,Double] = {
       def go(acc: Double): Process[Double,Double] =
         await(d => emit(d+acc, go(d+acc)))
       go(0.0)
     }
 
+    def sum: Process[Double,Double] = {
+      val f: (Double, Double) => (Double, Double) =
+        (i: Double, s: Double) => (i+s, i+s)
+      loop(0.0)(f)
+    }
+
+
+     
+
+
     /*
      * Exercise 1: Implement `take`, `drop`, `takeWhile`, and `dropWhile`.
      */
-    def take[I](n: Int): Process[I,I] = ???
 
-    def drop[I](n: Int): Process[I,I] = ???
+    // recursive step occurs outside Await... not inside
+    // only do one iteration inside Await
+    // def take[I](n: Int): Process[I,I] = Await[I,I] {
+    //   (opI: Option[I]) => opI match {
+    //     case Some(i: I) if n>0 => Emit(i, take(n-1))
+    //     case Some(i: I) if n<=0 => Halt[I,I]()
+    //     case None => Halt[I,I]()
+    //   }
+    // }
+    def take[I](n: Int): Process[I,I] = Await[I,I] {
+      (opI: Option[I]) => opI match {
+        case Some(i: I) if n>0 => Emit(i)
+        case Some(i: I) if n<=0 => Halt[I,I]()
+        case None => Halt[I,I]()
+      }
+    }.repeatN(n-1)
 
-    def takeWhile[I](f: I => Boolean): Process[I,I] = ???
+    // def drop[I](n: Int): Process[I,I] =
+    //   if (n>0) await {(opI: Option[I]) =>
+    //     drop(n-1)
+    //   } else {
 
-    def dropWhile[I](f: I => Boolean): Process[I,I] = ???
+    //   }
+
+    def drop[I](n: Int): Process[I,I] = Await[I,I] {
+      //println(s"n:$n, process:$this")
+      (opI: Option[I]) => opI match {
+        case Some(i: I) if n>0 => drop(n-1)
+        case Some(i: I) if n<=0 => emit(i, passThru2) 
+        case None => Halt[I,I]()
+      }
+    }
+
+    // def passThru[I]: Process[I,I] = Await {
+    //   (opI: Option[I]) => opI match {
+    //     case Some(i) => emit(i)
+    //     case None => Halt[I,I]()
+    //   }
+    // }
+
+    def passThru2[I]: Process[I,I] = Await {
+      (opI: Option[I]) => opI match {
+        case Some(i) => emit(i, passThru2)
+        case None => Halt[I,I]()
+      }
+    }
+
+
+    def takeWhile[I](f: I => Boolean): Process[I,I] = Await[I,I] {
+      (opI: Option[I]) => opI match {
+        case Some(i: I) if f(i) => Emit(i, takeWhile(f))
+        case Some(i: I) => Halt[I,I]()
+        case None => Halt[I,I]()
+      }
+    }
+
+
+    def dropWhile[I](f: I => Boolean): Process[I,I] =
+      Await[I,I] {
+        (opI: Option[I]) => opI match {
+          case Some(i: I) if f(i) => dropWhile(f)
+            //emit(i, dropWhile(f))
+          case Some(i: I) => Emit(i, passThru2)
+          case None => Halt[I,I]()
+        }
+      }
 
     /* The identity `Process`, just repeatedly echos its input. */
     def id[I]: Process[I,I] = lift(identity)
@@ -311,7 +406,11 @@ object SimpleStreamTransducers {
     /*
      * Exercise 2: Implement `count`.
      */
-    def count[I]: Process[I,Int] = ???
+    def count[I]: Process[I,Int] = {
+      val f: (I,Int)=>(Int,Int) =
+        (i: I, priorCount: Int) => (priorCount+1, priorCount+1)
+      loop(0)(f)
+    }
 
     /* For comparison, here is an explicit recursive implementation. */
     def count2[I]: Process[I,Int] = {
@@ -323,16 +422,28 @@ object SimpleStreamTransducers {
     /*
      * Exercise 3: Implement `mean`.
      */
-    def mean: Process[Double,Double] = ???
+    def mean: Process[Double,Double] = {
+      // use sum and count processes
+      // sum / count
+      // flawed because this is akin to a product
+      // remember trying to implement Stream's 'zip' with 'product'?
+      sum.flatMap{(s: Double) =>
+        count.map((c: Int) => s/c)
+      }
+
+    }
 
     def loop[S,I,O](z: S)(f: (I,S) => (O,S)): Process[I,O] =
-      await((i: I) => f(i,z) match {
-        case (o,s2) => emit(o, loop(s2)(f))
-      })
+      await {
+        (i: I) => {
+          val os: (O,S) = f(i,z)
+          os match {
+            case (o,s2) => emit(o, loop(s2)(f))
+          }
+        }
+      }
 
     /* Exercise 4: Implement `sum` and `count` in terms of `loop` */
-
-    def sum2: Process[Double,Double] = ???
 
     def count3[I]: Process[I,Int] = ???
 
@@ -1033,10 +1144,88 @@ object ProcessTest extends App {
   println { Process.runLog(converter) }
   // println { Process.collect(Process.convertAll) }
 }
+
 object StreamingIOTests {
+  import SimpleStreamTransducers._
+  //import fpinscala.laziness.Stream
+  val streamIncrementing: FPStream[Int] = FPStream.from(5)
+
+  val f = (x: Int) => x*2
+  val p = Process.liftOne(f)
+
+  val evenProcess = Process.filter((x: Int) => x%2==0)
+  // current 'take' method only applies to CollectionStream
+  //val someEvenNumbersProcess = evenProcess.take(20)
+
 
   def main(args: Array[String]): Unit = {
+    println("naive function")
+    println(f)
+    println("lifted")
+    println(p)
+    println("incrementing numbers")
+    streamIncrementing.feedback
+    println("note the examples below do not compose Processes")
+
+    // println("pass through")
+    // val passedThru = Process.passThru(streamIncrementing)
+    // passedThru.feedback
+
+    println("pass through 2")
+    val passedThru2 = Process.passThru2(streamIncrementing)
+    passedThru2.feedback
+
+
+    println("drop the first 10 numbers")
+    val dropped = Process.drop(10)(streamIncrementing)
+    dropped.feedback
+    println("some even numbers, larger than 5")
+    val streamEven: FPStream[Int] = evenProcess(
+        Process.take[Int](20)(streamIncrementing)
+      )
+    println(streamEven)
+    streamEven.feedback
+    println("incrementing sum of these")
+    val incSum = Process.sum(streamEven.map(_.toDouble))
+    incSum.feedback
+    println("incrementing count of these")
+    val incCount = Process.count(streamEven.map(_.toDouble))
+    incCount.feedback
+    println("incrementing mean of these")
+    val incMean = Process.mean(streamEven.map(_.toDouble))
+    incMean.feedback
+
+    println("take while _ < 10")
+    val lessThanTen =
+      Process.takeWhile((x:Int)=>x<10)(streamIncrementing)
+    lessThanTen.feedback
+
+    println("drop while _ < 10")
+    val tenAndGreater =
+      Process.dropWhile((x:Int)=>x<10)(streamIncrementing)
+    tenAndGreater.feedback
   }
 }
+
+object InfiniteStreamingIOTest {
+  import SimpleStreamTransducers._
+
+  // val streamUnit: CollectionStream[Unit] = CollectionStream.continually(())
+  // val emitOneForever: Process[Unit,Int] =
+  //   SimpleStreamTransducers.Process.lift((_:Unit)=>1)
+  // val streamOne: CollectionStream[Int] = emitOneForever(streamUnit)
+
+  // def main(args: Array[String]): Unit = {
+
+
+  //   println("stream of units")
+  //   println(streamUnit)
+  //   println("process from Unit to Int (one)")
+  //   println(emitOneForever)
+  //   println("stream of ones")
+  //   println(streamOne)
+  // }
+}
+
 
 
