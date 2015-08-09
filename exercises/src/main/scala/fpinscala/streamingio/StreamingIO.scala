@@ -156,7 +156,22 @@ object SimpleStreamTransducers {
     /*
      * Exercise 5: Implement `|>`. Let the types guide your implementation.
      */
-    def |>[O2](p2: Process[O,O2]): Process[I,O2] = ???
+
+    // this: Process[I,O]
+    // |> --- Process[I,O], Process[O,O2] => Process[I,O2]
+    def |>[O2](p2: Process[O,O2]): Process[I,O2] = {
+      this.flatMap((o: O) => p2(FPStream(o)))
+    }
+
+
+    // this match {
+      //   case (
+      //     Emit(h1: I, t1: Process[I,O]),
+      //     Emit(h2: O, t2: Process[O,O2])
+      //   ) => {
+      //   }
+      //   case (
+      // }
 
 
     /*
