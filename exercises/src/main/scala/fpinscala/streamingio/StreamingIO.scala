@@ -137,21 +137,24 @@ object SimpleStreamTransducers {
      * `flatMap`. The definitions are analogous.
      */
 
-    def map[O2](f: O => O2): Process[I,O2] = this match {
-      case Halt() => Halt()
-      case Emit(h, t) => Emit(f(h), t map f)
-      case Await(recv) => Await(recv andThen (_ map f))
-    }
+    def map[O2](f: O => O2): Process[I,O2] =
+      this |> liftOne(f)
+    // this match {
+    //   case Halt() => Halt()
+    //   case Emit(h, t) => Emit(f(h), t map f)
+    //   case Await(recv) => Await(recv andThen (_ map f))
+    // }
     def ++(p: => Process[I,O]): Process[I,O] = this match {
       case Halt() => p
       case Emit(h, t) => Emit(h, t ++ p)
       case Await(recv) => Await(recv andThen (_ ++ p))
     }
-    def flatMap[O2](f: O => Process[I,O2]): Process[I,O2] = this match {
-      case Halt() => Halt()
-      case Emit(h, t) => f(h) ++ t.flatMap(f)
-      case Await(recv) => Await(recv andThen (_ flatMap f))
-    }
+    def flatMap[O2](f: O => Process[I,O2]): Process[I,O2] =
+      this match {
+        case Halt() => Halt()
+        case Emit(h, t) => f(h) ++ t.flatMap(f)
+        case Await(recv) => Await(recv andThen (_ flatMap f))
+      }
 
     /*
      * Exercise 5: Implement `|>`. Let the types guide your implementation.
@@ -159,18 +162,66 @@ object SimpleStreamTransducers {
 
     // this: Process[I,O]
     // |> --- Process[I,O], Process[O,O2] => Process[I,O2]
+
+    /*
+     simple composition example
+
+     procA: Process[Int,Int] = liftOne( i => (i%26)+65 )
+     procB: Process[Int,Char] = liftOne( i => i.toChar )
+
+     procA \> procB : Process[Int,Char]
+     no intermediary stream of Ints between 65 and 90
+
+
+     */
     def |>[O2](p2: Process[O,O2]): Process[I,O2] = {
-      this.flatMap((o: O) => p2(FPStream(o)))
+      // from answers...
+      p2 match {
+        case Halt() => Halt()
+        case Emit(h,t) => Emit(h, this |> t)
+        case Await(f) => this match {
+          case Emit(h,t) => t |> f(Some(h))
+          case Halt() => Halt() |> f(None)
+          case Await(g) => Await((i: Option[I]) => g(i) |> p2)
+        }
+      }
     }
+      // await {(i: I) => {
+      //   val streamO: FPStream[O] = this.apply(FPStream(i))
+      //   val o2: O2 = p2.apply(streamO)
+      // }
+      // }: Process[I,O2]
 
 
-    // this match {
+    // (this, p2) match {
       //   case (
-      //     Emit(h1: I, t1: Process[I,O]),
-      //     Emit(h2: O, t2: Process[O,O2])
+      //     emit1 @ Emit(h1: O, t1: Process[I,O]),
+      //     emit2 @ Emit(h2: O2, t2: Process[O,O2])
       //   ) => {
-      //   }
+      //     emit ( h2, this |> p2 )
+      //   }: Process[I,O2]
       //   case (
+      //     Emit(h1: O, t1: Process[I,O]),
+      //     Await(recv2: Function1[Option[O], Process[O,O2]])
+      //   ) => await {(i: I) => {
+
+      //     val procOO2: Process[O,O2] = recv2(Some(h1))
+      //   }
+      //   }: Process[I,O2]
+      //   case (
+      //     Await(recv1: Function1[Option[I], Process[I,O]]),
+      //     _
+      //   ) => await {(i: I) => {
+      //     val procIO: Process[I,O] = recv1(i)
+      //     procIO |> p2
+      //   }
+      //   }: Process[I,O2]
+      //   case (
+      //     halt1: Halt[I,O],
+      //     _
+      //   ) => {
+      //     Halt[I,O2]()
+      //   }: Process[I,O2]
       // }
 
 
@@ -235,8 +286,32 @@ object SimpleStreamTransducers {
 
     /*
      * Exercise 6: Implement `zipWithIndex`.
+      with \>  ?
+
+     compose Process[I,O] and Process[O,(O,Int)]
+     cannot use the output (O,Int) to determine
+     the next output (O,Int+1)
+
+     Need Process[Int,(Int+1)]
+
      */
-    def zipWithIndex: Process[I,(O,Int)] = ???
+    def zip[O2](other: Process[I,O2]): Process[I,(O,O2)] =
+      Process.zip(this, other)
+
+    def zipWithIndex: Process[I,(O,Int)] = {
+      // val oInt: Process[O,(O,Int)] =
+      //   await[O,(O,Int)] {(o: O) =>
+      //     emit[O,(O,Int)]{(o, 0)}
+      //   }
+
+      // this |> oInt
+
+      // val incrementer: Process[Int,Int] =
+      //   emit( 0, await((i:Int) => i+1) )
+
+      Process.zip(this, count)
+
+    }
 
     /* Add `p` to the fallback branch of this process */
     def orElse(p: Process[I,O]): Process[I,O] = this match {
@@ -460,7 +535,6 @@ object SimpleStreamTransducers {
 
     /* Exercise 4: Implement `sum` and `count` in terms of `loop` */
 
-    def count3[I]: Process[I,Int] = ???
 
     /*
      * Exercise 7: Can you think of a generic combinator that would
@@ -487,7 +561,20 @@ object SimpleStreamTransducers {
      * We choose to emit all intermediate values, and not halt.
      * See `existsResult` below for a trimmed version.
      */
-    def exists[I](f: I => Boolean): Process[I,Boolean] = ???
+    def exists[I](f: I => Boolean): Process[I,Boolean] = {
+      val g: (I, Boolean) => (Boolean,Boolean) =
+        (next: I, priorDetection: Boolean) =>
+      if(f(next) || priorDetection) (true,true)
+      else (false,false)
+      loop(false)(g)
+    }
+    // should halt at first existing input found
+    def exists2[I](f: I => Boolean): Process[I,Boolean] =
+      await ( (i: I) =>
+        if(f(i)) emit(true, Halt[I,Boolean]())
+        else emit(false, exists2(f))
+      )
+    
 
     /* Awaits then emits a single value, then halts. */
     def echo[I]: Process[I,I] = await(i => emit(i))
@@ -523,6 +610,19 @@ object SimpleStreamTransducers {
 
     def toCelsius(fahrenheit: Double): Double =
       (5.0 / 9.0) * (fahrenheit - 32.0)
+
+
+    def zip[A,B,C](p1: Process[A,B], p2: Process[A,C]): Process[A,(B,C)] =
+      (p1, p2) match {
+        case (Halt(), _) => Halt()
+        case (_, Halt()) => Halt()
+        case (Emit(b, t1), Emit(c, t2)) => Emit((b,c), zip(t1, t2))
+        case (Await(recv1), _) =>
+          Await((oa: Option[A]) => zip(recv1(oa), feed(oa)(p2)))
+        case (_, Await(recv2)) =>
+          Await((oa: Option[A]) => zip(feed(oa)(p1), recv2(oa)))
+      }
+
   }
 }
 
@@ -1173,6 +1273,10 @@ object StreamingIOTests {
   //val someEvenNumbersProcess = evenProcess.take(20)
 
 
+  val asciiCodes: Process[Int,Int] = Process.lift((i: Int) => (i%26)+65)
+  val toChar: Process[Int,Char] = Process.lift((i: Int) => i.toChar)
+  val ascii: Process[Int,Char] = asciiCodes |> toChar
+
   def main(args: Array[String]): Unit = {
     println("naive function")
     println(f)
@@ -1219,6 +1323,15 @@ object StreamingIOTests {
     val tenAndGreater =
       Process.dropWhile((x:Int)=>x<10)(streamIncrementing)
     tenAndGreater.feedback
+
+    println("------------------------------")
+    println("composing processes (|>)")
+    println("ASCII codes")
+    asciiCodes(streamIncrementing).feedback
+    println("to Char")
+    toChar(streamIncrementing).feedback
+    println("ASCII codes |> to Char")
+    (asciiCodes |> toChar)(streamIncrementing).feedback
   }
 }
 
