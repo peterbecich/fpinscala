@@ -69,8 +69,8 @@ object Monoid {
 
   // There is a choice of implementation here as well.
   // Do we implement it as `f compose g` or `f andThen g`? We have to pick one.
-  def endoMonoid[A]: Monoid[A => A] = new Monoid[A => A] {
-    def op(f: A => A, g: A => A) = f compose g
+  def endoMonoid[A]: Monoid[A => A] = new Monoid[A => A] {  // Function1[A,A]
+    def op(f: A => A, g: A => A) = f.compose(g)
     val zero = (a: A) => a
   }
 
@@ -100,7 +100,10 @@ object Monoid {
   // The function type `(A, B) => B`, when curried, is `A => (B => B)`.
   // And of course, `B => B` is a monoid for any `B` (via function composition).
   def foldRight[A, B](as: List[A])(z: B)(f: (A, B) => B): B =
-    foldMap(as, endoMonoid[B])(f.curried)(z)
+    foldMap(as, endoMonoid[B])(f.curried)(z)  // f.curried: Function1[A, Function1[B, B]]
+
+  // endoMonoid[B] : Monoid[B => B]
+  // 
 
   // Folding to the left is the same except we flip the arguments to
   // the function `f` to put the `B` on the correct side.

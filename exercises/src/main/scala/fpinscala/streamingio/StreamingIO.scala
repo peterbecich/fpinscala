@@ -156,6 +156,7 @@ object SimpleStreamTransducers {
     /*
      * Exercise 5: Implement `|>`. Let the types guide your implementation.
      */
+    // def |>[O2](p1: Process[I,O], p2: Process[O,O2]): Process[I,O2] = ???
     def |>[O2](p2: Process[O,O2]): Process[I,O2] = ???
 
 
@@ -1186,7 +1187,7 @@ object StreamingIOTests {
     println(streamEven)
     streamEven.feedback
     println("incrementing sum of these")
-    val incSum = Process.sum(streamEven.map(_.toDouble))
+    val incSum = Process.sum.apply(streamEven.map(_.toDouble))
     incSum.feedback
     println("incrementing count of these")
     val incCount = Process.count(streamEven.map(_.toDouble))
