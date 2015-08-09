@@ -1201,7 +1201,7 @@ object StreamingIOTests {
     println(streamEven)
     streamEven.feedback
     println("incrementing sum of these")
-    val incSum = Process.sum(streamEven.map(_.toDouble))
+    val incSum = Process.sum.apply(streamEven.map(_.toDouble))
     incSum.feedback
     println("incrementing count of these")
     val incCount = Process.count(streamEven.map(_.toDouble))
