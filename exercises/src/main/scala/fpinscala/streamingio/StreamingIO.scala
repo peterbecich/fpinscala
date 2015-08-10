@@ -1,5 +1,6 @@
 package fpinscala.streamingio
 
+//                         aka IO3.Free[Par,_]
 import fpinscala.iomonad.{IO,Monad,Free,unsafePerformIO}
 import scala.language.higherKinds
 import scala.language.postfixOps
@@ -610,6 +611,20 @@ object SimpleStreamTransducers {
 
     def toCelsius(fahrenheit: Double): Double =
       (5.0 / 9.0) * (fahrenheit - 32.0)
+
+
+    // add all the values (separated by line) in the file together
+    def sumFile(f: java.io.File): IO[Double] = {
+      val fold: (Double,Double)=>Double =
+        (acc,sum)=>acc+sum
+      val stringToDouble: Process[String,Double] =
+        Process.lift((s: String) => s.toDouble)
+      processFile(f, stringToDouble, 0.0)(fold)
+    }
+
+    // def celsiusFileWriter: IO = IO {
+    //   val 
+    // }
 
 
     def zip[A,B,C](p1: Process[A,B], p2: Process[A,C]): Process[A,(B,C)] =
@@ -1263,6 +1278,13 @@ object ProcessTest extends App {
 object StreamingIOTests {
   import SimpleStreamTransducers._
   //import fpinscala.laziness.Stream
+  import java.util.concurrent.ExecutorService
+  import java.util.concurrent.Executors
+
+
+  val service = Executors.newFixedThreadPool(4)
+
+
   val streamIncrementing: FPStream[Int] = FPStream.from(5)
 
   val f = (x: Int) => x*2
@@ -1276,6 +1298,11 @@ object StreamingIOTests {
   val asciiCodes: Process[Int,Int] = Process.lift((i: Int) => (i%26)+65)
   val toChar: Process[Int,Char] = Process.lift((i: Int) => i.toChar)
   val ascii: Process[Int,Char] = asciiCodes |> toChar
+
+  //  val numberFile = new java.io.File("numbers.txt")
+  val numberFile = new java.io.File("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")
+  val fahrenheitFile = new java.io.File("fahrenheit.txt")
+  val numberFileSummed: IO[Double] = Process.sumFile(numberFile)
 
   def main(args: Array[String]): Unit = {
     println("naive function")
@@ -1332,6 +1359,16 @@ object StreamingIOTests {
     toChar(streamIncrementing).feedback
     println("ASCII codes |> to Char")
     (asciiCodes |> toChar)(streamIncrementing).feedback
+    println("------------------------------")
+    println("summing the numbers in a file")
+    val par =
+   fpinscala.iomonad.IO3.run(numberFileSummed)(fpinscala.iomonad.IO3.parMonad)
+
+    val summed = fpinscala.parallelism.Nonblocking.Par.run(service)(par)
+
+    println("summed")
+    println(summed)
+    service.shutdown()
   }
 }
 
