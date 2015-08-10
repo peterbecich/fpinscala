@@ -1121,6 +1121,15 @@ object ProcessTest extends App {
   import GeneralizedStreamTransducers._
   import fpinscala.answers.iomonad.IO
   import Process._
+  import java.util.concurrent.ExecutorService
+  import java.util.concurrent.Executors
+
+  import fpinscala.answers.parallelism.Nonblocking.Par
+  import fpinscala.answers.iomonad.IO3
+
+  val service = Executors.newFixedThreadPool(4)
+
+
 
   val p = eval(IO { println("woot"); 1 }).repeat
   val p2 = eval(IO { println("cleanup"); 2 } ).onHalt {
@@ -1131,4 +1140,29 @@ object ProcessTest extends App {
   println { Process.runLog { p2.onComplete(p2).onComplete(p2).take(1).take(1) } }
   println { Process.runLog(converter) }
   // println { Process.collect(Process.convertAll) }
+
+
+  println("reading from numbers.txt")
+
+  import java.io.{BufferedReader,FileReader}
+  val q: Process[IO, String] =
+    await(IO(new BufferedReader(new FileReader("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")))) {
+      case Right(b) =>
+        lazy val next: Process[IO,String] = await(IO(b.readLine)) {
+          case Left(e) => await(IO(b.close))(_ => Halt(e))
+          case Right(line) => Emit(line, next)
+        }
+        next
+      case Left(e) => Halt(e)
+    }
+
+  val io: IO[IndexedSeq[String]] = runLog(q)
+  // equivalent to IO3.Free[Nonblocking.Par, IndexedSeq[String]]
+  println(io)
+
+  // val seq: IndexedSeq[String] = IO3.run(io)(IO3.parMonad)
+  // println(seq)
+
+  service.shutdown()
+
 }

@@ -617,8 +617,26 @@ object SimpleStreamTransducers {
     def sumFile(f: java.io.File): IO[Double] = {
       val fold: (Double,Double)=>Double =
         (acc,sum)=>acc+sum
+      // Process needs to handle possibility of uncastable input string
       val stringToDouble: Process[String,Double] =
         Process.lift((s: String) => s.toDouble)
+
+      val cast: String => Double =
+        (s: String) => s.toDouble
+
+      // val stringToDouble: Process[String,Double] =
+      //   await((s: String) =>
+      //     try {emit(cast(s))}
+      //     catch {
+      //       case nfe: NumberFormatException => {
+      //         // side effect...
+      //         println(nfe)
+      //         Halt[String,Double]()
+      //       }
+      //     }
+      //   )//.repeat
+
+
       processFile(f, stringToDouble, 0.0)(fold)
     }
 
@@ -720,10 +738,14 @@ object GeneralizedStreamTransducers {
      */
     def flatMap[O2](f: O => Process[F,O2]): Process[F,O2] =
       this match {
-        case Halt(err) => Halt(err)
-        case Emit(o, t) => Try(f(o)) ++ t.flatMap(f)
-        case Await(req,recv) =>
-          Await(req, recv andThen (_ flatMap f))
+        case Halt(err: Throwable) =>
+          Halt(err)
+        case Emit(o: O, t: Process[F,O]) =>
+          Try(f(o)) ++ t.flatMap(f)
+        case Await(
+          req: F[_],
+          recv: Function1[Either[Throwable,_], Process[F,O]]
+        ) => Await(req, recv andThen (_ flatMap f))
       }
 
     def repeat: Process[F,O] =
@@ -871,6 +893,8 @@ object GeneralizedStreamTransducers {
     /**
      * Helper function to safely produce `p`, or gracefully halt
      * with an error if an exception is thrown.
+
+     Replace any exception with a Halt.
      */
     def Try[F[_],O](p: => Process[F,O]): Process[F,O] =
       try p
@@ -915,6 +939,8 @@ object GeneralizedStreamTransducers {
      * output of a `Process[IO,O]`. Notice we are using the fact
      * that `IO` can be `run` to produce either a result or an
      * exception.
+
+     Makes sure that resource, in this case an Executor, is closed.
      */
     def runLog[O](src: Process[IO,O]): IO[IndexedSeq[O]] = IO {
       val E = java.util.concurrent.Executors.newFixedThreadPool(4)
@@ -1280,6 +1306,8 @@ object StreamingIOTests {
   //import fpinscala.laziness.Stream
   import java.util.concurrent.ExecutorService
   import java.util.concurrent.Executors
+  import fpinscala.parallelism.Nonblocking.Par
+  import fpinscala.iomonad.IO3
 
 
   val service = Executors.newFixedThreadPool(4)
@@ -1302,7 +1330,13 @@ object StreamingIOTests {
   //  val numberFile = new java.io.File("numbers.txt")
   val numberFile = new java.io.File("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")
   val fahrenheitFile = new java.io.File("fahrenheit.txt")
-  val numberFileSummed: IO[Double] = Process.sumFile(numberFile)
+  val numberFileSummed: IO[Double] =
+    Process.sumFile(numberFile)
+
+  val flawedNumberFile = new java.io.File("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers_flawed.txt")
+  val flawedNumberFileSummed: IO[Double] =
+    Process.sumFile(flawedNumberFile)
+
 
   def main(args: Array[String]): Unit = {
     println("naive function")
@@ -1362,12 +1396,24 @@ object StreamingIOTests {
     println("------------------------------")
     println("summing the numbers in a file")
     val par =
-   fpinscala.iomonad.IO3.run(numberFileSummed)(fpinscala.iomonad.IO3.parMonad)
+     IO3.run(numberFileSummed)(IO3.parMonad)
 
-    val summed = fpinscala.parallelism.Nonblocking.Par.run(service)(par)
+    val summed = Par.run(service)(par)
 
     println("summed")
     println(summed)
+
+    println("with a line in the file that cannot be cast to Double")
+
+    // "abc"
+    // java.lang.NumberFormatException: For input string: "abc"
+
+    val errorPar =
+      IO3.run(flawedNumberFileSummed)(IO3.parMonad)
+    val errorSum = Par.run(service)(errorPar)
+
+    println(errorSum)
+
     service.shutdown()
   }
 }
@@ -1392,5 +1438,32 @@ object InfiniteStreamingIOTest {
   // }
 }
 
+object GeneralizedStreamTransducerTests extends App {
+  import GeneralizedStreamTransducers._
+  import fpinscala.iomonad.IO
+  import Process._
+
+  // val numberFile = new java.io.File("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")
+
+  import java.io.{BufferedReader,FileReader}
+  val p: Process[IO, String] =
+    await(IO(new BufferedReader(new FileReader("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")))) {
+      case Right(b) =>
+        lazy val next: Process[IO,String] = await(IO(b.readLine)) {
+          case Left(e) => await(IO(b.close))(_ => Halt(e))
+          case Right(line) => Emit(line, next)
+        }
+        next
+      case Left(e) => Halt(e)
+    }
+
+  val numbersOut = runLog(p)
+
+  println(numbersOut)
+
+
+
+
+}
 
 
