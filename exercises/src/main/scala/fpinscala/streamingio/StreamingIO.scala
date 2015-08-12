@@ -114,6 +114,28 @@ object SimpleStreamTransducers {
     //   case Emit(h,t) => h #:: t(s)
     // }
 
+
+    /*
+     Path trace for understanding.
+
+     val nums = Stream(1,Stream(2,Stream(3,...)))
+     val passThru: Process[Int,Int] = Await {
+       opI: Option[I] => 
+       opI match {
+         case Some(i) => emit(i, passThru)
+         case None => Halt[Int,Int]()
+       }
+     }
+     val out = passThru.apply(nums)
+     out = Stream(1,Stream(2,Stream(3,...)))
+
+     trace:
+
+     Await {
+
+     
+     */
+
     //@annotation.tailrec
     final def apply(s: FPStream[I]): FPStream[O] = this match {
       case Halt() => FPStream.empty
@@ -464,6 +486,7 @@ object SimpleStreamTransducers {
     //   }
     // }
 
+    def passThru = passThru2
     def passThru2[I]: Process[I,I] = Await {
       (opI: Option[I]) => opI match {
         case Some(i) => emit(i, passThru2)
