@@ -164,9 +164,11 @@ object SimpleStreamTransducers {
       case Await(recv: Function1[Option[I],Process[I,O]]) =>
         s match {
           case FPStream.cons(h, t) => {
-            val processIteration: Process[I,O] = recv(Some(h))
-            println("process: "+processIteration)
-            processIteration.apply(t)
+            val process: Process[I,O] = recv(Some(h))
+            println("process: "+process)
+            val stream: FPStream[O] = process.apply(t)
+            //println("stream node: "+stream)
+            stream
           }
           case xs => recv(None)(xs) // Stream is empty
         }
@@ -610,9 +612,12 @@ object SimpleStreamTransducers {
      */
     def exists[I](f: I => Boolean): Process[I,Boolean] = {
       val g: (I, Boolean) => (Boolean,Boolean) =
-        (next: I, priorDetection: Boolean) =>
-      if(f(next) || priorDetection) (true,true)
-      else (false,false)
+        (next: I, priorDetection: Boolean) => {
+          val e = f(next)
+          println(s"next: $next satisfies f: $e")
+          if(f(next) || priorDetection) (true,true)
+          else (false,false)
+        }
       loop(false)(g)
     }
     // should halt at first existing input found
@@ -1359,7 +1364,7 @@ object StreamingIOTests {
   val service = Executors.newFixedThreadPool(4)
 
 
-  val streamIncrementing: FPStream[Int] = FPStream.from(5)
+  val streamIncrementing: FPStream[Int] = FPStream.from(0)
 
   val f = (x: Int) => x*2
   val p = Process.liftOne(f)
@@ -1427,16 +1432,102 @@ object StreamingIOTests {
     lessThanTen.feedback
 
     println("drop while _ < 10")
-    val tenAndGreater =
-      Process.dropWhile((x:Int)=>x<10)(streamIncrementing)
+    val tenAndGreaterProcess =
+      Process.dropWhile((x:Int)=>x<10)
+    val tenAndGreater = tenAndGreaterProcess.apply(streamIncrementing)
     tenAndGreater.feedback
+
+    println("number 20 exists in Stream")
+    val twentyExists: Process[Int,Boolean] = Process.exists(
+      (i: Int) => i==20)
+    twentyExists(streamIncrementing).feedback
+
+    println("zip with")
+    val tenAndGreaterAndTwentyExists = Process.zip(tenAndGreaterProcess, twentyExists)
+    tenAndGreaterAndTwentyExists.apply(streamIncrementing).feedback
+
+
+/*
+Note this counterintuitive result.  The dropping of all numbers 
+less than 10 *delays* the process checking for the existence of 20.
+
+next: 0 satisfies f: false
+process: Await(<function1>)
+next: 1 satisfies f: false
+process: Await(<function1>)
+next: 2 satisfies f: false
+process: Await(<function1>)
+next: 3 satisfies f: false
+process: Await(<function1>)
+next: 4 satisfies f: false
+process: Await(<function1>)
+next: 5 satisfies f: false
+process: Await(<function1>)
+next: 6 satisfies f: false
+process: Await(<function1>)
+next: 7 satisfies f: false
+process: Await(<function1>)
+next: 8 satisfies f: false
+process: Await(<function1>)
+next: 9 satisfies f: false
+process: Await(<function1>)
+next: 10 satisfies f: false
+process: Emit((10,false),Await(<function1>))
+next: 11 satisfies f: false
+process: Emit((11,false),Await(<function1>))
+next: 12 satisfies f: false
+process: Emit((12,false),Await(<function1>))
+next: 13 satisfies f: false
+process: Emit((13,false),Await(<function1>))
+next: 14 satisfies f: false
+process: Emit((14,false),Await(<function1>))
+next: 15 satisfies f: false
+process: Emit((15,false),Await(<function1>))
+next: 16 satisfies f: false
+process: Emit((16,false),Await(<function1>))
+next: 17 satisfies f: false
+process: Emit((17,false),Await(<function1>))
+next: 18 satisfies f: false
+process: Emit((18,false),Await(<function1>))
+next: 19 satisfies f: false
+process: Emit((19,false),Await(<function1>))
+next: 20 satisfies f: true
+process: Emit((20,false),Await(<function1>))
+next: 21 satisfies f: false
+process: Emit((21,false),Await(<function1>))
+next: 22 satisfies f: false
+process: Emit((22,false),Await(<function1>))
+next: 23 satisfies f: false
+process: Emit((23,false),Await(<function1>))
+next: 24 satisfies f: false
+process: Emit((24,false),Await(<function1>))
+next: 25 satisfies f: false
+process: Emit((25,false),Await(<function1>))
+next: 26 satisfies f: false
+process: Emit((26,false),Await(<function1>))
+next: 27 satisfies f: false
+process: Emit((27,false),Await(<function1>))
+next: 28 satisfies f: false
+process: Emit((28,false),Await(<function1>))
+next: 29 satisfies f: false
+process: Emit((29,false),Await(<function1>))
+next: 30 satisfies f: false
+process: Emit((30,true),Await(<function1>))
+next: 31 satisfies f: false
+process: Emit((31,true),Await(<function1>))
+next: 32 satisfies f: false
+
+
+
+ */
+
 
     println("------------------------------")
     println("composing processes (|>)")
     println("ASCII codes")
-    asciiCodes(streamIncrementing).feedback
+    // asciiCodes(streamIncrementing).feedback
     println("to Char")
-    toChar(streamIncrementing).feedback
+    // toChar(streamIncrementing).feedback
     println("ASCII codes |> to Char")
     (asciiCodes |> toChar)(streamIncrementing).feedback
     println("------------------------------")
@@ -1467,21 +1558,25 @@ object StreamingIOTests {
 object InfiniteStreamingIOTest {
   import SimpleStreamTransducers._
 
-  // val streamUnit: CollectionStream[Unit] = CollectionStream.continually(())
-  // val emitOneForever: Process[Unit,Int] =
-  //   SimpleStreamTransducers.Process.lift((_:Unit)=>1)
-  // val streamOne: CollectionStream[Int] = emitOneForever(streamUnit)
+  val emitOne: Process[Unit,Int] = Process.liftOne((_:Unit)=>1)
+  val emitOneRepeat: Process[Unit,Int] = Process.lift((_:Unit)=>1)
+  //val emitOneForever: Process[Unit,Int] = emitOne.repeat
 
-  // def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {
+    println("note that a Process can limit the length of the output stream")
+    println("but cannot create an output stream of longer length than the input stream")
+    println("infinite stream of Units for input to Process")
+    val infiniteStream = FPStream.constant(())
+    infiniteStream.feedback
+    val stream = emitOne.apply(infiniteStream)
+    println("emit One; Process.liftOne")
+    stream.feedback
 
+    val stream2 = emitOneRepeat.apply(infiniteStream)
+    println("emit One repeat; Process.lift")
+    stream2.feedback
 
-  //   println("stream of units")
-  //   println(streamUnit)
-  //   println("process from Unit to Int (one)")
-  //   println(emitOneForever)
-  //   println("stream of ones")
-  //   println(streamOne)
-  // }
+  }
 }
 
 object GeneralizedStreamTransducerTests extends App {

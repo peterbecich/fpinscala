@@ -111,7 +111,7 @@ trait Stream[+A] {
     }
   }
   def feedback: Unit = 
-    println(this.toListFinite(150))
+    println(this.toListFinite(30))
 
 
   // def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
@@ -317,7 +317,10 @@ trait Stream[+A] {
 
   }
 
-
+  def continually: Stream[A] = this match {
+    case Cons(h,t) => Stream.constant(h())
+    case emp@Empty => emp
+  }
 }
 case object Empty extends fpinscala.laziness.Stream[Nothing]
 case class Cons[+C](h: () => C, t: () => fpinscala.laziness.Stream[C]) extends fpinscala.laziness.Stream[C]
