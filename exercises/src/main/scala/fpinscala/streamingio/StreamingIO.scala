@@ -118,12 +118,12 @@ object SimpleStreamTransducers {
     /*
      Path trace for understanding.
 
-     val nums = Stream(1,Stream(2,Stream(3,...)))
-     val passThru: Process[Int,Int] = Await {
+     val nums = Stream(5,Stream(6,Stream(7,...)))
+     val passThru: Process[I,I] = Await {
        opI: Option[I] => 
        opI match {
          case Some(i) => emit(i, passThru)
-         case None => Halt[Int,Int]()
+         case None => Halt[I,I]()
        }
      }
      val out = passThru.apply(nums)
@@ -131,7 +131,29 @@ object SimpleStreamTransducers {
 
      trace:
 
-     Await {
+     recv: Option[I] => Process[I,I]
+
+     apply(nums) = {
+       nums match {
+         case Stream.Cons(h: Int , t: Stream[Int]) => {
+           val nextProcess: Process[Int,Int] = recv(h): Emit[Int,Int]
+           val streamNode: Stream[Int] = nextProcess.apply(t) <<<< lazy
+           streamNode
+         }
+     }
+
+
+     process: Emit(5,Await(<function1>))
+     process: Emit(6,Await(<function1>))
+     process: Emit(7,Await(<function1>))
+     process: Emit(8,Await(<function1>))
+     process: Emit(9,Await(<function1>))
+     process: Emit(10,Await(<function1>))
+     process: Emit(11,Await(<function1>))
+     process: Emit(12,Await(<function1>))
+     .
+     .
+     .
 
      
      */
@@ -143,6 +165,7 @@ object SimpleStreamTransducers {
         s match {
           case FPStream.cons(h, t) => {
             val processIteration: Process[I,O] = recv(Some(h))
+            println("process: "+processIteration)
             processIteration.apply(t)
           }
           case xs => recv(None)(xs) // Stream is empty
@@ -1350,13 +1373,13 @@ object StreamingIOTests {
   val toChar: Process[Int,Char] = Process.lift((i: Int) => i.toChar)
   val ascii: Process[Int,Char] = asciiCodes |> toChar
 
-  //  val numberFile = new java.io.File("numbers.txt")
-  val numberFile = new java.io.File("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")
-  val fahrenheitFile = new java.io.File("fahrenheit.txt")
+  val numberFile = new java.io.File("resources/numbers.txt")
+
+  val fahrenheitFile = new java.io.File("resources/fahrenheit.txt")
   val numberFileSummed: IO[Double] =
     Process.sumFile(numberFile)
 
-  val flawedNumberFile = new java.io.File("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers_flawed.txt")
+  val flawedNumberFile = new java.io.File("resources/numbers_flawed.txt")
   val flawedNumberFileSummed: IO[Double] =
     Process.sumFile(flawedNumberFile)
 
@@ -1470,7 +1493,7 @@ object GeneralizedStreamTransducerTests extends App {
 
   import java.io.{BufferedReader,FileReader}
   val p: Process[IO, String] =
-    await(IO(new BufferedReader(new FileReader("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")))) {
+    await(IO(new BufferedReader(new FileReader("resources/numbers.txt")))) {
       case Right(b) =>
         lazy val next: Process[IO,String] = await(IO(b.readLine)) {
           case Left(e) => await(IO(b.close))(_ => Halt(e))
