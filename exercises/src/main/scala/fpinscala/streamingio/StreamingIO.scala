@@ -1154,8 +1154,23 @@ object GeneralizedStreamTransducers {
     }
     { src => eval_ { IO(src.close) } }
 
-    /* Exercise 11: Implement `eval`, `eval_`, and use these to implement `lines`. */
-    def eval[F[_],A](a: F[A]): Process[F,A] = ???
+    /* 
+     Exercise 11: 
+     Implement `eval`, `eval_`, and use these to implement `lines`. 
+
+     similar to val 'p' above
+     */
+    def eval[F[_],A](a: F[A]): Process[F,A] = await(a){
+      (either: Either[Throwable,A]) => either match {
+        case Right(a) => {
+          lazy val next: Process[F,A] = emit(a)
+          next
+        }
+        case Left(err) => {
+          Halt(err)
+        }
+      }
+    }
 
     /* Evaluate the action purely for its effects. */
     def eval_[F[_],A,B](a: F[A]): Process[F,B] = ???
