@@ -6,6 +6,9 @@ import java.util.concurrent.ExecutorService
 /*
  * `Task[A]` is a wrapper around `Free[Par, Either[Throwable, A]]`, with some
  * convenience functions for handling exceptions.
+
+ Adds ability to catch and raise exceptions to IO monad.
+
  */
 case class Task[A](get: IO[Either[Throwable, A]]) {
 

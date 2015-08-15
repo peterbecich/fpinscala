@@ -1,6 +1,6 @@
 package fpinscala.streamingio
 
-//                         aka IO3.Free[Par,_]
+//                        IO aka IO3.Free[Par,_]
 import fpinscala.iomonad.{IO,Monad,Free,unsafePerformIO}
 import scala.language.higherKinds
 import scala.language.postfixOps
@@ -546,9 +546,13 @@ object SimpleStreamTransducers {
      * Exercise 2: Implement `count`.
      */
     def count[I]: Process[I,Int] = {
+      println("count: "+this)
       val f: (I,Int)=>(Int,Int) =
-        (i: I, priorCount: Int) => (priorCount+1, priorCount+1)
-      loop(0)(f)
+        (i: I, priorCount: Int) => {
+          println(s"count; i: $i  prior: $priorCount")
+          (priorCount+1, priorCount+1)
+        }
+      loop[Int,I,Int](0)(f)
     }
 
     /* For comparison, here is an explicit recursive implementation. */
@@ -566,11 +570,25 @@ object SimpleStreamTransducers {
       // sum / count
       // flawed because this is akin to a product
       // remember trying to implement Stream's 'zip' with 'product'?
-      sum.flatMap{(s: Double) =>
-        count.map((c: Int) => s/c)
-      }
+      // sum.flatMap{(s: Double) =>
+      //   count.map((c: Int) => s/c)
+      // }
+      val sumAndCountProcess: Process[Double,(Int,Double)] =
+        Process.zip(Process.count[Double],Process.sum)
+      println("sum and count process")
+      println(sumAndCountProcess)
+      val meanProcess: Process[Double,Double] =
+        sumAndCountProcess.map{(tup: (Int,Double)) =>
+          println("tup: "+tup)
+          val s = tup._2
+          val c = tup._1
+          s/c
+        }
+      println("mean process")
+      println(meanProcess)
+      meanProcess
 
-    }
+    }.repeat
 
     def loop[S,I,O](z: S)(f: (I,S) => (O,S)): Process[I,O] =
       await {
@@ -696,7 +714,12 @@ object SimpleStreamTransducers {
     // }
 
 
-    def zip[A,B,C](p1: Process[A,B], p2: Process[A,C]): Process[A,(B,C)] =
+    def zip[A,B,C](p1: Process[A,B], p2: Process[A,C]): Process[A,(B,C)] = {
+      println("_______________")
+      println("zip:")
+      println(p1)
+      println(p2)
+      println("_______________")
       (p1, p2) match {
         case (Halt(), _) => Halt()
         case (_, Halt()) => Halt()
@@ -706,6 +729,7 @@ object SimpleStreamTransducers {
         case (_, Await(recv2)) =>
           Await((oa: Option[A]) => zip(feed(oa)(p1), recv2(oa)))
       }
+    }
 
   }
 }
@@ -817,12 +841,55 @@ object GeneralizedStreamTransducers {
     }
 
     /*
-     * Exercise 10: This function is defined only if given a `MonadCatch[F]`.
-     * Unlike the simple `runLog` interpreter defined in the companion object
-     * below, this is not tail recursive and responsibility for stack safety
-     * is placed on the `Monad` instance.
+     Exercise 10: This function is defined only if given a `MonadCatch[F]`.
+     Unlike the simple `runLog` interpreter defined in the companion object
+     below, this is not tail recursive and responsibility for stack safety
+     is placed on the `Monad` instance.
+
+     This will replace the other runLog definition, provided a monad
+     MonadCatch[IO] ---
+       runLog(implicit monadCatch: MonadCatch[IO]): IO[IndexedSeq[O]]
+
+     How about a simpler example... a Par that produces output
+       runLog(implicit monadCatch: MonadCatch[Par]): Par[IndexedSeq[O]]
+
+     Other examples than IO will make more sense after understanding
+     the possibilities of this parametrized Process.
+     " In order to make Process extensible, we’ll parameterize on
+     the protocol used for issuing requests of the driver. "
      */
-    def runLog(implicit F: MonadCatch[F]): F[IndexedSeq[O]] = ???
+    def runLog(implicit monadCatch: MonadCatch[F]): F[IndexedSeq[O]] =
+      this match {
+        case Await(
+          req: F[_],
+          recv: Function1[Either[Throwable,_],Process[F,O]]
+        ) => {
+          val attempted = monadCatch.attempt(req) // F[Either[Throwable,_]]
+          val fNext = monadCatch.map(attempted){
+            (either: Either[Throwable,_])=> recv(either)
+          } // F[Process[F,O]]
+          //next.runLog(monadCatch): F[IndexedSeq[O]]
+          val fIndexedSeq = monadCatch.flatMap(fNext){
+            (proc: Process[F,O]) => proc.runLog(monadCatch)
+          }
+          fIndexedSeq
+        }
+        case Emit(h, t) => {
+          // merge h: O and IndexedSeq[O]
+          val fO: F[O] = monadCatch.unit(h)
+          val fIndexedSeqO: F[IndexedSeq[O]] = t.runLog
+          val merged = monadCatch.map2(fO,fIndexedSeqO){
+            (o: O, iso: IndexedSeq[O]) => iso :+ o
+          }
+          merged
+        }
+        case Halt(err) => {
+          throw err // caught by case Await?
+          // err match {
+          // case End => monadCatch.unit(IndexedSeq[O]())
+        }
+      }
+
 
     /*
      * We define `Process1` as a type alias - see the companion object
@@ -941,6 +1008,21 @@ object GeneralizedStreamTransducers {
     def await[F[_],A,O](req: F[A])(recv: Either[Throwable,A] => Process[F,O]): Process[F,O] =
       Await(req, recv)
 
+    import fpinscala.iomonad.Monad
+
+    def monad[F[_]]: Monad[({ type f[x] = Process[F,x]})#f] =
+      new Monad[({ type f[x] = Process[F,x]})#f] {
+        def unit[O](o: => O): Process[F,O] = emit(o)
+        def flatMap[O,O2](p: Process[F,O])(f: O => Process[F,O2]): Process[F,O2] =
+          p flatMap f
+      }
+
+    // enable monadic syntax for `Process` type
+    implicit def toMonadic[F[_],O](a: Process[F,O]) =
+      monad[F].toMonadic(a)
+
+
+
     /**
      * Helper function to safely produce `p`, or gracefully halt
      * with an error if an exception is thrown.
@@ -986,6 +1068,12 @@ object GeneralizedStreamTransducers {
      */
 
     /*
+
+     type IO[A] = IO3.IO[A]
+     def IO[A](a: => A): IO[A] = IO3.IO[A](a)
+
+
+
      * Here is a simple tail recursive function to collect all the
      * output of a `Process[IO,O]`. Notice we are using the fact
      * that `IO` can be `run` to produce either a result or an
@@ -1000,7 +1088,7 @@ object GeneralizedStreamTransducers {
         cur match {
           case Emit(h,t) => go(t, acc :+ h)
           case Halt(End) => acc
-          case Halt(err) => throw err
+          case Halt(err) => throw err // caught below?
           case Await(req,recv) =>
             val next =
               try recv(Right(fpinscala.iomonad.unsafePerformIO(req)(E)))
@@ -1018,7 +1106,7 @@ object GeneralizedStreamTransducers {
 
     import java.io.{BufferedReader,FileReader}
     val p: Process[IO, String] =
-      await(IO(new BufferedReader(new FileReader("lines.txt")))) {
+      await(IO(new BufferedReader(new FileReader("resources/lines.txt")))) {
         case Right(b) =>
           lazy val next: Process[IO,String] = await(IO(b.readLine)) {
             case Left(e) => await(IO(b.close))(_ => Halt(e))
@@ -1075,6 +1163,9 @@ object GeneralizedStreamTransducers {
     /* Helper function with better type inference. */
     def evalIO[A](a: IO[A]): Process[IO,A] =
       eval[IO,A](a)
+
+
+
 
     /*
      * We now have nice, resource safe effectful sources, but we don't
@@ -1153,6 +1244,7 @@ object GeneralizedStreamTransducers {
      call this a `Tee`, after the letter 'T', which looks like a
      little diagram of two inputs being combined into one output.
 
+     Note that MonadCatch[T] is not defined.  Cannot use runLog?
      */
 
     case class T[I,I2]() {
@@ -1231,7 +1323,14 @@ object GeneralizedStreamTransducers {
       eval(IO(a)).flatMap { a => Emit(a, constant(a)) }
 
     /* Exercise 12: Implement `join`. Notice this is the standard monadic combinator! */
-    def join[F[_],A](p: Process[F,Process[F,A]]): Process[F,A] = ???
+    // use monad
+    def join[F[_],A](p: Process[F,Process[F,A]]): Process[F,A] = {
+      val md = monad[F]
+      md.join(p)
+    }
+      // p.flatMap {
+      //   (procFA: Process[F,A]) => procFA
+      // }
 
     /*
      * An example use of the combinators we have so far: incrementally
@@ -1347,7 +1446,11 @@ object ProcessTest extends App {
     case e => Halt(e)
   }
 
-  println { Process.runLog { p2.onComplete(p2).onComplete(p2).take(1).take(1) } }
+  println {
+    Process.runLog {
+      p2.onComplete(p2).onComplete(p2).take(1).take(1)
+    }
+  }
   println { Process.runLog(converter) }
   // println { Process.collect(Process.convertAll) }
 }
@@ -1416,14 +1519,24 @@ object StreamingIOTests {
       )
     println(streamEven)
     streamEven.feedback
-    println("incrementing sum of these")
-    val incSum = Process.sum.apply(streamEven.map(_.toDouble))
-    incSum.feedback
-    println("incrementing count of these")
-    val incCount = Process.count(streamEven.map(_.toDouble))
-    incCount.feedback
+
+    println("count ints")
+    Process.count(streamEven).feedback
+
+    println("count doubles")
+    Process.count(streamEven.map(_.toDouble)).feedback
+
+
+
+    // println("incrementing sum of these")
+    // val incSum = Process.sum.apply(streamEven.map(_.toDouble))
+    // incSum.feedback
+    // println("incrementing count of these")
+    // val incCount = Process.count(streamEven.map(_.toDouble))
+    // incCount.feedback
+
     println("incrementing mean of these")
-    val incMean = Process.mean(streamEven.map(_.toDouble))
+    val incMean = Process.mean(streamEven.map((i:Int)=>i.toDouble))
     incMean.feedback
 
     println("take while _ < 10")
@@ -1447,6 +1560,10 @@ object StreamingIOTests {
     tenAndGreaterAndTwentyExists.apply(streamIncrementing).feedback
 
 
+    println("ten and greater zipped with count")
+    val countZip = Process.zip(tenAndGreaterProcess, Process.count[Int])
+
+    countZip.apply(streamIncrementing).feedback
 /*
 Note this counterintuitive result.  The dropping of all numbers 
 less than 10 *delays* the process checking for the existence of 20.
@@ -1564,7 +1681,9 @@ object InfiniteStreamingIOTest {
 
   def main(args: Array[String]): Unit = {
     println("note that a Process can limit the length of the output stream")
-    println("but cannot create an output stream of longer length than the input stream")
+    println("but cannot create an output stream of longer length than the input stream.")
+    println("Note wording in section 15.3: Process can request to Emit values multiple times.")
+    println("Process.apply is not so much the 'driver' as the input Stream is.  The input Stream can limit the ouput of the Process, rejecting the 'request'.")
     println("infinite stream of Units for input to Process")
     val infiniteStream = FPStream.constant(())
     infiniteStream.feedback
