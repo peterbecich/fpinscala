@@ -332,6 +332,11 @@ object SimpleStreamTransducers {
     def filter(f: O => Boolean): Process[I,O] =
       this |> Process.filter(f)
 
+    def prefilter(f: I => Boolean): Process[I,O] = {
+      Process.filter(f) |> this
+    }
+
+
     /*
      * Exercise 6: Implement `zipWithIndex`.
       with \>  ?
@@ -683,15 +688,29 @@ object SimpleStreamTransducers {
 
 
     // add all the values (separated by line) in the file together
+    // first version of Process doesn't handle errors
     def sumFile(f: java.io.File): IO[Double] = {
+      val cast: String => Double =
+        (s: String) => s.toDouble
+
       val fold: (Double,Double)=>Double =
         (acc,sum)=>acc+sum
+      // http://stackoverflow.com/questions/9938098/how-to-check-to-see-if-a-string-is-a-decimal-number-in-scala
+
+      val filter = (s: String) => !s.startsWith("#") &&
+          s.forall{(c: Char) => c.isDigit}
+
       // Process needs to handle possibility of uncastable input string
+      // val filtered: Process[String,String] =
+      //   Process.passThru2[String].filter(filter)
+
       val stringToDouble: Process[String,Double] =
         Process.lift((s: String) => s.toDouble)
 
-      val cast: String => Double =
-        (s: String) => s.toDouble
+      // val composed: Process[String,Double] = filtered |> stringToDouble
+
+      val composed: Process[String,Double] =
+        stringToDouble.prefilter(filter)
 
       // val stringToDouble: Process[String,Double] =
       //   await((s: String) =>
@@ -706,7 +725,7 @@ object SimpleStreamTransducers {
       //   )//.repeat
 
 
-      processFile(f, stringToDouble, 0.0)(fold)
+      processFile(f, composed, 0.0)(fold)
     }
 
     // def celsiusFileWriter: IO = IO {
