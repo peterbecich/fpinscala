@@ -6,6 +6,9 @@ import scala.language.higherKinds
 /*
  * A context in which exceptions can be caught and
  * thrown.
+
+ Don't forget to implement Monad primitives unit and flatMap
+ (for this particular Monad trait)
  */
 trait MonadCatch[F[_]] extends Monad[F] {
   def attempt[A](a: F[A]): F[Either[Throwable,A]]

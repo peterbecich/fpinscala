@@ -1,7 +1,7 @@
 package fpinscala.streamingio
 
 //                        IO aka IO3.Free[Par,_]
-import fpinscala.iomonad.{IO,Monad,Free,unsafePerformIO}
+import fpinscala.iomonad.{IO,TailRec,Monad,Free,unsafePerformIO}
 import scala.language.higherKinds
 import scala.language.postfixOps
 import scala.language.implicitConversions
@@ -698,7 +698,8 @@ object SimpleStreamTransducers {
       // http://stackoverflow.com/questions/9938098/how-to-check-to-see-if-a-string-is-a-decimal-number-in-scala
 
       val filter = (s: String) => !s.startsWith("#") &&
-          s.forall{(c: Char) => c.isDigit}
+      s.forall{(c: Char) => c.isDigit} &&
+      !s.isEmpty
 
       // Process needs to handle possibility of uncastable input string
       // val filtered: Process[String,String] =
@@ -789,14 +790,14 @@ object GeneralizedStreamTransducers {
      * `Process` type, regardless of the choice of `F`.
      */
 
-    def map[O2](f: O => O2): Process[F,O2] = this match {
+    def map[O2](f: O => O2): TailRec[Process[F,O2]] = this match {
       case Await(req,recv) =>
         Await(req, recv andThen (_ map f))
       case Emit(h, t) => Try { Emit(f(h), t map f) }
       case Halt(err) => Halt(err)
     }
 
-    def ++(p: => Process[F,O]): Process[F,O] =
+    def ++(p: => Process[F,O]): TailRec[Process[F,O]] =
       this.onHalt {
         case End => Try(p) // we consult `p` only on normal termination
         case err => Halt(err)
@@ -805,14 +806,14 @@ object GeneralizedStreamTransducers {
     /*
      * Like `++`, but _always_ runs `p`, even if `this` halts with an error.
      */
-    def onComplete(p: => Process[F,O]): Process[F,O] =
+    def onComplete(p: => Process[F,O]): TailRec[Process[F,O]] =
       this.onHalt {
         case End => p.asFinalizer
         case err => p.asFinalizer ++ Halt(err) // we always run `p`, but preserve any errors
       }
 
-    def asFinalizer: Process[F,O] = this match {
-      case Emit(h, t) => Emit(h, t.asFinalizer)
+    def asFinalizer: TailRec[Process[F,O]] = this match {
+      case Emit(h, t) => Emit(h, t.map(_.asFinalizer))
       case Halt(e) => Halt(e)
       case Await(req,recv) => await(req) {
         case Left(Kill) => this.asFinalizer
@@ -820,17 +821,18 @@ object GeneralizedStreamTransducers {
       }
     }
 
-    def onHalt(f: Throwable => Process[F,O]): Process[F,O] = this match {
-      case Halt(e) => Try(f(e))
-      case Emit(h, t) => Emit(h, t.onHalt(f))
-      case Await(req,recv) => Await(req, recv andThen (_.onHalt(f)))
-    }
+    def onHalt(f: Throwable => Process[F,O]): TailRec[Process[F,O]] =
+      this match {
+        case Halt(e) => Try(f(e))
+        case Emit(h, t) => Emit(h, t.onHalt(f))
+        case Await(req,recv) => Await(req, recv andThen (_.onHalt(f)))
+      }
 
     /*
      * Anywhere we _call_ `f`, we catch exceptions and convert them to `Halt`.
      * See the helper function `Try` defined below.
      */
-    def flatMap[O2](f: O => Process[F,O2]): Process[F,O2] =
+    def flatMap[O2](f: O => Process[F,O2]): TailRec[Process[F,O2]] =
       this match {
         case Halt(err: Throwable) =>
           Halt(err)
@@ -842,10 +844,10 @@ object GeneralizedStreamTransducers {
         ) => Await(req, recv andThen (_ flatMap f))
       }
 
-    def repeat: Process[F,O] =
+    def repeat: TailRec[Process[F,O]] =
       this ++ this.repeat
 
-    def repeatNonempty: Process[F,O] = {
+    def repeatNonempty: TailRec[Process[F,O]] = {
       val cycle = (this.map(o => Some(o): Option[O]) ++ emit(None)).repeat
       // cut off the cycle when we see two `None` values in a row, as this
       // implies `this` has produced no values during an iteration
@@ -858,6 +860,21 @@ object GeneralizedStreamTransducers {
         case Some(o) => emit(o)
       }
     }
+
+    import fpinscala.iomonad.IO3
+    val ioMonad = new MonadCatch[IO] {
+//      val monadWithoutCatch = IO3.freeMonad[IO]
+      def unit[A](a: => A): IO[A] = IO(a) // defined in package object iomonad
+        //monadWithoutCatch.unit(a)
+      def flatMap[A,B](a: IO[A])(f: A => IO[B]): IO[B] =
+        a.flatMap(f)
+      //monadWithoutCatch.flatMap(a)(f)
+      def attempt[A](a: IO[A]): IO[Either[Throwable,A]]
+
+      def fail[A](t: Throwable): IO[A]
+    }
+
+    //with IO3.freeMonad[IO]
 
     /*
      Exercise 10: This function is defined only if given a `MonadCatch[F]`.
@@ -922,7 +939,7 @@ object GeneralizedStreamTransducers {
      * `kill` this process, giving it a chance to run any cleanup
      * actions (like closing file handles, etc).
      */
-    def |>[O2](p2: Process1[O,O2]): Process[F,O2] = {
+    def |>[O2](p2: Process1[O,O2]): TailRec[Process[F,O2]] = {
       p2 match {
         case Halt(e) => this.kill onHalt { e2 => Halt(e) ++ Halt(e2) }
         case Emit(h, t) => Emit(h, this |> t)
@@ -935,7 +952,7 @@ object GeneralizedStreamTransducers {
     }
 
     @annotation.tailrec
-    final def kill[O2]: Process[F,O2] = this match {
+    final def kill[O2]: TailRec[Process[F,O2]] = this match {
       case Await(req,recv) => recv(Left(Kill)).drain.onHalt {
         case Kill => Halt(End) // we convert the `Kill` exception back to normal termination
         case e => Halt(e)
@@ -945,22 +962,22 @@ object GeneralizedStreamTransducers {
     }
 
     /** Alias for `this |> p2`. */
-    def pipe[O2](p2: Process1[O,O2]): Process[F,O2] =
+    def pipe[O2](p2: Process1[O,O2]): TailRec[Process[F,O2]] =
       this |> p2
 
-    final def drain[O2]: Process[F,O2] = this match {
+    final def drain[O2]: TailRec[Process[F,O2]] = this match {
       case Halt(e) => Halt(e)
       case Emit(h, t) => t.drain
       case Await(req,recv) => Await(req, recv andThen (_.drain))
     }
 
-    def filter(f: O => Boolean): Process[F,O] =
+    def filter(f: O => Boolean): TailRec[Process[F,O]] =
       this |> Process.filter(f)
 
-    def take(n: Int): Process[F,O] =
+    def take(n: Int): TailRec[Process[F,O]] =
       this |> Process.take(n)
 
-    def once: Process[F,O] = take(1)
+    def once: TailRec[Process[F,O]] = take(1)
 
     /*
      * Use a `Tee` to interleave or combine the outputs of `this` and
@@ -974,7 +991,8 @@ object GeneralizedStreamTransducers {
      * which feed the `Tee` in a tail-recursive loop as long as
      * it is awaiting input.
      */
-    def tee[O2,O3](p2: Process[F,O2])(t: Tee[O,O2,O3]): Process[F,O3] = {
+    def tee[O2,O3](p2: Process[F,O2])(t: Tee[O,O2,O3]):
+        TailRec[Process[F,O3]] = {
       t match {
         case Halt(e) => this.kill onComplete p2.kill onComplete Halt(e)
         case Emit(h,t) => Emit(h, (this tee p2)(t))
@@ -995,44 +1013,61 @@ object GeneralizedStreamTransducers {
       }
     }
 
-    def zipWith[O2,O3](p2: Process[F,O2])(f: (O,O2) => O3): Process[F,O3] =
+    def zipWith[O2,O3](p2: Process[F,O2])(f: (O,O2) => O3):
+        TailRec[Process[F,O3]] =
       (this tee p2)(Process.zipWith(f))
 
-    def zip[O2](p2: Process[F,O2]): Process[F,(O,O2)] =
+    def zip[O2](p2: Process[F,O2]): TailRec[Process[F,(O,O2)]] =
       zipWith(p2)((_,_))
 
-    def to[O2](sink: Sink[F,O]): Process[F,Unit] =
+    def to[O2](sink: Sink[F,O]): TailRec[Process[F,Unit]] =
       join { (this zipWith sink)((o,f) => f(o)) }
 
-    def through[O2](p2: Channel[F, O, O2]): Process[F,O2] =
+    def through[O2](p2: Channel[F, O, O2]): TailRec[Process[F,O2]] =
       join { (this zipWith p2)((o,f) => f(o)) }
   }
 
   object Process {
     case class Await[F[_],A,O](
       req: F[A],
-      recv: Either[Throwable,A] => Process[F,O]) extends Process[F,O]
+      recv: Either[Throwable,A] => TailRec[Process[F,O]])
+        extends Process[F,O]
+    def Await[F[_],A,O](
+      req: F[A],
+      recv: Either[Throwable,A] => Process[F,O]): Await[F,A,O] = {
+      val lifted: Either[Throwable,A] => TailRec[Process[F,O]]  =
+        (eta: Either[Throwable,A]) => TailRec.retrn(recv(eta))
+      Await(req, lifted)
+    }
+    // learn implicits
+
+    implicit def liftRecv[F[_],A,O](
+      recv: Either[Throwable,A] => TailRec[Process[F,O]]):
+        Either[Throwable,A] => TailRec[Process[F,O]]  =
+      (eta: Either[Throwable,A]) => TailRec.retrn(recv(eta))
+
 
     case class Emit[F[_],O](
       head: O,
-      tail: Process[F,O]) extends Process[F,O]
+      tail: TailRec[Process[F,O]]) extends Process[F,O]
 
     case class Halt[F[_],O](err: Throwable) extends Process[F,O]
 
     def emit[F[_],O](
       head: O,
-      tail: Process[F,O] = Halt[F,O](End)): Process[F,O] =
+      tail: Process[F,O] = Halt[F,O](End)): TailRec[Process[F,O]] =
       Emit(head, tail)
 
-    def await[F[_],A,O](req: F[A])(recv: Either[Throwable,A] => Process[F,O]): Process[F,O] =
+    def await[F[_],A,O](req: F[A])(recv: Either[Throwable,A] => Process[F,O]): TailRec[Process[F,O]] =
       Await(req, recv)
 
     import fpinscala.iomonad.Monad
 
-    def monad[F[_]]: Monad[({ type f[x] = Process[F,x]})#f] =
-      new Monad[({ type f[x] = Process[F,x]})#f] {
-        def unit[O](o: => O): Process[F,O] = emit(o)
-        def flatMap[O,O2](p: Process[F,O])(f: O => Process[F,O2]): Process[F,O2] =
+    def monad[F[_]]: Monad[({ type f[x] = TailRec[Process[F,x]]})#f] =
+      new Monad[({ type f[x] = TailRec[Process[F,x]]})#f] {
+        def unit[O](o: => O): TailRec[Process[F,O]] = emit(o)
+        def flatMap[O,O2](p: Process[F,O])(f: O => Process[F,O2]):
+            TailRec[Process[F,O2]] =
           p flatMap f
       }
 
@@ -1048,7 +1083,7 @@ object GeneralizedStreamTransducers {
 
      Replace any exception with a Halt.
      */
-    def Try[F[_],O](p: => Process[F,O]): Process[F,O] =
+    def Try[F[_],O](p: => Process[F,O]): TailRec[Process[F,O]] =
       try p
       catch { case e: Throwable => Halt(e) }
 
@@ -1056,7 +1091,8 @@ object GeneralizedStreamTransducers {
      * Safely produce `p`, or run `cleanup` and halt gracefully with the
      * exception thrown while evaluating `p`.
      */
-    def TryOr[F[_],O](p: => Process[F,O])(cleanup: Process[F,O]): Process[F,O] =
+    def TryOr[F[_],O](p: => Process[F,O])(cleanup: Process[F,O]):
+        TailRec[Process[F,O]] =
       try p
       catch { case e: Throwable => cleanup ++ Halt(e) }
 
@@ -1064,7 +1100,9 @@ object GeneralizedStreamTransducers {
      * Safely produce `p`, or run `cleanup` or `fallback` if an exception
      * occurs while evaluating `p`.
      */
-    def TryAwait[F[_],O](p: => Process[F,O])(fallback: Process[F,O], cleanup: Process[F,O]): Process[F,O] =
+    def TryAwait[F[_],O](p: => Process[F,O])(
+      fallback: Process[F,O], cleanup: Process[F,O]):
+        TailRec[Process[F,O]] =
       try p
       catch {
         case End => fallback
@@ -1751,11 +1789,11 @@ object GeneralizedStreamTransducerTests extends App {
       case Left(e) => Halt(e)
     }
 
-  val numbersOut = runLog(p)
+  // val numbersOut = runLog(p)
 
-  println(numbersOut)
+  // println(numbersOut)
 
-
+  val numbers = p.runLog
 
 
 }

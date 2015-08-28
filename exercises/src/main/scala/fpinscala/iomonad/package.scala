@@ -10,6 +10,15 @@ package object iomonad {
   type IO[A] = IO3.IO[A]
   def IO[A](a: => A): IO[A] = IO3.IO[A](a)
 
+  type TailRec[A] = IO3.TailRec[A]
+  object TailRec {
+    def retrn[A](a: A): TailRec[A] = IO3.Return(a)
+    def suspend[A](func0A: Function0[A]): TailRec[A] = IO3.Suspend(func0A)
+    //def flatMap[A,B](b: A => TailRec[B]): TailRec[B] = 
+
+
+  }
+
   implicit val ioMonad = IO3.freeMonad[Par]
 
   def now[A](a: A): IO[A] = IO3.Return(a)

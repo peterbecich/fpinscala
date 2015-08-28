@@ -576,8 +576,11 @@ object IO3 {
   // def suspend[F[_],A](a: => Free[F,A]): Free[F,A] =
   //   Suspend(() => ()).flatMap { _ => a }
 
-  def suspend[F[_],A](a: => TailRec[A]): TailRec[A] =
+  // later, generalize these helper functions past TailRec
+  // def return[A](a: A): TailRec[A] = Return(() => a)
+  def suspend[A](a: => TailRec[A]): TailRec[A] =
     Suspend(() => ()).flatMap { _ => a }
+  // def flatMap[A,B](f: A => TailRec[B])
 
   case class Return[F[_],A](a: A) extends Free[F, A]
   case class Suspend[F[_],A](s: F[A]) extends Free[F, A]
@@ -607,40 +610,43 @@ object IO3 {
   // Exercise 2: Implement a specialized `Function0` interpreter.
   // narrow scope for TailRec
   // Exercise 2: Implement a specialized `Function0` interpreter.
-  @annotation.tailrec
-  def runTrampoline2[A](a: Free[Function0,A]): A = a match {
-    case Return(a) => a
-    case Suspend(r) => r()
-    case FlatMap(x,f) => x match {
-      case Return(a) => runTrampoline2 { f(a) }
-      case Suspend(r) => runTrampoline2 { f(r()) }
-      case FlatMap(a0,g) => runTrampoline2 {
-        a0 flatMap { a0 => g(a0) flatMap f }
-      }
-    }
-  }
+  // @annotation.tailrec
+  // def runTrampoline2[A](a: Free[Function0,A]): A = a match {
+  //   case Return(a) => a
+  //   case Suspend(r) => r()
+  //   case FlatMap(x,f) => x match {
+  //     case Return(a) => runTrampoline2 { f(a) }
+  //     case Suspend(r) => runTrampoline2 { f(r()) }
+  //     case FlatMap(a0,g) => runTrampoline2 {
+  //       a0 flatMap { a0 => g(a0) flatMap f }
+  //     }
+  //   }
+  // }
+
+//   @annotation.tailrec
+//   def runTrampoline[A](tra: Free[Function0,A]): A =
+//     tra match {
+      // Return(A)// 
+//       case Return(a1) => a1
+      // Suspend(Function0[A])// 
+//       case Suspend(function0A1) => function0A1()
+      // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]// 
+//       case FlatMap(free1, aFree2) => free1 match {
+        // Return(A)// 
+//         case Return(a2) => runTrampoline(aFree2(a2))
+        // Suspend(Function0[A])// 
+//         case Suspend(function0A) => runTrampoline(aFree2(function0A()))
+//         case FlatMap(a0,g) =>
+//           runTrampoline {
+//             a0 flatMap { a0 => g(a0) flatMap aFree2 }
+//           }
+//       }
+//     }
+  def runTrampoline[A](a: Free[Function0,A]): A = runTrampoline3(a)
+  def runTrampoline2[A](a: Free[Function0,A]): A = runTrampoline3(a)
 
   @annotation.tailrec
-  def runTrampoline[A](tra: Free[Function0,A]): A =
-    tra match {
-      // Return(A)
-      case Return(a1) => a1
-      // Suspend(Function0[A])
-      case Suspend(function0A1) => function0A1()
-      // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]
-      case FlatMap(free1, aFree2) => free1 match {
-        // Return(A)
-        case Return(a2) => runTrampoline(aFree2(a2))
-        // Suspend(Function0[A])
-        case Suspend(function0A) => runTrampoline(aFree2(function0A()))
-        case FlatMap(a0,g) =>
-          runTrampoline {
-            a0 flatMap { a0 => g(a0) flatMap aFree2 }
-          }
-      }
-    }
-  @annotation.tailrec
-  def runTrampoline3[A](tra: Free[Function0,A]): A =
+  def runTrampoline3[A](tra: TailRec[A]): A =
     tra match {
       // Return(A)
       case Return(a1) => a1
@@ -683,26 +689,26 @@ object IO3 {
    Possibly related to: http://stackoverflow.com/questions/31058950/scala-type-annotations-make-tail-recursion-check-fail
    */
   //@annotation.tailrec
-  def runTrampoline4[A](tra: Free[Function0,A]): A =
-    tra match {
-      // Return(A)
-      case Return(a1: A) => a1
-      // Suspend(Function0[A])
-      case Suspend(function0A1: Function0[A]) => function0A1()
-      // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]
-      case FlatMap(free1: Free[Function0,A],
-        aFree2: Function1[A,Free[Function0,A]]) => free1 match {
-        // Return(A)
-        case Return(a2: A) => runTrampoline4(aFree2(a2))
-        // Suspend(Function0[A])
-        case Suspend(function0A: Function0[A]) =>
-          runTrampoline4(aFree2(function0A()))
-        case FlatMap(a0: A, g: Function1[A,Free[Function0,A]]) =>
-          runTrampoline4 {
-            a0 flatMap { a0 => g(a0) flatMap aFree2 }
-          }
-      }
-    }
+//   def runTrampoline4[A](tra: Free[Function0,A]): A =
+//     tra match {
+      // Return(A)// 
+//       case Return(a1: A) => a1
+      // Suspend(Function0[A])// 
+//       case Suspend(function0A1: Function0[A]) => function0A1()
+      // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]// 
+//       case FlatMap(free1: Free[Function0,A],
+//         aFree2: Function1[A,Free[Function0,A]]) => free1 match {
+        // Return(A)// 
+//         case Return(a2: A) => runTrampoline4(aFree2(a2))
+        // Suspend(Function0[A])// 
+//         case Suspend(function0A: Function0[A]) =>
+//           runTrampoline4(aFree2(function0A()))
+//         case FlatMap(a0: A, g: Function1[A,Free[Function0,A]]) =>
+//           runTrampoline4 {
+//             a0 flatMap { a0 => g(a0) flatMap aFree2 }
+//           }
+//       }
+//     }
 
 
   // Exercise 3:
