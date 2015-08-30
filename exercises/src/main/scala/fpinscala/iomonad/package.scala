@@ -19,7 +19,7 @@ package object iomonad {
       IO3.suspend(tailRecA)
     def flatMap[A,B](tailRecA: TailRec[A])(
       f: Function1[A,TailRec[B]]): TailRec[B] =
-      IO3.FlatMap[Function0, A, B](tailRecA)(f)
+      IO3.FlatMap[Function0, A, B](tailRecA,f)
 
 
   }

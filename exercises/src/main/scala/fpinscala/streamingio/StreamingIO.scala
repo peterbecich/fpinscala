@@ -782,6 +782,32 @@ object GeneralizedStreamTransducers {
 
    */
 
+  import fpinscala.iomonad.IO3
+  import fpinscala.iomonad.Task
+  // translate an IO into a Task
+  // we have MonadCatch[Task] already
+
+  val ioMonad = new MonadCatch[IO] {
+    //      val monadWithoutCatch = IO3.freeMonad[IO]
+    def unit[A](a: => A): IO[A] = IO(a) // defined in package object iomonad
+                                        //monadWithoutCatch.unit(a)
+    def flatMap[A,B](a: IO[A])(f: A => IO[B]): IO[B] =
+      a.flatMap(f)
+    //monadWithoutCatch.flatMap(a)(f)
+
+    /* recall IO[A] = Free[Par,A]
+     IO does not have built-in containment or handling of failure.
+     It can only by handled by adding these features to type A,
+     i.e. Option[A]
+     */
+    def attempt[A](a: IO[A]): IO[Either[Throwable,A]] =
+      a.map((a: A) => Right(a))
+
+    def fail[A](t: Throwable): IO[A] = throw t
+    // not graceful!  note this eludes the typechecker
+  }
+
+
   trait Process[F[_],O] {
     import Process._
 
@@ -860,18 +886,6 @@ object GeneralizedStreamTransducers {
       }
     }
 
-    import fpinscala.iomonad.IO3
-    val ioMonad = new MonadCatch[IO] {
-//      val monadWithoutCatch = IO3.freeMonad[IO]
-      def unit[A](a: => A): IO[A] = IO(a) // defined in package object iomonad
-        //monadWithoutCatch.unit(a)
-      def flatMap[A,B](a: IO[A])(f: A => IO[B]): IO[B] =
-        a.flatMap(f)
-      //monadWithoutCatch.flatMap(a)(f)
-      def attempt[A](a: IO[A]): IO[Either[Throwable,A]]
-
-      def fail[A](t: Throwable): IO[A]
-    }
 
     //with IO3.freeMonad[IO]
 
@@ -912,7 +926,7 @@ object GeneralizedStreamTransducers {
         case Emit(h, t) => {
           // merge h: O and IndexedSeq[O]
           val fO: F[O] = monadCatch.unit(h)
-          val fIndexedSeqO: F[IndexedSeq[O]] = t.runLog
+          val fIndexedSeqO: F[IndexedSeq[O]] = t.runLog(monadCatch)
           val merged = monadCatch.map2(fO,fIndexedSeqO){
             (o: O, iso: IndexedSeq[O]) => iso :+ o
           }
@@ -1751,11 +1765,15 @@ object InfiniteStreamingIOTest {
 object GeneralizedStreamTransducerTests extends App {
   import GeneralizedStreamTransducers._
   import fpinscala.iomonad.IO
+  import fpinscala.iomonad.IO3
+
   import Process._
+  import fpinscala.parallelism.Nonblocking.Par
 
   // val numberFile = new java.io.File("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")
 
   import java.io.{BufferedReader,FileReader}
+  // can't think of a way to turn p into Process[Task,String]
   val p: Process[IO, String] =
     await(IO(new BufferedReader(new FileReader("resources/numbers.txt")))) {
       case Right(b) =>
@@ -1771,9 +1789,26 @@ object GeneralizedStreamTransducerTests extends App {
 
   // println(numbersOut)
 
-  val numbers = p.runLog
+  val io = p.runLog(ioMonad)
+  println("IO to be run:")
+  println(io)
 
+  // later, merge Monad in IOMonad package with Monad in Monads package
+  val par = IO3.run(io)(IO3.parMonad)
 
+  println("par to be run:")
+  println(par)
+
+  import java.util.concurrent.ExecutorService
+  import java.util.concurrent.Executors
+
+  val service = Executors.newFixedThreadPool(4)
+
+  val numbers = Par.run(service)(par)
+  println("numbers:")
+  println(numbers)
+
+  service.shutdown()
 }
 
 
