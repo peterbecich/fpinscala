@@ -13,8 +13,13 @@ package object iomonad {
   type TailRec[A] = IO3.TailRec[A]
   object TailRec {
     def retrn[A](a: A): TailRec[A] = IO3.Return(a)
-    def suspend[A](func0A: Function0[A]): TailRec[A] = IO3.Suspend(func0A)
-    //def flatMap[A,B](b: A => TailRec[B]): TailRec[B] = 
+    //def suspend[A](func0A: Function0[A]): TailRec[A] = IO3.Suspend(func0A)
+    //def flatMap[A,B](b: A => TailRec[B]): TailRec[B] =
+    def suspend[A](tailRecA: => TailRec[A]): TailRec[A] =
+      IO3.suspend(tailRecA)
+    def flatMap[A,B](tailRecA: TailRec[A])(
+      f: Function1[A,TailRec[B]]): TailRec[B] =
+      IO3.FlatMap[Function0, A, B](tailRecA)(f)
 
 
   }

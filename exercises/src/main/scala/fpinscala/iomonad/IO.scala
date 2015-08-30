@@ -646,6 +646,9 @@ object IO3 {
   def runTrampoline2[A](a: Free[Function0,A]): A = runTrampoline3(a)
 
   @annotation.tailrec
+  //                    tra: Free[Function0,A]: A
+  //          trampoline GeneralizedStreamTransducers
+  //                    tra: Free[Function0, Process[F,O]]: Process[F,O]
   def runTrampoline3[A](tra: TailRec[A]): A =
     tra match {
       // Return(A)
