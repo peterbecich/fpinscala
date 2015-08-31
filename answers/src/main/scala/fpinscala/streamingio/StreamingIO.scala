@@ -1146,7 +1146,7 @@ object ProcessTest extends App {
 
   import java.io.{BufferedReader,FileReader}
   val q: Process[IO, String] =
-    await(IO(new BufferedReader(new FileReader("/home/peterbecich/scala/fpinscala/exercises/src/main/scala/fpinscala/streamingio/numbers.txt")))) {
+    await(IO(new BufferedReader(new FileReader("resources/numbers.txt")))) {
       case Right(b) =>
         lazy val next: Process[IO,String] = await(IO(b.readLine)) {
           case Left(e) => await(IO(b.close))(_ => Halt(e))
@@ -1158,10 +1158,14 @@ object ProcessTest extends App {
 
   val io: IO[IndexedSeq[String]] = runLog(q)
   // equivalent to IO3.Free[Nonblocking.Par, IndexedSeq[String]]
-  println(io)
+  println("IO: "+io)
 
-  // val seq: IndexedSeq[String] = IO3.run(io)(IO3.parMonad)
-  // println(seq)
+  val par: Par[IndexedSeq[String]] = IO3.run(io)(IO3.parMonad)
+  println("par: "+par)
+
+  val strings: IndexedSeq[String] = Par.run(service)(par)
+  println("strings: "+strings)
+
 
   service.shutdown()
 
