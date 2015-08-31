@@ -721,7 +721,8 @@ object IO3 {
   // run[Function0[_],A](Free[Function0,A])(Monad[Function0]):
   //                                        Function0[A]
   // will return Par[A], Async[A]...
-  
+
+  // for IO, freeFA: Free[Par,A]
   def run[F[_],A](freeFA: Free[F,A])(implicit F: Monad[F]): F[A] =
     step(freeFA) match {
       case Return(a) => F.unit(a)
@@ -830,7 +831,9 @@ object IO3 {
 
   implicit val parMonad = new Monad[Par] {
     def unit[A](a: => A) = Par.unit(a)
-    def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
+    def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.flatMap(a)(f)
+
+    // def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
   }
 
   //@annotation.tailrec
