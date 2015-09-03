@@ -37,7 +37,10 @@ object IO3 {
     f: A => Free[F, B]) extends Free[F, B]
 
   type TailRec[A] = Free[Function0, A]
-  type Async[A] = Free[Par, A]
+  //type Async[A] = Free[Par, A]
+  // later
+  // type IO[A] = Free[Par, A]
+
 
   // Exercise 1: Implement the free monad
   // Using def instead of 'object freeMonad extends Monad...'
@@ -55,49 +58,12 @@ object IO3 {
       //   case Suspend[F,A](
       // }
     }
-  // Exercise 2: Implement a specialized `Function0` interpreter.
-  // narrow scope for TailRec
-  // Exercise 2: Implement a specialized `Function0` interpreter.
-  // @annotation.tailrec
-  // def runTrampoline2[A](a: Free[Function0,A]): A = a match {
-  //   case Return(a) => a
-  //   case Suspend(r) => r()
-  //   case FlatMap(x,f) => x match {
-  //     case Return(a) => runTrampoline2 { f(a) }
-  //     case Suspend(r) => runTrampoline2 { f(r()) }
-  //     case FlatMap(a0,g) => runTrampoline2 {
-  //       a0 flatMap { a0 => g(a0) flatMap f }
-  //     }
-  //   }
-  // }
-
-//   @annotation.tailrec
-//   def runTrampoline[A](tra: Free[Function0,A]): A =
-//     tra match {
-      // Return(A)// 
-//       case Return(a1) => a1
-      // Suspend(Function0[A])// 
-//       case Suspend(function0A1) => function0A1()
-      // FlatMap(Free[Function0[_],A], A=>Free[Function0,B]]// 
-//       case FlatMap(free1, aFree2) => free1 match {
-        // Return(A)// 
-//         case Return(a2) => runTrampoline(aFree2(a2))
-        // Suspend(Function0[A])// 
-//         case Suspend(function0A) => runTrampoline(aFree2(function0A()))
-//         case FlatMap(a0,g) =>
-//           runTrampoline {
-//             a0 flatMap { a0 => g(a0) flatMap aFree2 }
-//           }
-//       }
-//     }
-  def runTrampoline[A](a: Free[Function0,A]): A = runTrampoline3(a)
-  def runTrampoline2[A](a: Free[Function0,A]): A = runTrampoline3(a)
 
   @annotation.tailrec
   //                    tra: Free[Function0,A]: A
   //          trampoline GeneralizedStreamTransducers
   //                    tra: Free[Function0, Process[F,O]]: Process[F,O]
-  def runTrampoline3[A](tra: TailRec[A]): A =
+  def runTrampoline[A](tra: TailRec[A]): A =
     tra match {
       // Return(A)
       case Return(a1) => a1
@@ -111,16 +77,16 @@ object IO3 {
         // Return(A)
         case Return(a2) => {
           val free2 = aFree2(a2)
-          runTrampoline3(free2)
+          runTrampoline(free2)
         }
         // Suspend(Function0[A])
         case Suspend(function0A) => {
           val a2 = function0A()
           val free2 = aFree2(a2)
-          runTrampoline3(free2)
+          runTrampoline(free2)
         }
         case FlatMap(a0,g) =>
-          runTrampoline3 {
+          runTrampoline {
             a0 flatMap { a0 => g(a0) flatMap aFree2 }
           }
       }
@@ -130,47 +96,14 @@ object IO3 {
   //import scala.reflect.runtime.universe._
   //import shapeless.Typeable._
 
-  /*
-   runTrampoline4 is identical to runTrampoline, and has expanded
-   syntax.  It demonstrates that for some reason this breaks
-   tail recursion.
-   I think this has something to do with writing a Unit to a val.  
-   This does not happen in runTrampoline.
-
-   Possibly related to: http://stackoverflow.com/questions/31058950/scala-type-annotations-make-tail-recursion-check-fail
-   */
-  //@annotation.tailrec
-//   def runTrampoline4[A](tra: Free[Function0,A]): A =
-//     tra match {
-      // Return(A)// 
-//       case Return(a1: A) => a1
-      // Suspend(Function0[A])// 
-//       case Suspend(function0A1: Function0[A]) => function0A1()
-      // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]// 
-//       case FlatMap(free1: Free[Function0,A],
-//         aFree2: Function1[A,Free[Function0,A]]) => free1 match {
-        // Return(A)// 
-//         case Return(a2: A) => runTrampoline4(aFree2(a2))
-        // Suspend(Function0[A])// 
-//         case Suspend(function0A: Function0[A]) =>
-//           runTrampoline4(aFree2(function0A()))
-//         case FlatMap(a0: A, g: Function1[A,Free[Function0,A]]) =>
-//           runTrampoline4 {
-//             a0 flatMap { a0 => g(a0) flatMap aFree2 }
-//           }
-//       }
-//     }
-
-
   // Exercise 3:
   // Implement a `Free` interpreter which works for any `Monad`
 
   // run's signature for TailRec[A]:
-  // run[Function0[_],A](Free[Function0,A])(Monad[Function0]):
-  //                                        Function0[A]
-  // will return Par[A], Async[A]...
+  // run[Function0[_],A](Free[Function0,A])(Monad[Function0]): Function0[A]
 
-  // for IO, freeFA: Free[Par,A]
+  // for IO:
+  // run[Par[_],A](Free[Par,A])(Monad[Par]): Par[A]
   def run[F[_],A](freeFA: Free[F,A])(implicit F: Monad[F]): F[A] =
     step(freeFA) match {
       case Return(a) => F.unit(a)
@@ -279,9 +212,8 @@ object IO3 {
 
   implicit val parMonad = new Monad[Par] {
     def unit[A](a: => A) = Par.unit(a)
-    def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.flatMap(a)(f)
-
-    // def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
+    //def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.flatMap(a)(f)
+    def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
   }
 
   //@annotation.tailrec
@@ -505,7 +437,7 @@ object IO3 {
 
   trait HandleR
   trait HandleW
-  
+
 }
 
 object IO3Tests {
@@ -712,8 +644,8 @@ object IO3Tests {
 
     println("--------------------------")
     println("runTrampoline with expanded syntax")
-    println("runTrampoline3(tailRecursiveFactorial(100))")
-    println(runTrampoline3(tailRecFact1002))
+    println("runTrampoline(tailRecursiveFactorial(100))")
+    println(runTrampoline(tailRecFact1002))
 
     // println("naive Ackermann function")
     // println("ackermannNaive(20,20)")
@@ -859,7 +791,7 @@ object AsynchronousReaderTests {
     println("byte array or thrown error")
     eitherArrByte match {
       case Left(throwable) => throw throwable
-      case Right(arrByte) => println(arrByte)
+      case Right(arrByte) => println("byte array: "+arrByte)
     }
     service.shutdown()
 
