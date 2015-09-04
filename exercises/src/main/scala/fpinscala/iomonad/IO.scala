@@ -125,10 +125,26 @@ object IO3 {
 
   import scala.reflect.runtime.universe._
 
+  //@annotation.tailrec
+  // def stepFlatMap[F[_], A](flatMapFA: FlatMap[F,A,A]): Free[F,A] =
+  //   flatMapFA match {
+  //     case FlatMap(FlatMap(x,f),g) =>
+  //       step(x.flatMap((a: A) => f(a).flatMap(g)))
+  //   }
+
+  def stepFlatMap[F[_], A](flatMapFA: FlatMap[F,A,A]): Free[F,A] =
+    flatMapFA match {
+      case flat@FlatMap[F,A,A] => flat match {
+        case FlatMap(FlatMap(x,f),g) =>
+          step(x.flatMap((a: A) => f(a).flatMap(g)))
+      }
+    }
+
+
+
   @annotation.tailrec
   def step[F[_], A](freeFA: Free[F,A])/*(
-    implicit fTag: TypeTag[F[G]],
-    aTag: TypeTag[A])*/: Free[F,A] =
+    implicit fTag: TypeTag[F[_]], aTag: TypeTag[A])*/: Free[F,A] =
     freeFA match {
       /*
        FlatMap(
@@ -136,9 +152,13 @@ object IO3 {
          A=>Free[F,A]
        )
        */
-      // case FlatMap(
-      //   FlatMap(x, f),
-      //   g
+
+      // book's version
+      case FlatMap(
+        FlatMap(x, f),
+        g
+      ) => step(x.flatMap((a: Any) => f(a).flatMap(g)))
+
       // case FlatMap[F,A,A](
       //   FlatMap(
       //     x: Free[F,Any],
@@ -153,25 +173,14 @@ object IO3 {
       //   g: Function1[A,Free[F,A]] @unchecked
       // ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
 //       ) => step(x.flatMap(a => f(a).flatMap(g)))
-      /*
-         Why does type annotation of 'a' matter?
-         type mismatch;  
-         found   : A => fpinscala.iomonad.IO3.Free[F,A]  
-         required: Any => fpinscala.iomonad.IO3.Free[F,A]  
-         Note: implicit value parMonad is not applicable here
-         because it comes after the application point and it
-         lacks an explicit result type
 
-         because 'a' without type annotation can be Any?
-         */
-        //step(x.flatMap((a: A) => f(a).flatMap(g)))
+      // case flat@FlatMap[F,A,A] => flat match {
+      //   case FlatMap(
+      //     FlatMap(x, f),
+      //     g
+      //   ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
+      // }
 
-      case flat@FlatMap[F,A,A] => flat match {
-        case FlatMap(
-          FlatMap(x, f),
-          g
-        ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
-      }
       // case FlatMap(
       //   FlatMap(x: Free[F,A], f: Function1[A,Free[F,A]]),
       //   g: Function1[A,Free[F,A]]
@@ -192,7 +201,7 @@ object IO3 {
       //     )
       // }
 
-      // case FlatMap(Return(x), f) => step(f(x))
+      case FlatMap(Return(x), f) => step(f(x))
 
       // case FlatMap(freeFA2, g: Function1[A,Free[F,A]]) =>
       //   freeFA2 match {
