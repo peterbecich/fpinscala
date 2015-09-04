@@ -15,7 +15,7 @@ object IO3 {
     def flatMap[B](f: A => Free[F,B]): Free[F,B] =
       FlatMap(this, f)
     def map[B](f: A => B): Free[F,B] =
-      flatMap(f andThen (Return(_)))
+      flatMap(f.andThen(Return(_)))
     // generalize the helper function in Errata to Free from TailRec
     // def suspend: Free[F,A] =
     //   IO3.suspend(this)
@@ -80,7 +80,7 @@ object IO3 {
           runTrampoline(free2)
         }
         // Suspend(Function0[A])
-        case Suspend(function0A) => {
+        case Suspend(function0A: Function0[A]) => {
           val a2 = function0A()
           val free2 = aFree2(a2)
           runTrampoline(free2)
@@ -108,22 +108,52 @@ object IO3 {
     step(freeFA) match {
       case Return(a) => F.unit(a)
       case Suspend(fa) => fa //F.flatMap(fa)((a: A) => run(a))
-      case FlatMap(Suspend(r), f) => F.flatMap(r)(a => run(f(a)))
-        // ^^ why is this different to typechecker
-        // than what is below??
-      // case FlatMap(freeFA2, f) => freeFA2 match {
-      //   case Suspend(fa2) => F.flatMap(fa2)((a: A) => run(f(a)))
-      //   case _ => sys.error("run(FlatMap(...)) in impossible state.  See listing 13.5")
-      // }
+      case FlatMap(Suspend(r), f) =>
+        F.flatMap(r)(a => run(f(a)))
+        /* ^^ why is this different to typechecker
+        than what is below??
+        case FlatMap(freeFA2, f) => freeFA2 match {
+          case Suspend(fa2) => 
+            F.flatMap(fa2)((a: A) => run(f(a)))
+          case _ => 
+            sys.error("run(FlatMap(...)) in impossible
+            state.  See listing 13.5")
+      }
+         */
     }
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
+
+  import scala.reflect.runtime.universe._
+
   @annotation.tailrec
-  def step[F[_],A](freeFA: Free[F,A]): Free[F,A] =
+  def step[F[_], A](freeFA: Free[F,A])/*(
+    implicit fTag: TypeTag[F[G]],
+    aTag: TypeTag[A])*/: Free[F,A] =
     freeFA match {
-      // FlatMap(FlatMap(Free[F,A], A=>Free[F,A]), A=>Free[F,A])
-      case FlatMap(FlatMap(x,f),g) =>
-        step(x.flatMap(a => f(a).flatMap(g)))
-        /*
+      /*
+       FlatMap(
+         FlatMap(Free[F,A], A=>Free[F,A]),
+         A=>Free[F,A]
+       )
+       */
+      // case FlatMap(
+      //   FlatMap(x, f),
+      //   g
+      // case FlatMap[F,A,A](
+      //   FlatMap(
+      //     x: Free[F,Any],
+      //     f: Function1[_,_]
+      //   ),
+      //   g: Function1[_,_]
+      // case FlatMap(
+      //   FlatMap(
+      //     x: Free[F,A] @unchecked,
+      //     f: Function1[A,Free[F,A]] @unchecked
+      //   ),
+      //   g: Function1[A,Free[F,A]] @unchecked
+      // ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
+//       ) => step(x.flatMap(a => f(a).flatMap(g)))
+      /*
          Why does type annotation of 'a' matter?
          type mismatch;  
          found   : A => fpinscala.iomonad.IO3.Free[F,A]  
@@ -135,9 +165,48 @@ object IO3 {
          because 'a' without type annotation can be Any?
          */
         //step(x.flatMap((a: A) => f(a).flatMap(g)))
-      case FlatMap(Return(x), f) => step(f(x))
-      case _ => freeFA
+
+      case flat@FlatMap[F,A,A] => flat match {
+        case FlatMap(
+          FlatMap(x, f),
+          g
+        ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
+      }
+      // case FlatMap(
+      //   FlatMap(x: Free[F,A], f: Function1[A,Free[F,A]]),
+      //   g: Function1[A,Free[F,A]]
+      // ) => {
+      //   lazy val next =
+      //     FlatMap[F,A,A](x, (a:A) =>
+      //       FlatMap[F,A,A](f(a), g)
+      //     )
+      //   step(next)
+      // }
+
+      // case FlatMap(
+      //   FlatMap(x, f),
+      //   g
+      // ) => {
+      //   step(
+      //     x.flatMap((a: A) => f(a).flatMap(g))
+      //     )
+      // }
+
+      // case FlatMap(Return(x), f) => step(f(x))
+
+      // case FlatMap(freeFA2, g: Function1[A,Free[F,A]]) =>
+      //   freeFA2 match {
+      //     case FlatMap(
+      //       x: Free[F,A], f: Function1[A,Free[F,A]]
+      //     ) => step(x.flatMap((a: A) => f(a).flatMap(g)))
+      //     case Return(a: A) => step(g(a))
+      //   }
+
+      case Suspend(_) => freeFA
+      case Return(_) => freeFA
+      //case _ => freeFA
     }
+
 
   /*
   The type constructor `F` lets us control the set of external requests our
@@ -641,11 +710,6 @@ object IO3Tests {
     println("tailRecursiveFactorial2(10)")
     val tailRecFact4: TailRec[BigInt] = tailRecursiveFactorial2(10)
     println(tailRecFact4)
-
-    println("--------------------------")
-    println("runTrampoline with expanded syntax")
-    println("runTrampoline(tailRecursiveFactorial(100))")
-    println(runTrampoline(tailRecFact1002))
 
     // println("naive Ackermann function")
     // println("ackermannNaive(20,20)")
