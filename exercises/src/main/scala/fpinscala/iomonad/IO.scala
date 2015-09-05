@@ -6,9 +6,9 @@ object IO3 {
   import fpinscala.parallelism.Nonblocking.Par
 
   /*
-  We can generalize `TailRec` and `Async` to the type `Free`, which is
-  a `Monad` for any choice of `F`.
-  */
+   We can generalize `TailRec` and `Async` to the type `Free`, which is
+   a `Monad` for any choice of `F`.
+   */
 
   sealed trait Free[F[_],A] {
     // answers for exercise 13.1
@@ -45,13 +45,13 @@ object IO3 {
   // Exercise 1: Implement the free monad
   // Using def instead of 'object freeMonad extends Monad...'
   // because of type parameter?
-  def freeMonad[F[_]]: Monad[({type f[a] = Free[F,a]})#f] = 
+  def freeMonad[F[_]]: Monad[({type f[a] = Free[F,a]})#f] =
     new Monad[({type f[a] = Free[F,a]})#f] {
       // abstract primitives unit and flatMap made concrete
       // why does IO1.IO monad implement apply?
       def unit[A](a: => A): Free[F,A] = Return(a)
       def flatMap[A,B](freeA: Free[F,A])(
-        aFreeB: A => Free[F,B]): Free[F,B] = 
+        aFreeB: A => Free[F,B]): Free[F,B] =
         freeA.flatMap(aFreeB)
       // freeA match {
       //   case Return[F,A](a) => aFreeB(a)
@@ -59,38 +59,44 @@ object IO3 {
       // }
     }
 
-  @annotation.tailrec
+  // TailRec[A] == Free[Function0,A]
+  def runTrampoline[A](tailRecA: TailRec[A]): A = {
+    val function0A: Function0[A] =
+      run(tailRecA)(function0Monad)
+    function0A()
+  }
+
   //                    tra: Free[Function0,A]: A
   //          trampoline GeneralizedStreamTransducers
   //                    tra: Free[Function0, Process[F,O]]: Process[F,O]
-  def runTrampoline[A](tra: TailRec[A]): A =
-    tra match {
-      // Return(A)
-      case Return(a1) => a1
-      // Suspend(Function0[A])
-      case Suspend(function0A1) => {
-        val a1 = function0A1()
-        a1
-      }
-      // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]
-      case FlatMap(free1, aFree2) => free1 match {
-        // Return(A)
-        case Return(a2) => {
-          val free2 = aFree2(a2)
-          runTrampoline(free2)
-        }
-        // Suspend(Function0[A])
-        case Suspend(function0A: Function0[A]) => {
-          val a2 = function0A()
-          val free2 = aFree2(a2)
-          runTrampoline(free2)
-        }
-        case FlatMap(a0,g) =>
-          runTrampoline {
-            a0 flatMap { a0 => g(a0) flatMap aFree2 }
-          }
-      }
-    }
+  // def runTrampoline[A](tra: TailRec[A]): A =
+  //   tra match {
+  //     // Return(A)
+  //     case Return(a1) => a1
+  //     // Suspend(Function0[A])
+  //     case Suspend(function0A1) => {
+  //       val a1 = function0A1()
+  //       a1
+  //     }
+  //     // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]
+  //     case FlatMap(free1, aFree2) => free1 match {
+  //       // Return(A)
+  //       case Return(a2) => {
+  //         val free2 = aFree2(a2)
+  //         runTrampoline(free2)
+  //       }
+  //       // Suspend(Function0[A])
+  //       case Suspend(function0A: Function0[A]) => {
+  //         val a2 = function0A()
+  //         val free2 = aFree2(a2)
+  //         runTrampoline(free2)
+  //       }
+  //       case FlatMap(a0,g) =>
+  //         runTrampoline {
+  //           a0 flatMap { a0 => g(a0) flatMap aFree2 }
+  //         }
+  //     }
+  //   }
 
   // http://stackoverflow.com/a/21640639/1007926
   //import scala.reflect.runtime.universe._
@@ -111,14 +117,14 @@ object IO3 {
       case FlatMap(Suspend(r), f) =>
         F.flatMap(r)(a => run(f(a)))
         /* ^^ why is this different to typechecker
-        than what is below??
-        case FlatMap(freeFA2, f) => freeFA2 match {
-          case Suspend(fa2) => 
-            F.flatMap(fa2)((a: A) => run(f(a)))
-          case _ => 
-            sys.error("run(FlatMap(...)) in impossible
-            state.  See listing 13.5")
-      }
+         than what is below??
+         case FlatMap(freeFA2, f) => freeFA2 match {
+         case Suspend(fa2) => 
+         F.flatMap(fa2)((a: A) => run(f(a)))
+         case _ => 
+         sys.error("run(FlatMap(...)) in impossible
+         state.  See listing 13.5")
+         }
          */
     }
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`
@@ -144,12 +150,13 @@ object IO3 {
 
   @annotation.tailrec
   def step[F[_], A](freeFA: Free[F,A])/*(
-    implicit fTag: TypeTag[F[_]], aTag: TypeTag[A])*/: Free[F,A] =
+                                       implicit fTag: TypeTag[F[_]], aTag: TypeTag[A])*/: Free[F,A] = {
+    //println("step: "+freeFA)
     freeFA match {
       /*
        FlatMap(
-         FlatMap(Free[F,A], A=>Free[F,A]),
-         A=>Free[F,A]
+       FlatMap(Free[F,A], A=>Free[F,A]),
+       A=>Free[F,A]
        )
        */
 
@@ -159,69 +166,70 @@ object IO3 {
         g
       ) => step(x.flatMap((a: Any) => f(a).flatMap(g)))
 
-      // case FlatMap[F,A,A](
-      //   FlatMap(
-      //     x: Free[F,Any],
-      //     f: Function1[_,_]
-      //   ),
-      //   g: Function1[_,_]
-      // case FlatMap(
-      //   FlatMap(
-      //     x: Free[F,A] @unchecked,
-      //     f: Function1[A,Free[F,A]] @unchecked
-      //   ),
-      //   g: Function1[A,Free[F,A]] @unchecked
-      // ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
-//       ) => step(x.flatMap(a => f(a).flatMap(g)))
+        // case FlatMap[F,A,A](
+        //   FlatMap(
+        //     x: Free[F,Any],
+        //     f: Function1[_,_]
+        //   ),
+        //   g: Function1[_,_]
+        // case FlatMap(
+        //   FlatMap(
+        //     x: Free[F,A] @unchecked,
+        //     f: Function1[A,Free[F,A]] @unchecked
+        //   ),
+        //   g: Function1[A,Free[F,A]] @unchecked
+        // ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
+        //       ) => step(x.flatMap(a => f(a).flatMap(g)))
 
-      // case flat@FlatMap[F,A,A] => flat match {
-      //   case FlatMap(
-      //     FlatMap(x, f),
-      //     g
-      //   ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
-      // }
+        // case flat@FlatMap[F,A,A] => flat match {
+        //   case FlatMap(
+        //     FlatMap(x, f),
+        //     g
+        //   ) => step(x.flatMap((a:A) => f(a).flatMap(g)))
+        // }
 
-      // case FlatMap(
-      //   FlatMap(x: Free[F,A], f: Function1[A,Free[F,A]]),
-      //   g: Function1[A,Free[F,A]]
-      // ) => {
-      //   lazy val next =
-      //     FlatMap[F,A,A](x, (a:A) =>
-      //       FlatMap[F,A,A](f(a), g)
-      //     )
-      //   step(next)
-      // }
+        // case FlatMap(
+        //   FlatMap(x: Free[F,A], f: Function1[A,Free[F,A]]),
+        //   g: Function1[A,Free[F,A]]
+        // ) => {
+        //   lazy val next =
+        //     FlatMap[F,A,A](x, (a:A) =>
+        //       FlatMap[F,A,A](f(a), g)
+        //     )
+        //   step(next)
+        // }
 
-      // case FlatMap(
-      //   FlatMap(x, f),
-      //   g
-      // ) => {
-      //   step(
-      //     x.flatMap((a: A) => f(a).flatMap(g))
-      //     )
-      // }
+        // case FlatMap(
+        //   FlatMap(x, f),
+        //   g
+        // ) => {
+        //   step(
+        //     x.flatMap((a: A) => f(a).flatMap(g))
+        //     )
+        // }
 
       case FlatMap(Return(x), f) => step(f(x))
 
-      // case FlatMap(freeFA2, g: Function1[A,Free[F,A]]) =>
-      //   freeFA2 match {
-      //     case FlatMap(
-      //       x: Free[F,A], f: Function1[A,Free[F,A]]
-      //     ) => step(x.flatMap((a: A) => f(a).flatMap(g)))
-      //     case Return(a: A) => step(g(a))
-      //   }
+        // case FlatMap(freeFA2, g: Function1[A,Free[F,A]]) =>
+        //   freeFA2 match {
+        //     case FlatMap(
+        //       x: Free[F,A], f: Function1[A,Free[F,A]]
+        //     ) => step(x.flatMap((a: A) => f(a).flatMap(g)))
+        //     case Return(a: A) => step(g(a))
+        //   }
 
       case Suspend(_) => freeFA
       case Return(_) => freeFA
-      //case _ => freeFA
+        //case _ => freeFA
     }
+  }
 
 
   /*
-  The type constructor `F` lets us control the set of external requests our
-  program is allowed to make. For instance, here is a type that allows for
-  only console I/O effects.
-  */
+   The type constructor `F` lets us control the set of external requests our
+   program is allowed to make. For instance, here is a type that allows for
+   only console I/O effects.
+   */
 
   //import fpinscala.parallelism.Nonblocking.Par
 
@@ -269,13 +277,13 @@ object IO3 {
   }
 
   /*
-  How do we actually _run_ a `ConsoleIO` program? We don't have a `Monad[Console]`
-  for calling `run`, and we can't use `runTrampoline` either since we have `Console`,
-  not `Function0`. We need a way to translate from `Console` to `Function0`
-  (if we want to evaluate it sequentially) or a `Par`.
+   How do we actually _run_ a `ConsoleIO` program? We don't have a `Monad[Console]`
+   for calling `run`, and we can't use `runTrampoline` either since we have `Console`,
+   not `Function0`. We need a way to translate from `Console` to `Function0`
+   (if we want to evaluate it sequentially) or a `Par`.
 
-  We introduce the following type to do this translation:
-  */
+   We introduce the following type to do this translation:
+   */
 
   /* Translate between any `F[A]` to `G[A]`. */
   trait Translate[F[_], G[_]] { def apply[A](f: F[A]): G[A] }
@@ -284,7 +292,8 @@ object IO3 {
 
   implicit val function0Monad = new Monad[Function0] {
     def unit[A](a: => A) = () => a
-    def flatMap[A,B](a: Function0[A])(f: A => Function0[B]) =
+    def flatMap[A,B](a: Function0[A])(
+      f: A => Function0[B]) =
       () => f(a())()
   }
 
@@ -296,7 +305,7 @@ object IO3 {
 
   //@annotation.tailrec
   def runFree[F[_],G[_],A](free: Free[F,A])(t: F ~> G)(
-                           implicit G: Monad[G]): G[A] =
+    implicit G: Monad[G]): G[A] =
     step(free) match {
       case Return(a) => G.unit(a)
       case Suspend(r) => t(r)
@@ -308,7 +317,7 @@ object IO3 {
 
   val consoleToFunction0: Translate[Console, Function0] =
     new (Console ~> Function0) {
-    //  ^^ instance of trait Translate[Console[_], Function0[_]]
+      //  ^^ instance of trait Translate[Console[_], Function0[_]]
       def apply[A](a: Console[A]) = a.toThunk
     }
   val consoleToPar: Translate[Console, Par] =
@@ -324,11 +333,11 @@ object IO3 {
   // uses implicit Monad[Par]
 
   /*
-  The `runConsoleFunction0` implementation is unfortunately not stack safe,
-  because it relies of the stack safety of the underlying monad, and the
-  `Function0` monad we gave is not stack safe. To see the problem, try
-  running: `freeMonad.forever(Console.printLn("Hello"))`.
-  */
+   The `runConsoleFunction0` implementation is unfortunately not stack safe,
+   because it relies of the stack safety of the underlying monad, and the
+   `Function0` monad we gave is not stack safe. To see the problem, try
+   running: `freeMonad.forever(Console.printLn("Hello"))`.
+   */
 
   // Exercise 4 (optional, hard): Implement `runConsole` using `runFree`,
   // without going through `Par`. Hint: define `translate` using `runFree`.
@@ -365,10 +374,10 @@ object IO3 {
   }
 
   /*
-  There is nothing about `Free[Console,A]` that requires we interpret
-  `Console` using side effects. Here are two pure ways of interpreting
-  a `Free[Console,A]`.
-  */
+   There is nothing about `Free[Console,A]` that requires we interpret
+   `Console` using side effects. Here are two pure ways of interpreting
+   a `Free[Console,A]`.
+   */
   import Console._
 
   case class Buffers(in: List[String], out: Vector[String])
@@ -554,12 +563,12 @@ object IO3Tests {
   // def step[F[_],A](freeFA: Free[Function0,A]): Free[Function0,A]
 
   /*
-  The opposite of tail recursion is general recursion
-  tailRecursiveFactorial optimizes an intentionally
-  generally recursive factorial function.
-  It would be easy enough to write a tail recursive factorial
-  without needing CPS.  That's not the point of this exercise.
-    */
+   The opposite of tail recursion is general recursion
+   tailRecursiveFactorial optimizes an intentionally
+   generally recursive factorial function.
+   It would be easy enough to write a tail recursive factorial
+   without needing CPS.  That's not the point of this exercise.
+   */
   val tailRecursiveFactorial: Long => TailRec[Long] =
     (i: Long) =>
   suspend {
@@ -595,14 +604,14 @@ object IO3Tests {
 
   val tailRecursiveFactorial3: Int => TailRec[BigInt] =
     (i: Int) =>
-    if(i>1) {
-      //println(i)
-      tailRecursiveFactorial2(i-1).flatMap{
-        (x: BigInt) => {
-          Return(x*i)
-        }
+  if(i>1) {
+    //println(i)
+    tailRecursiveFactorial2(i-1).flatMap{
+      (x: BigInt) => {
+        Return(x*i)
       }
-    } else Return(1.toLong)
+    }
+  } else Return(1.toLong)
 
 
   // http://matt.might.net/articles/by-example-continuation-passing-style/
@@ -643,10 +652,10 @@ object IO3Tests {
   // }
 
 
-// http://stackoverflow.com/questions/12678099/ackermann-function-understanding
+  // http://stackoverflow.com/questions/12678099/ackermann-function-understanding
 
   def tailRecAckermann: (Int,Int) => TailRec[Int] =
-  (m: Int, n: Int) =>
+    (m: Int, n: Int) =>
   IO3.suspend {
     //println(s"ackermann $m $n")
     (m,n) match {
@@ -671,7 +680,7 @@ object IO3Tests {
     println("equivalent to")
     println("passThru: Int => Free[Function0, Int]")
 
-    println("passThru123: TailRec[Int]")
+    println("passThru123: TailRec[Int] = passThru(123)")
     val passThru123: TailRec[Int] = passThru(123)
     println(runTrampoline(passThru123))
     println("Flawed pass through; fewer than 10000 calls to identity function for sake of demonstration.")
@@ -791,7 +800,7 @@ object ConsoleTests {
     )
   val yourNameFunction0: Free[Function0, Unit] =
     translate(yourName)(consoleToFunction0)
-    
+  
   def main(args: Array[String]): Unit = {
     println("f1 obtained without stack safety")
     println(f1Result1)
@@ -837,7 +846,7 @@ object ConsoleReaderTests {
 
   // val yourNameFunction0: Free[Function0, Unit] =
   //   translate(yourName)(consoleToFunction0)
-    
+  
   def main(args: Array[String]): Unit = {
     println("console reader")
     val somethingAlwaysEntered: Option[String] =
@@ -856,7 +865,7 @@ object AsynchronousReaderTests {
   import fpinscala.iomonad.Monad
   import fpinscala.laziness.Stream
   import fpinscala.parallelism.Nonblocking.Par
-    
+  
   def main(args: Array[String]): Unit = {
     println("example Source; 64 incrementing bytes")
     sourceExample.readBytes(64,
@@ -916,7 +925,7 @@ object MonolithicLoopRead {
   //         WriteFileLine(fahrenheitToCelsius(s.toDouble))
   //       }.flatMap(_ => loop(f,c))
   //     }
-    
+  
   def main(args: Array[String]): Unit = {
 
   }
