@@ -397,23 +397,28 @@ object IO3 {
     }
 
   // Exercise 2: Implement a specialized `Function0` interpreter.
+  // not tail recursive
+  def runTrampoline2[A](a: Free[Function0,A]): A =
+    run(a)(function0Monad)()
+
   @annotation.tailrec
   def runTrampoline[A](a: Free[Function0,A]): A = (a) match {
     case Return(a) => a
     case Suspend(r) => r()
     case FlatMap(x,f) => x match {
-      case Return(a) => runTrampoline { f(a) }
-      case Suspend(r) => runTrampoline { f(r()) }
-      case FlatMap(a0,g) => runTrampoline { a0 flatMap { a0 => g(a0) flatMap f } }
+      case Return(a) => runTrampoline2 { f(a) }
+      case Suspend(r) => runTrampoline2 { f(r()) }
+      case FlatMap(a0,g) => runTrampoline2 { a0 flatMap { a0 => g(a0) flatMap f } }
     }
   }
 
   // Exercise 3: Implement a `Free` interpreter which works for any `Monad`
+  //@annotation.tailrec
   def run[F[_],A](a: Free[F,A])(implicit F: Monad[F]): F[A] = step(a) match {
     case Return(a) => F.unit(a)
     case Suspend(r) => r
     case FlatMap(Suspend(r), f) => F.flatMap(r)(a => run(f(a)))
-    case _ => sys.error("Impossible, since `step` eliminates these cases")
+    //case _ => sys.error("Impossible, since `step` eliminates these cases")
   }
 
   // return either a `Suspend`, a `Return`, or a right-associated `FlatMap`

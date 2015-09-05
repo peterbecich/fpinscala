@@ -49,40 +49,41 @@ object IO3 {
     }
 
   // TailRec[A] == Free[Function0,A]
-  def runTrampoline[A](tailRecA: TailRec[A]): A = {
+  def runTrampoline2[A](tailRecA: TailRec[A]): A = {
     val function0A: Function0[A] =
       run(tailRecA)(function0Monad)
     function0A()
   }
 
-  // def runTrampoline[A](tra: TailRec[A]): A =
-  //   tra match {
-  //     // Return(A)
-  //     case Return(a1) => a1
-  //     // Suspend(Function0[A])
-  //     case Suspend(function0A1) => {
-  //       val a1 = function0A1()
-  //       a1
-  //     }
-  //     // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]
-  //     case FlatMap(free1, aFree2) => free1 match {
-  //       // Return(A)
-  //       case Return(a2) => {
-  //         val free2 = aFree2(a2)
-  //         runTrampoline(free2)
-  //       }
-  //       // Suspend(Function0[A])
-  //       case Suspend(function0A: Function0[A]) => {
-  //         val a2 = function0A()
-  //         val free2 = aFree2(a2)
-  //         runTrampoline(free2)
-  //       }
-  //       case FlatMap(a0,g) =>
-  //         runTrampoline {
-  //           a0 flatMap { a0 => g(a0) flatMap aFree2 }
-  //         }
-  //     }
-  //   }
+  @annotation.tailrec
+  def runTrampoline[A](tra: TailRec[A]): A =
+    tra match {
+      // Return(A)
+      case Return(a1) => a1
+      // Suspend(Function0[A])
+      case Suspend(function0A1) => {
+        val a1 = function0A1()
+        a1
+      }
+      // FlatMap(Free[Function0[_],A], A=>Free[Function0,A]]
+      case FlatMap(free1, aFree2) => free1 match {
+        // Return(A)
+        case Return(a2) => {
+          val free2 = aFree2(a2)
+          runTrampoline(free2)
+        }
+        // Suspend(Function0[A])
+        case Suspend(function0A: Function0[A]) => {
+          val a2 = function0A()
+          val free2 = aFree2(a2)
+          runTrampoline(free2)
+        }
+        case FlatMap(a0,g) =>
+          runTrampoline {
+            a0 flatMap { a0 => g(a0) flatMap aFree2 }
+          }
+      }
+    }
 
   // http://stackoverflow.com/a/21640639/1007926
   //import scala.reflect.runtime.universe._
@@ -93,12 +94,16 @@ object IO3 {
 
   // for IO:
   // run[Par[_],A](Free[Par,A])(Monad[Par]): Par[A]
-  def run[F[_],A](freeFA: Free[F,A])(implicit F: Monad[F]): F[A] =
+  //@annotation.tailrec
+  def run[F[_],A](freeFA: Free[F,A])(
+    implicit F: Monad[F]): F[A] =
     step(freeFA) match {
-      case Return(a) => F.unit(a)
-      case Suspend(fa) => fa //F.flatMap(fa)((a: A) => run(a))
-      case FlatMap(Suspend(r), f) =>
-        F.flatMap(r)(a => run(f(a)))
+      case Return(a) => F.unit(a): F[A]
+      case Suspend(fa) => fa: F[A]
+      case FlatMap(Suspend(r), f) => {
+        println("flatmap")
+        F.flatMap(r)(a => run(f(a))(F)): F[A]
+      }
     }
 
   @annotation.tailrec
@@ -201,7 +206,7 @@ object IO3 {
     def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
   }
 
-  //@annotation.tailrec
+  // @annotation.tailrec
   def runFree[F[_],G[_],A](free: Free[F,A])(t: F ~> G)(
     implicit G: Monad[G]): G[A] =
     step(free) match {
@@ -421,6 +426,49 @@ object IO3 {
 
 }
 
+
+object PassThruFlawed {
+  import IO3._
+  // page 240
+  val id: Int => TailRec[Int] = (x: Int) => Return(x)
+
+  // not truly tail recursive
+  def passThruFlawed(passes: Int):
+      Function1[Int,TailRec[Int]] =
+    List.fill(passes)(id).foldLeft(id){
+      (a: Function1[Int,TailRec[Int]],
+        b: Function1[Int,TailRec[Int]]) => {
+        (x: Int) => a(x).flatMap(b)
+      }
+    }
+
+  // 100 passes
+  val passThru100 = passThruFlawed(100)
+  // 10,000 passes
+  val passThru10000 = passThruFlawed(10000)
+
+  def main(args: Array[String]): Unit = {
+    println("passThru: Int => TailRec[Int]")
+    println("equivalent to")
+    println("passThru: Int => Free[Function0, Int]")
+
+    println("Flawed pass through; fewer than 10000 calls to identity function for sake of demonstration.")
+    println("Suspensions replaced with Returns, or nothing")
+
+    println("put Int 123 through 100 passes")
+    println("tailRec123: TailRec[Int] = passThru100(123)")
+    val tailRec123: TailRec[Int] = passThru100(123)
+    println(runTrampoline(tailRec123))
+
+    println("put Int 123 through 10,000 pases")
+    println("tailRec1232: TailRec[Int] = passThru10000(123)")
+    val tailRec1232: TailRec[Int] = passThru10000(123)
+    println(runTrampoline(tailRec1232))
+  }
+}
+    
+
+
 object IO3Tests {
   import IO3._
   import fpinscala.iomonad.Monad
@@ -512,8 +560,9 @@ object IO3Tests {
 
   // page 240
   val id: Int => TailRec[Int] = (x: Int) => Return(x)
-  val passThru: Int => TailRec[Int] =
-    List.fill(100000)(id).foldLeft(id){
+  def passThru(passes: Int):
+      Function1[Int,TailRec[Int]] =
+    List.fill(passes)(id).foldLeft(id){
       (a: Function1[Int,TailRec[Int]],
         b: Function1[Int,TailRec[Int]]) => {
         (x: Int) => IO3.suspend{
@@ -523,28 +572,10 @@ object IO3Tests {
       }
     }
 
-  val passThru2: Int => TailRec[Int] =
-    List.fill(999)(id).foldLeft(id){
-      (a: Function1[Int,TailRec[Int]],
-        b: Function1[Int,TailRec[Int]]) => {
-        (x: Int) => a(x).flatMap(b)
-      }
-    }
-
-
-
-  // def naiveFactorial2(fact: Int): Int = {
-  //   val st: Stream[Int] = Stream.seq(fact,(i: Int)=>i-1,1)
-  //   //st.foldRight(()=>1)(naiveFactorialLambda)
-
-  // }
-  // //def naiveFactorialLambda(i: Int, i2:=> Int): Int = i*i2
-
-  // def tailRecursiveFactorial2(fact: Int): TailRec[Int] = {
-  //   val streamInt: Stream[Int] = Stream.from(1).take(fact)
-
-  // }
-
+  // 100 passes
+  val passThru100 = passThru(100)
+  // 10,000 passes
+  val passThru10000 = passThru(10000)
 
   // http://stackoverflow.com/questions/12678099/ackermann-function-understanding
 
@@ -574,56 +605,57 @@ object IO3Tests {
     println("equivalent to")
     println("passThru: Int => Free[Function0, Int]")
 
-    println("passThru123: TailRec[Int] = passThru(123)")
-    val passThru123: TailRec[Int] = passThru(123)
-    println(runTrampoline(passThru123))
-    println("Flawed pass through; fewer than 10000 calls to identity function for sake of demonstration.")
-    println("Suspensions replaced with Returns, or nothing")
-    val passThru1232: TailRec[Int] = passThru2(123)
-    //println(passThru1232)
-    // don't even bother trampolining it...
-    // [error] (run-main-1d) java.lang.StackOverflowError
+    println("put Int 123 through 100 passes")
+    println("tailRec123: TailRec[Int] = passThru100(123)")
+    val tailRec123: TailRec[Int] = passThru100(123)
+    println(runTrampoline(tailRec123))
+
+    println("put Int 123 through 10,000 pases")
+    println("tailRec1232: TailRec[Int] = passThru10000(123)")
+    val tailRec1232: TailRec[Int] = passThru10000(123)
+    println(runTrampoline(tailRec1232))
+
 
     println("-------------------------")
 
 
 
-    println("Note that factorial isn't a great test for trampolining, because even the naive implemenation doesn't push much to the stack.  Fact(100) is only 99 recursions.")
+    // println("Note that factorial isn't a great test for trampolining, because even the naive implemenation doesn't push much to the stack.  Fact(100) is only 99 recursions.")
 
-    println("tailRecursiveFactorial: Long => TailRec[Long]")
-    println("tailRecursiveFactorial(100)")
-    val tailRecFact100: TailRec[Long] = tailRecursiveFactorial(100)
-    println(tailRecFact100)
-    println("runTrampoline")
-    val fact100: Long = runTrampoline(tailRecFact100)
-    println("factorial of 100")
-    println(fact100)
-
-    println("tailRecursiveFactorial2: Int => TailRec[BigInt]")
-    println("tailRecursiveFactorial2(100)")
-    val tailRecFact1002: TailRec[BigInt] = tailRecursiveFactorial2(100)
-    println(tailRecFact1002)
-    println("runTrampoline")
-    val fact1002: BigInt = runTrampoline(tailRecFact1002)
-    println("factorial of 100")
-    println(fact1002)
-    println("-------------------------")
-
-    println("a flawed factorial")
-    println("tailRecursiveFactorial3: Int => TailRec[BigInt]")
-    println("tailRecursiveFactorial3(10)")
-    val tailRecFact3: TailRec[BigInt] = tailRecursiveFactorial3(10)
-    println(tailRecFact3)
-    println("Notice the extra first-class function in un-interpreted factorial.  Two suspensions have been removed from this factorial function.")
+    // println("tailRecursiveFactorial: Long => TailRec[Long]")
+    // println("tailRecursiveFactorial(100)")
+    // val tailRecFact100: TailRec[Long] = tailRecursiveFactorial(100)
+    // println(tailRecFact100)
     // println("runTrampoline")
-    // val fact3: BigInt = runTrampoline(tailRecFact3)
-    // println("factorial of 10")
-    // println(fact3)
-    println("Compare to tailRecursiveFactorial2")
-    println("tailRecursiveFactorial2: Int => TailRec[BigInt]")
-    println("tailRecursiveFactorial2(10)")
-    val tailRecFact4: TailRec[BigInt] = tailRecursiveFactorial2(10)
-    println(tailRecFact4)
+    // val fact100: Long = runTrampoline(tailRecFact100)
+    // println("factorial of 100")
+    // println(fact100)
+
+    // println("tailRecursiveFactorial2: Int => TailRec[BigInt]")
+    // println("tailRecursiveFactorial2(100)")
+    // val tailRecFact1002: TailRec[BigInt] = tailRecursiveFactorial2(100)
+    // println(tailRecFact1002)
+    // println("runTrampoline")
+    // val fact1002: BigInt = runTrampoline(tailRecFact1002)
+    // println("factorial of 100")
+    // println(fact1002)
+    // println("-------------------------")
+
+    // println("a flawed factorial")
+    // println("tailRecursiveFactorial3: Int => TailRec[BigInt]")
+    // println("tailRecursiveFactorial3(10)")
+    // val tailRecFact3: TailRec[BigInt] = tailRecursiveFactorial3(10)
+    // println(tailRecFact3)
+    // println("Notice the extra first-class function in un-interpreted factorial.  Two suspensions have been removed from this factorial function.")
+    // // println("runTrampoline")
+    // // val fact3: BigInt = runTrampoline(tailRecFact3)
+    // // println("factorial of 10")
+    // // println(fact3)
+    // println("Compare to tailRecursiveFactorial2")
+    // println("tailRecursiveFactorial2: Int => TailRec[BigInt]")
+    // println("tailRecursiveFactorial2(10)")
+    // val tailRecFact4: TailRec[BigInt] = tailRecursiveFactorial2(10)
+    // println(tailRecFact4)
 
     println("naive Ackermann function")
     println("ackermannNaive(20,20)")
@@ -744,7 +776,7 @@ object ConsoleReaderTests {
   def main(args: Array[String]): Unit = {
     println("console reader")
     val somethingAlwaysEntered: Option[String] =
-      helloReader.run("same thing, every time")
+      helloReader.run("same thing... every time")
     println(s"entered: $somethingAlwaysEntered")
 
     yourNameReader.run("Fritz")
