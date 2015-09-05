@@ -132,13 +132,13 @@ object IO3 {
   //       step(x.flatMap((a: A) => f(a).flatMap(g)))
   //   }
 
-  def stepFlatMap[F[_], A](flatMapFA: FlatMap[F,A,A]): Free[F,A] =
-    flatMapFA match {
-      case flat@FlatMap[F,A,A] => flat match {
-        case FlatMap(FlatMap(x,f),g) =>
-          step(x.flatMap((a: A) => f(a).flatMap(g)))
-      }
-    }
+  // def stepFlatMap[F[_], A](flatMapFA: FlatMap[F,A,A]): Free[F,A] =
+  //   flatMapFA match {
+  //     case flat@FlatMap[F,A,A] => flat match {
+  //       case FlatMap(FlatMap(x,f),g) =>
+  //         step(x.flatMap((a: Any) => f(a).flatMap(g)))
+  //     }
+  //   }
 
 
 
@@ -642,27 +642,29 @@ object IO3Tests {
 
   // }
 
-  // http://blog.higher-order.com/blog/2015/06/18/easy-performance-wins-with-scalaz/
 
-  def ackermannNaive(m: Int, n: Int): Int = (m,n) match {
-    case (0, _) => n+1
-    case (m, 0) => ackermannNaive(m-1, 1)
-    case (m, n) => ackermannNaive(m-1, ackermannNaive(m, n-1))
-  }
+// http://stackoverflow.com/questions/12678099/ackermann-function-understanding
 
   def tailRecAckermann: (Int,Int) => TailRec[Int] =
   (m: Int, n: Int) =>
   IO3.suspend {
+    //println(s"ackermann $m $n")
     (m,n) match {
       case (0, _) => Return(n+1)
-      case (m, 0) => tailRecAckermann(m-1,1)
-      case (m, n) =>
+      case (m, 0) if m>0 => tailRecAckermann(m-1,1)
+      case (m, n) if m>0 && n>0 =>
         FlatMap(tailRecAckermann(m, n-1),
           (p:Int) => tailRecAckermann(m-1,p)
         )
     }
   }
+  val tailRecAckermann11: TailRec[Int] =
+    tailRecAckermann(1,1)
+  val tailRecAckermann34: TailRec[Int] =
+    tailRecAckermann(3,4)
   val tailRecAckermann2020: TailRec[Int] = tailRecAckermann(20,20)
+  val tailRecAckermann42: TailRec[Int] =
+    tailRecAckermann(4,2)
 
   def main(args: Array[String]): Unit = {
     println("passThru: Int => TailRec[Int]")
@@ -720,18 +722,43 @@ object IO3Tests {
     val tailRecFact4: TailRec[BigInt] = tailRecursiveFactorial2(10)
     println(tailRecFact4)
 
-    // println("naive Ackermann function")
-    // println("ackermannNaive(20,20)")
-    // println("[error] (run-main-0) java.lang.StackOverflowError")
-    // //println(ackermannNaive(20,20))
-    // // println("tail recursive Ackermann function")
-    // println("tailRecAckermann(20,20)")
-    // println(tailRecAckermann2020)
+    println("naive Ackermann function")
+    println("ackermannNaive(20,20)")
+    println("[error] (run-main-0) java.lang.StackOverflowError")
+    //println(ackermannNaive(20,20))
+    println("tail recursive Ackermann function")
+    println("tailRecAckermann(1,1)")
+    println(tailRecAckermann11)
+    println("run trampoline")
+    println(runTrampoline(tailRecAckermann11))
+    println("tailRecAckermann(3,4)")
+    println(tailRecAckermann34)
+    println("run trampoline")
+    println(runTrampoline(tailRecAckermann34))
+    // println("tailRecAckermann(4,2)")
+    // println(tailRecAckermann42)
     // println("run trampoline")
-    // println(runTrampoline(tailRecAckermann2020))
+    // println(runTrampoline(tailRecAckermann42))
+
+
   }
 }
+object AckermannNaive {
 
+  // http://blog.higher-order.com/blog/2015/06/18/easy-performance-wins-with-scalaz/
+
+  def ackermannNaive(m: Int, n: Int): Int = (m,n) match {
+    case (0, _) => n+1
+    case (m, 0) => ackermannNaive(m-1, 1)
+    case (m, n) => ackermannNaive(m-1, ackermannNaive(m, n-1))
+  }
+  def main(args: Array[String]): Unit = {
+    println("naive Ackermann(3,4)")
+    println(ackermannNaive(3,4))
+    println("naive Ackermann(4,2)")
+    println(ackermannNaive(4,2))
+  }
+}
 
 object ConsoleTests {
   import IO3._
