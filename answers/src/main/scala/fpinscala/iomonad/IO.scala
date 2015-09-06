@@ -502,7 +502,8 @@ object IO3 {
 
   implicit val parMonad = new Monad[Par] {
     def unit[A](a: => A) = Par.unit(a)
-    def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
+    def flatMap[A,B](a: Par[A])(f: A => Par[B]) =
+      Par.fork { Par.flatMap(a)(f) }
   }
 
   def runFree[F[_],G[_],A](free: Free[F,A])(t: F ~> G)(

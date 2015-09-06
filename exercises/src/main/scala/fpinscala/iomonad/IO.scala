@@ -96,15 +96,17 @@ object IO3 {
   // run[Par[_],A](Free[Par,A])(Monad[Par]): Par[A]
   //@annotation.tailrec
   def run[F[_],A](freeFA: Free[F,A])(
-    implicit F: Monad[F]): F[A] =
+    implicit F: Monad[F]): F[A] = {
+    //println(freeFA)
     step(freeFA) match {
       case Return(a) => F.unit(a): F[A]
       case Suspend(fa) => fa: F[A]
       case FlatMap(Suspend(r), f) => {
-        println("flatmap")
+        //println("flatmap")
         F.flatMap(r)(a => run(f(a))(F)): F[A]
       }
     }
+  }
 
   @annotation.tailrec
   def step[F[_], A](freeFA: Free[F,A]): Free[F,A] = {
@@ -203,7 +205,8 @@ object IO3 {
   implicit val parMonad = new Monad[Par] {
     def unit[A](a: => A) = Par.unit(a)
     //def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.flatMap(a)(f)
-    def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
+    def flatMap[A,B](a: Par[A])(f: A => Par[B]) =
+      Par.fork { Par.flatMap(a)(f) }
   }
 
   // @annotation.tailrec
@@ -798,35 +801,37 @@ object AsynchronousReaderTests {
       (either: Either[Throwable, Array[Byte]]) =>
       either match {
         case Left(throwable) => throw throwable
-        case Right(arrByte) => println(arrByte)
+        case Right(arrByte) =>
+          arrByte.toList.foreach((b: Byte) => printf("0x%02X\n", b))
       }
     )
 
-    println("nonblocking read")
+    println("io: IO[Either[Throwable,Array[Byte]]] = nonblockingRead(sourceExample,64)")
     // Free[Par, Either[Throwable,Array[Byte]]]
     val io: IO[Either[Throwable, Array[Byte]]] =
       nonblockingRead(sourceExample, 64)
-    println("nonblocking read already initiated")
-    println("contained within an IO")
-    println(io)
-    println("run(IO[...])(Monad[Par])")
-    // val out: Either[Throwable, Array[Byte]] =
-    //   run(io)(parMonad)
+    println("nonblocking read initiated")
+    println("io: IO[Either[Throwable,Array[Byte]]] = "+io)
+
     val par: Par[Either[Throwable, Array[Byte]]] =
       run(io)(parMonad)
-    println("Par[Either[Throwable, Array[Byte]]]")
-    println(par)
+    println("par: Par[Either[Throwable,Array[Byte]]] = run(IO[...])(Monad[Par]) = "+par)
 
     import java.util.concurrent.ExecutorService
     import java.util.concurrent.Executors
 
     val service = Executors.newFixedThreadPool(4)
+    println("service = "+service)
     val eitherArrByte: Either[Throwable, Array[Byte]] =
       Par.run(service)(par)
-    println("byte array or thrown error")
+
+    println("Par.run(service)(par) gives byte array or throws error")
+
     eitherArrByte match {
       case Left(throwable) => throw throwable
-      case Right(arrByte) => println("byte array: "+arrByte)
+      case Right(arrByte) =>
+        arrByte.toList.foreach((b: Byte) => printf("0x%02X\n", b))
+
     }
     service.shutdown()
 
