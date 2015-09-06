@@ -405,7 +405,7 @@ object IO3 {
       numBytes: Int,
       callback: Either[Throwable, Array[Byte]] => Unit): Unit = {
       val incrementingBytes: Array[Byte] =
-        (1 to numBytes).map(_.toByte).toArray
+        (0 to numBytes).map(_.toByte).toArray
       val rightBytes = Right(incrementingBytes)
       callback(rightBytes)
     }
@@ -418,6 +418,7 @@ object IO3 {
       source.readBytes(numBytes, cb)
     }
 
+  // to be used in Free[Files, String or Unit]
   trait Files[A]
   case class OpenFileRead(file: String) extends Files[HandleR]
   case class OpenFileWrite(file: String) extends Files[HandleW]
@@ -856,6 +857,18 @@ object MonolithicLoopRead {
   //         WriteFileLine(fahrenheitToCelsius(s.toDouble))
   //       }.flatMap(_ => loop(f,c))
   //     }
+
+  // def concatFileLines(f: HandleR): Free[Files, String] = {
+  //   val freeFileMonad = freeMonad[Files]
+  //   Suspend(ReadFileLine(f)).flatMap(line =>
+  //     line match {
+  //       case None => freeFileMonad.unit()
+  //       case Some(s) => Suspend {
+  //         WriteFileLine(fahrenheitToCelsius(s.toDouble))
+  //       }.flatMap(_ => loop(f,c))
+  //     }
+  //   }
+
   
   def main(args: Array[String]): Unit = {
 
