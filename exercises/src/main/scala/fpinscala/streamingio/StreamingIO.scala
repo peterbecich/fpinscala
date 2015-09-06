@@ -478,9 +478,9 @@ object GeneralizedStreamTransducers {
     }
 
     /* Evaluate the action purely for its effects. */
-    def eval_[F[_],A,B](a: F[A]): Process[F,B] = ???
-      // await(a){
-      // (either: Either[Throwable,A]) => Halt[F,B](
+    def eval_[F[_],A,B](a: F[A]): Process[F,B] =
+      await(a){
+      (either: Either[Throwable,A]) => Halt[F,B](End)}
       
 
     /* Helper function with better type inference. */
@@ -792,15 +792,16 @@ object GeneralizedStreamTransducerTests extends App {
   import java.io.{BufferedReader,FileReader}
   // can't think of a way to turn p into Process[Task,String]
   val p: Process[IO, String] =
-    await(IO(new BufferedReader(new FileReader("resources/numbers.txt")))) {
-      case Right(b) =>
-        lazy val next: Process[IO,String] = await(IO(b.readLine)) {
-          case Left(e) => await(IO(b.close))(_ => Halt(e))
-          case Right(line) => Emit(line, next)
-        }
-        next
-      case Left(e) => Halt(e)
-    }
+    lines("resources/numbers.txt")
+    // await(IO(new BufferedReader(new FileReader("resources/numbers.txt")))) {
+    //   case Right(b) =>
+    //     lazy val next: Process[IO,String] = await(IO(b.readLine)) {
+    //       case Left(e) => await(IO(b.close))(_ => Halt(e))
+    //       case Right(line) => Emit(line, next)
+    //     }
+    //     next
+    //   case Left(e) => Halt(e)
+    // }
 
   // val numbersOut = runLog(p)
 
@@ -809,6 +810,9 @@ object GeneralizedStreamTransducerTests extends App {
   val io = p.runLog(ioMonad)
   println("IO to be run:")
   println(io)
+
+
+  //val func0 = IO3.translate(io)
 
   // later, merge Monad in IOMonad package with Monad in Monads package
   val par = IO3.run(io)(IO3.parMonad)

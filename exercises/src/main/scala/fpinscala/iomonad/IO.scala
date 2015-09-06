@@ -834,8 +834,31 @@ object AsynchronousReaderTests {
         arrByte.toList.foreach((b: Byte) => printf("0x%02X\n", b))
 
     }
-    service.shutdown()
 
+
+    println("-----------------------------")
+    println("read from AsynchronousFileChannel")
+
+    import java.nio._
+    import java.nio.channels._
+
+    val path = file.Paths.get("resources/fahrenheit.txt")
+    val channel = AsynchronousFileChannel.open(
+      path, file.StandardOpenOption.READ)
+
+    val parFahrenheit: Par[Either[Throwable, Array[Byte]]] =
+      read(channel, 0, 64)
+
+    // val eitherFahrenheit: Either[Throwable,Array[Byte]] =
+    //   Par.run(service)(parFahrenheit)
+
+    // eitherFahrenheit match {
+    //   case Left(throwable) => throw throwable
+    //   case Right(arrByte) =>
+    //     arrByte.toList.foreach((b: Byte) => printf("%s\n", b))
+    // }
+
+    service.shutdown()
   }
 }
 

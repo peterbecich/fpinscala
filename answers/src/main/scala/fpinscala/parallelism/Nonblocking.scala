@@ -15,18 +15,18 @@ object Nonblocking {
 
     def run[A](es: ExecutorService)(p: Par[A]): A = {
       val ref = new java.util.concurrent.atomic.AtomicReference[A] // A mutable, threadsafe reference, to use for storing the result
-      println("atomic reference: "+ref)
+      //println("atomic reference: "+ref)
 
       val latch = new CountDownLatch(1) // A latch which, when decremented, implies that `ref` has the result
-      println("latch: "+latch)
+      //println("latch: "+latch)
 
-      println("apply executor service to p: "+p+"("+es+")")
+      //println("apply executor service to p: "+p+"("+es+")")
       p(es) { a => ref.set(a); latch.countDown } // Asynchronously set the result, and decrement the latch
-      println("awaiting latch")
+      //println("awaiting latch")
 
       latch.await // Block until the `latch.countDown` is invoked asynchronously
 
-      println("ref.get")
+      //println("ref.get")
       ref.get // Once we've passed the latch, we know `ref` has been set, and return its value
     }
 

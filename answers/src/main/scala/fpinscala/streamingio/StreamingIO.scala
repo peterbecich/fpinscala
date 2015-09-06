@@ -1132,14 +1132,17 @@ object ProcessTest extends App {
 
 
   val p = eval(IO { println("woot"); 1 }).repeat
+  println("p = "+p)
+
   val p2 = eval(IO { println("cleanup"); 2 } ).onHalt {
     case Kill => println { "cleanup was killed, instead of bring run" }; Halt(Kill)
     case e => Halt(e)
   }
+  println("p2 = "+p2)
 
   println { Process.runLog { p2.onComplete(p2).onComplete(p2).take(1).take(1) } }
   println { Process.runLog(converter) }
-  // println { Process.collect(Process.convertAll) }
+  //println { Process.collect(Process.convertAll) }
 
 
   println("reading from numbers.txt")
@@ -1156,15 +1159,15 @@ object ProcessTest extends App {
       case Left(e) => Halt(e)
     }
 
-  val io: IO[IndexedSeq[String]] = runLog(q)
+  val io: IO[IndexedSeq[String]] = Process.runLog(q)
   // equivalent to IO3.Free[Nonblocking.Par, IndexedSeq[String]]
   println("IO: "+io)
 
-  val par: Par[IndexedSeq[String]] = IO3.run(io)(IO3.parMonad)
-  println("par: "+par)
+  // val par: Par[IndexedSeq[String]] = IO3.run(io)(IO3.parMonad)
+  // println("par: "+par)
 
-  val strings: IndexedSeq[String] = Par.run(service)(par)
-  println("strings: "+strings)
+  // val strings: IndexedSeq[String] = Par.run(service)(par)
+  // println("strings: "+strings)
 
 
   service.shutdown()
