@@ -22,8 +22,13 @@ sealed trait Option[+A] {
   // getOrElse necessary in case of change in container type;
   // not really necessary in this case, because our only Functor is Option
   // Only option is Option, ha ha
-  def flatMap[B](f: A => Option[B]): Option[B] = 
-    this.map((a: A) => f(a)).getOrElse(None)
+  // def flatMap[B](f: A => Option[B]): Option[B] = 
+  //   this.map((a: A) => f(a)).getOrElse(None)
+
+  def flatMap[B](f: A => Option[B]): Option[B] = this match {
+    case Some(a) => f(a)
+    case None => None
+  }
 
   def orElse[B>:A](ob: => Option[B]): Option[B] = this match {
     case Some(get) => Some(get)
@@ -41,10 +46,16 @@ sealed trait Option[+A] {
     )
 
 }
+
+// built-in deconstructor of case class used in pattern matching
 case class Some[+A](get: A) extends Option[A]
 case object None extends Option[Nothing]
 
 object Option {
+
+  def unit[A](a: A): Option[A] = Some(a)
+
+
   def failingFn(i: Int): Int = {
     val y: Int = throw new Exception("fail!") // `val y: Int = ...` declares `y` as having type `Int`, and sets it equal to the right hand side of the `=`.
     try {
@@ -65,8 +76,20 @@ object Option {
   def mean(xs: Seq[Double]): Option[Double] =
     if (xs.isEmpty) None
     else Some(xs.sum / xs.length)
-  def variance(xs: Seq[Double]): Option[Double] = sys.error("todo")
+  def variance(xs: Seq[Double]): Option[Double] = {
+    if (xs.isEmpty) None
+    else {
+      val opMean: Option[Double] = mean(xs)
+      val opVariance = opMean.map { (m: Double) => 
+        val subMSquared: Seq[Double] = xs.map ( s => (s-m)*(s-m) )
+        val sum: Double = subMSquared.foldLeft(0.0)(_+_)
+        sum / xs.length
+      
+      }
 
+      opVariance
+    }
+  }
   // def map2[A,B,C](aOp: Option[A], bOp: Option[B])(f: (A, B) => C): Option[C] = 
   //   (aOp, bOp) match {
   //     case (Some(a), Some(b)) => Some(f(a,b))
@@ -114,37 +137,107 @@ This is a clear instance where it’s not appropriate to define the function in 
    }
    */
 
-  // def sequence[A](a: List[Option[A]]): Option[List[A]] = {
-  //   // val flatten: (A => Option[List[A]]) = 
-  //   //   a1 => Some(List(a1))
-  //   val flatten: (A => List[A]) = 
-  //     a1 => Some(List(a1))
+  def sequence[A](a: List[Option[A]]): Option[List[A]] = {
+
+    // val flatten: (A => List[A]) = 
+    //   a1 => Some(List(a1))
+
+    // a match {
+    //   case sh::t => sh.flatMap(flatten)  //sh = some head
+    //   case None::t => None
+    //   case Nil => Some(Nil)
+
+    // }
+
+    a.foldLeft(Some(List[A]()): Option[List[A]]) {
+      (opListA: Option[List[A]], opA: Option[A]) =>
+      opListA.flatMap { (listA: List[A]) =>
+        opA.map { (a: A) => a::listA }
+      }
+    }: Option[List[A]]
+
+  }
 
 
-  //   a match {
-  //     case sh::t => sh.flatMap(flatten)  //sh = some head
-  //     case None::t => None
-  //     case Nil => Some(Nil)
-
-  //   }
-
-    
-  // }
   /*
    Implement through traverse.
    traverse's types on left hand side
    B = A
    A = Option[A]
    */
-  // def sequenceThroughTraverse[A](a: List[Option[A]]): Option[List[A]] = 
-  //   traverse(a){
-  //     // output Option[A]
-  //     (opA: Option[A]) => opA
-  //   }
+  def sequenceThroughTraverse[A](a: List[Option[A]]): Option[List[A]] = 
+    traverse(a){
+      // output Option[A]
+      (opA: Option[A]) => opA
+    }
 
-  // def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = a match {
-  //   case head::Nil => head match {
-  //     case 
-  //   case head::tail => 
-  // }
+  def prepend[A](opA: Option[A], opListA: Option[List[A]]): Option[List[A]] =
+    opA.flatMap { (a: A) =>
+      opListA.map { (listA: List[A]) => a::listA }
+    }
+
+  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = 
+    a.foldRight(unit(List[B]())) { (a: A, opListB: Option[List[B]]) =>
+      val opB: Option[B] = f(a)
+      prepend(opB, opListB)
+    }
+}
+
+
+object OptionTest extends App {
+  import Option._
+
+  val xs: Seq[Double] = (500 to 1300).toSeq.map(_ / 1000.0)
+
+  val opVariance: Option[Double] = variance(xs)
+
+  println("variance: " + opVariance)
+
+  val empty = Seq[Double]()
+
+  val opEmptyVariance = variance(empty)
+
+  println("variance of an empty sequence: "+opEmptyVariance)
+
+  println("sequence example")
+
+  val listOpFailing = List(Some(1), None, Some(3))
+
+  val opListFailing = sequence(listOpFailing)
+
+  println("list of options: "+listOpFailing)
+
+  println("option of list: "+opListFailing)
+
+  val listOpSuccessful = List(Some(1), Some(2), Some(3))
+
+  val opListSuccessful = sequence(listOpSuccessful)
+
+  println("list of options: "+listOpSuccessful)
+
+  println("Note the effect of fold left")
+  println("option of lists: "+opListSuccessful)
+
+  println("traverse example")
+
+  val capAsciiCodes = List(65, 66, 67)
+
+  def capitalAscii(i: Int): Option[Char] =
+    if(i>=65 && i<=90) Some(i.toChar)
+    else None
+
+  println("cap ascii codes: "+capAsciiCodes)
+
+  val capAscii = traverse(capAsciiCodes)(capitalAscii)
+
+  println("cap ascii: "+capAscii)
+    
+  val mixedAsciiCodes = List(64, 65, 66)
+
+  println("mixed ascii codes: "+mixedAsciiCodes)
+
+  val mixedAscii = traverse(mixedAsciiCodes)(capitalAscii)
+
+  println("mixed ascii: "+mixedAscii)
+
 }
