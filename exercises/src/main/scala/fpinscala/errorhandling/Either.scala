@@ -46,6 +46,10 @@ object Either {
       prepend(eitherB, eitherListB)
     }
 
+  def sequenceThroughTraverse[E,A](es: List[Either[E,A]]):
+      Either[E,List[A]] =
+    traverse(es)((ea: Either[E,A]) => ea)
+
   def sequence[E,A](es: List[Either[E,A]]): Either[E,List[A]] = {
     es.foldRight(unit(List[A]()): Either[E, List[A]]) {
       (eitherA: Either[E,A], eitherListA: Either[E, List[A]]) =>
@@ -53,19 +57,30 @@ object Either {
     }
   }
 
+  def foo(arg1: Int)(
+    arg2: Int): Int =
+    arg1+arg2
+
 
   def mean(xs: IndexedSeq[Double]): Either[String, Double] = 
     if (xs.isEmpty) 
       Left("mean of empty list!")
-    else 
+    else  
       Right(xs.sum / xs.length)
 
-  def safeDiv(x: Int, y: Int): Either[Exception, Int] = 
-    try Right(x / y)
-    catch { case e: Exception => Left(e) }
+  import java.lang.ArithmeticException
+
+  def safeDiv(x: Int, y: Int): Either[Exception, Double] = 
+    try {
+      val d: Double = x.toDouble / y
+      if(d.isNaN || d.isPosInfinity || d.isNegInfinity)
+        Left(new ArithmeticException("$x/$y incalculable"))
+      else
+        Right(d)
+    } catch { case e: Exception => Left(e) }
 
   def Try[A](a: => A): Either[Exception, A] =
-    try Right(a)
+    try { Right(a) }
     catch { case e: Exception => Left(e) }
 
 }
@@ -77,11 +92,11 @@ object EitherTest extends App {
 
   val a = (10 to 30).toList
   val b = (-10 to 10).toList
-  val fracs = a.zip(b)
+  val fracs: List[Tuple2[Int, Int]] = a.zip(b)
 
   println("fractions to be calculated: "+fracs)
 
-  def divTuple(tup: (Int, Int)): Either[Exception, Int] =
+  def divTuple(tup: (Int, Int)): Either[Exception, Double] =
     safeDiv(tup._1, tup._2)
 
   val failingDiv = traverse(fracs)(divTuple)

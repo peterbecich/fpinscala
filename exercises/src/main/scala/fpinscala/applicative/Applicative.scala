@@ -48,24 +48,34 @@ trait Applicative[F[_]] extends Functor[F] {
     fe
   }
 
-  // not much of a point in re-doing this with our List implementation
-  def sequence[A](fas: List[F[A]]): F[List[A]] = {
-    def merge(fa: F[A], flist: F[List[A]]): F[List[A]] =
-      this.map2(fa, flist){(a: A, lista: List[A])=>a::lista}
-    fas match {
-      case (fa: F[A])::(t: List[F[A]]) => merge(fa, sequence(t))
-      case _ => this.unit(List[A]())
-    }
+  def sequence[A, G[_]:Applicative](fas: F[G[A]])(
+    applicativeG: Applicative[G]): G[F[A]] = {
+    // def merge(fa: F[A], fga: F[G[A]]): G[F[A]] =
+    //   this.map2(fa, fga){(a: A, ga: G[A])=>}
+
+
+    //   case (fa: F[A])::(t: List[F[A]]) => merge(fa, sequence(t))
+    //   case _ => this.unit(List[A]())
+    // }
+    ???
   }
 
-  def traverse[A,B](as: List[A])(f: A => F[B]): F[List[B]] = {
-    val afb: List[F[B]] = as.map(a => f(a))
-    sequence(afb)
+  def traverse[A,B, G[_]:Applicative](fa: F[A])(f: A => G[B])(
+    applicativeG: Applicative[G]): G[F[B]] = {
+    val fgb: F[G[B]] = map(fa)(a => f(a))
+    sequence(fgb)(applicativeG)
   }
+
+  // try to implement sequence in terms of traverse, rather than visa versa
+  // def traverse[A,B, G[_]:Applicative](fa: F[A])(f: A => G[B]): G[F[B]] = {
+
+  // }
+
 
   def replicateM[A](n: Int, fa: F[A]): F[List[A]] = {
     val lfa: List[F[A]] = List.fill(n)(fa)
-    sequence(lfa)
+    // sequence(lfa)
+    ???
   }
 
   def factor[A,B](fa: F[A], fb: F[B]): F[(A,B)] = {
@@ -404,11 +414,13 @@ trait Traverse[F[_]] extends Functor[F] with Foldable[F] { self =>
   //   val gaga: G[A] => G[A] = (ga: G[A]) => ga
   //   traverseF.traverse(fma)(gaga)(applicativeG)
   // }
-  def traverse[G[_]:Applicative,A,B](fa: F[A])(f: A => G[B]): G[F[B]] = {
+  def traverse[G[_],A,B](fa: F[A])(f: A => G[B])(
+    implicit applicativeG: Applicative[G]): G[F[B]] = {
     val fgb: F[G[B]] = traverseF.map[A,G[B]](fa)(f)
     traverseF.sequence[G,B](fgb)
   }
-  def sequence[G[_]:Applicative,A](fma: F[G[A]]): G[F[A]] = {
+  def sequence[G[_],A](fma: F[G[A]])(
+    implicit applicative: Applicative[G]): G[F[A]] = {
     val gaga: G[A] => G[A] = (ga: G[A]) => ga
     traverseF.traverse(fma)(gaga)
   }
@@ -717,71 +729,71 @@ object StateUtil {
 }
 
 object ApplicativeTests {
-  val listStreamInt: List[Stream[Int]] =
-    List(Stream._from(1), Stream._from(4), Stream._fibs)
-  val sequencedStreams: Stream[List[Int]] =
-    Applicative.streamApplicative.sequence(listStreamInt)
+  // val listStreamInt: List[Stream[Int]] =
+  //   List(Stream._from(1), Stream._from(4), Stream._fibs)
+  // val sequencedStreams: Stream[List[Int]] =
+  //   Applicative.streamApplicative.sequence(listStreamInt)
 
-  // web form example -- Listing 12.5
-  case class WebForm(
-    name: String,
-    birthdate: java.util.Date,
-    phoneNumber: String
-  )
-  def validName(name: String): Validation[String, String] =
-    if(name != "") Success(name)
-    else Failure("Name cannot be empty")
-  def validBirthdate(birthdate: String): Validation[String, java.util.Date] =
-    try {
-      import java.text._
-      Success((new SimpleDateFormat("yyyy-MM-dd")).parse(birthdate))
-    } catch {
-      case e => Failure("Birthdate must be in form yyyy-MM-dd")
-        // ^^ case statement was neccessary
-        // http://stackoverflow.com/questions/19950345/value-isdefinedat-is-not-a-member-of-play-api-mvc-simpleresult
-    }
-  def validPhone(phoneNumber: String): Validation[String, String] =
-    if (phoneNumber.matches("[0-9]{10}")) // << learn this regex
-      Success(phoneNumber)
-    else Failure("Phone number must be 10 digits")
+  // // web form example -- Listing 12.5
+  // case class WebForm(
+  //   name: String,
+  //   birthdate: java.util.Date,
+  //   phoneNumber: String
+  // )
+  // def validName(name: String): Validation[String, String] =
+  //   if(name != "") Success(name)
+  //   else Failure("Name cannot be empty")
+  // def validBirthdate(birthdate: String): Validation[String, java.util.Date] =
+  //   try {
+  //     import java.text._
+  //     Success((new SimpleDateFormat("yyyy-MM-dd")).parse(birthdate))
+  //   } catch {
+  //     case e => Failure("Birthdate must be in form yyyy-MM-dd")
+  //       // ^^ case statement was neccessary
+  //       // http://stackoverflow.com/questions/19950345/value-isdefinedat-is-not-a-member-of-play-api-mvc-simpleresult
+  //   }
+  // def validPhone(phoneNumber: String): Validation[String, String] =
+  //   if (phoneNumber.matches("[0-9]{10}")) // << learn this regex
+  //     Success(phoneNumber)
+  //   else Failure("Phone number must be 10 digits")
 
-  // "lift" with map3
-  def validWebForm(name: String, birthdate: String, phone: String):
-      Validation[String, WebForm] =
-    Applicative.validationApplicative.map3(
-      validName(name),
-      validBirthdate(birthdate),
-      validPhone(phone)
-    ){(  // << interesting difference between {} and () shown here
-         // () required to enclosure multiple arguments,
-         // but not one argument?
-      successfulName: String,
-      successfulBirthdate: java.util.Date,
-      successfulPhone: String
-    ) => WebForm(successfulName, successfulBirthdate, successfulPhone)
-    }
+  // // "lift" with map3
+  // def validWebForm(name: String, birthdate: String, phone: String):
+  //     Validation[String, WebForm] =
+  //   Applicative.validationApplicative.map3(
+  //     validName(name),
+  //     validBirthdate(birthdate),
+  //     validPhone(phone)
+  //   ){(  // << interesting difference between {} and () shown here
+  //        // () required to enclosure multiple arguments,
+  //        // but not one argument?
+  //     successfulName: String,
+  //     successfulBirthdate: java.util.Date,
+  //     successfulPhone: String
+  //   ) => WebForm(successfulName, successfulBirthdate, successfulPhone)
+  //   }
 
-  val badName = ""
-  val badBirthdate = "1000 AD"
-  val badPhone = "411"
+  // val badName = ""
+  // val badBirthdate = "1000 AD"
+  // val badPhone = "411"
 
-  val validatedWebForm: Validation[String, WebForm] =
-    validWebForm(badName, badBirthdate, badPhone)
+  // val validatedWebForm: Validation[String, WebForm] =
+  //   validWebForm(badName, badBirthdate, badPhone)
 
-  def main(args: Array[String]): Unit = {
-    println("Stream of Lists of Ints")
-    for(l<-sequencedStreams.toListFinite(10)) println(l)
+  // def main(args: Array[String]): Unit = {
+  //   println("Stream of Lists of Ints")
+  //   for(l<-sequencedStreams.toListFinite(10)) println(l)
 
-    println("web form example -- Listing 12.5")
-    validatedWebForm match {
-      case Success(form) => println(form)
-      case Failure(h, tail) => {
-        println("first error: "+h)
-        println("others: "+tail)
-      }
-    }
+  //   println("web form example -- Listing 12.5")
+  //   validatedWebForm match {
+  //     case Success(form) => println(form)
+  //     case Failure(h, tail) => {
+  //       println("first error: "+h)
+  //       println("others: "+tail)
+  //     }
+  //   }
 
-  }
+  // }
 }
 
 
@@ -803,6 +815,9 @@ object TraverseTests {
     // understand why
     val noAlphabet: Option[List[Char]] = 
       listTraverse.traverse(notASCII)(charConverter)
+
+    println("ASCII conversion fails: ")
+    println(noAlphabet)
 
     println("some ASCII")
     println(ASCII)

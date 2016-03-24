@@ -13,12 +13,18 @@ trait Stream[+A] {
   //foo
   //bar
 
-  def foldRight[C, B<:C](z: => B)(f: (A, => B) => B): C = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
+  def foldRight[C, B<:C](z: => B)(f: (A, => B) => B): C = {
+    //println(s"foldRight on: $this. z: $z f: $f")
+  // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match {
-      case Stream.cons(h,t) => f(h, t.foldRight(z)(f))
+      case Stream.cons(h,t) => {
+        println(s"foldRight on: $this. z: $z f: $f  head: $h")
+        f(h, t.foldRight(z)(f))
+      }
       // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
     }
+  }
 
   /*
    Think about implementing fold left over a Stream.
@@ -135,13 +141,17 @@ trait Stream[+A] {
 
   def map[B](f: A => B): fpinscala.laziness.Stream[B] = {
     def g(a: A, sb: => fpinscala.laziness.Stream[B]):
-        fpinscala.laziness.Stream[B] =
+        fpinscala.laziness.Stream[B] = {
+      println(s"map  a: $a")
       fpinscala.laziness.Stream.cons(f(a), sb)
+    }
     //                                     ^
     // Big mistake to call the next iteration of 'map' here.
     // That shows a misunderstanding of the use of 'fold', left or right
 
-    foldRight(Stream.empty[B])(g)
+    // foldRight(Stream.empty[B])(g)
+    foldRight(Stream.empty)(g)
+
   }
 
   // Know why this does not 'zip' implicitly.
@@ -370,7 +380,8 @@ object Stream {
 
    Again, Scala takes care of wrapping the arguments to cons in thunks, so the as.head and apply(as.tail: _*) expressions won’t be evaluated until we force the Stream.
  */
-  def empty[C]: fpinscala.laziness.Stream[C] = Empty
+  //def empty[C]: fpinscala.laziness.Stream[C] = Empty
+  def empty: fpinscala.laziness.Stream[Nothing] = Empty
 
   def apply[A](as: A*): fpinscala.laziness.Stream[A] =
     if (as.isEmpty) empty 
@@ -422,6 +433,16 @@ object Stream {
 }
 
 object StreamTests {
+  // [error]  found   : (Int, Int) => Int
+  // [error]  required: (Int, => Int) => Int
+  // def sum(streamI: Stream[Int]): Int =
+  //   streamI.foldRight(0){ (i: Int, s: Int) => i+s }
+
+  def lazySum(i: Int, acc: => Int): Int = i+acc
+
+  def sum2(streamI: Stream[Int]): Int =
+    streamI.foldRight(0)(lazySum _)
+
   def main(args: Array[String]): Unit = {
     println("some Fibonacci numbers")
     /*
@@ -504,6 +525,11 @@ object StreamTests {
       Stream.seq(150, (i:Int)=>i-1, 1)
     println("reversed numbers")
     reverseNumbers.feedback
+
+    println("----------------------------------")
+    val s = sum2(Stream.from(0).take(10))
+
+    println("sum: "+s)
 
   }
 

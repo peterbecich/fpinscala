@@ -55,6 +55,9 @@ object Option {
 
   def unit[A](a: A): Option[A] = Some(a)
 
+  def lift[A,B](f: A => B): Option[A] => Option[B] =
+    (opA: Option[A]) => opA.map(f)
+
 
   def failingFn(i: Int): Int = {
     val y: Int = throw new Exception("fail!") // `val y: Int = ...` declares `y` as having type `Int`, and sets it equal to the right hand side of the `=`.
@@ -80,11 +83,9 @@ object Option {
     if (xs.isEmpty) None
     else {
       val opMean: Option[Double] = mean(xs)
-      val opVariance = opMean.map { (m: Double) => 
-        val subMSquared: Seq[Double] = xs.map ( s => (s-m)*(s-m) )
-        val sum: Double = subMSquared.foldLeft(0.0)(_+_)
-        sum / xs.length
-      
+      val opVariance = opMean.flatMap { (m: Double) => 
+        val subMSquared: Seq[Double] = xs.map ( s => math.pow(s-m, 2) )
+        mean(subMSquared)
       }
 
       opVariance
@@ -188,6 +189,8 @@ object OptionTest extends App {
   import Option._
 
   val xs: Seq[Double] = (500 to 1300).toSeq.map(_ / 1000.0)
+
+  println("calculate the variance of this sequence: "+xs)
 
   val opVariance: Option[Double] = variance(xs)
 

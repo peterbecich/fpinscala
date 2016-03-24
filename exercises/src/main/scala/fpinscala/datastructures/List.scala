@@ -65,6 +65,13 @@ object List { // `List` companion object. Contains functions for creating and wo
       case Cons(x, xs) => f(x, foldRight(xs, z)(f))
     }
 
+  def foldRightThroughFlatMap[A,B](as: List[A], z: B)(f: (A,B) => B): B =
+    as match {
+      case Cons(h: A, t: List[A]) =>
+        f(h, foldRightThroughFlatMap(t, z)(f)): B
+      case Nil => z
+    }
+
   // def foldRightViaFoldLeft[A,B](as: List[A], z: B)(f: (A, B) => B): B = {
   //   val out = foldLeft(as, z){
   //     // given (A, B).  Need (B, A)
@@ -169,6 +176,9 @@ object List { // `List` companion object. Contains functions for creating and wo
       (a: A, lb: List[B]) => List.append(f(a), lb)
     }
 
+  // def _flatMap[A,B](l: List[A])(f: A => List[B]): List[B] = l match {
+  //   case Cons(h, t) => Cons
+
 }
 
 object TestList {
@@ -220,6 +230,11 @@ object TestList {
     //   }
     // )
 
+    println("fold right via flat map")
+    val chars = List.foldRightThroughFlatMap(listA, new List[Char]{}){
+      (i: Int, listChar: List[Char]) => Cons(i.toChar, listChar)
+    }
+    println(chars)
 
   }
 
