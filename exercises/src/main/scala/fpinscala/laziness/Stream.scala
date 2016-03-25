@@ -149,8 +149,8 @@ trait Stream[+A] {
     // Big mistake to call the next iteration of 'map' here.
     // That shows a misunderstanding of the use of 'fold', left or right
 
-    // foldRight(Stream.empty[B])(g)
-    foldRight(Stream.empty)(g)
+    foldRight(Stream.empty[B])(g)
+    // foldRight(Stream.empty)(g)
 
   }
 
@@ -380,8 +380,8 @@ object Stream {
 
    Again, Scala takes care of wrapping the arguments to cons in thunks, so the as.head and apply(as.tail: _*) expressions won’t be evaluated until we force the Stream.
  */
-  //def empty[C]: fpinscala.laziness.Stream[C] = Empty
-  def empty: fpinscala.laziness.Stream[Nothing] = Empty
+  def empty[C]: fpinscala.laziness.Stream[C] = Empty
+  // def empty: fpinscala.laziness.Stream[Nothing] = Empty
 
   def apply[A](as: A*): fpinscala.laziness.Stream[A] =
     if (as.isEmpty) empty 

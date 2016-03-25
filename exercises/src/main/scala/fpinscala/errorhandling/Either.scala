@@ -51,7 +51,7 @@ object Either {
     traverse(es)((ea: Either[E,A]) => ea)
 
   def sequence[E,A](es: List[Either[E,A]]): Either[E,List[A]] = {
-    es.foldRight(unit(List[A]()): Either[E, List[A]]) {
+    es.foldRight[Either[E, List[A]]](unit(List[A]()): Either[E, List[A]]) {
       (eitherA: Either[E,A], eitherListA: Either[E, List[A]]) =>
       prepend(eitherA, eitherListA)
     }
