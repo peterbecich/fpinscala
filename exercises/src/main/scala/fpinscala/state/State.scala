@@ -1,250 +1,5 @@
 package fpinscala.state
 
-
-trait RNG {
-  def nextInt: (Int, RNG) // Should generate a random `Int`. We'll later define other functions in terms of `nextInt`.
-}
-
-object RNG {
-  // NB - this was called SimpleRNG in the book text
-
-  case class Simple(seed: Long) extends RNG {
-    def nextInt: (Int, RNG) = {
-      val newSeed = (seed * 0x5DEECE66DL + 0xBL) & 0xFFFFFFFFFFFFL // `&` is bitwise AND. We use the current seed to generate a new seed.
-      val nextRNG = Simple(newSeed) // The next state, which is an `RNG` instance created from the new seed.
-      val n = (newSeed >>> 16).toInt // `>>>` is right binary shift with zero fill. The value `n` is our new pseudo-random integer.
-        (n, nextRNG) // The return value is a tuple containing both a pseudo-random integer and the next `RNG` state.
-    }
-  }
-
-  type Rand[+A] = RNG => (A, RNG)
-
-  // uses type inference to guess argument to nextInt -- an RNG
-  val int: Rand[Int] = _.nextInt
-
-  // explicit
-  def randInt: Rand[Int] = (rng: RNG) => rng.nextInt
-
-  def unit[A](a: A): Rand[A] =
-    rng => (a, rng)
-
-  def map[A,B](s: Rand[A])(f: A => B): Rand[B] =
-    rng => {
-      val (a, rng2) = s(rng)
-      (f(a), rng2)
-    }
-
-  def chooseInt(rng: RNG)(start: Int, stopExclusive: Int): (Int, RNG) = {
-    //println(start + " to " + stopExclusive)
-    val (nextNonNegativeInt, nextRNG) = RNG.nonNegativeInt(rng)
-    val scale: Double = (nextNonNegativeInt.toDouble/Int.MaxValue)
-    //println("scale: "+scale)
-    //val nextChosenInt: Int = (start + (stopExclusive-start)*scale).toInt
-    val nextChosenInt: Int = 
-      (start + stopExclusive*scale - start*scale).toInt
-
-    // probably a casting necessary somewhere in here
-    // val nextChosenInt: Int = 
-    //   (stopExclusive*scale - (start-1)*scale).toInt
-    //println(nextChosenInt)
-    // is this exclusive on the upper bound?
-    (nextChosenInt, nextRNG)
-  }
-
-  def nonNegativeInt(rng: RNG): (Int, RNG) = {
-    val (nextInt, nextRNG) = rng.nextInt
-    (nextInt.abs, nextRNG)
-  }
-  //RNG.map(rng)(_.abs)
-
-  def double(rng: RNG): (Double, RNG) = {
-    val (nextInt, nextRNG) = rng.nextInt
-    val nextDouble = nextInt.doubleValue/Int.MaxValue
-    (nextDouble, nextRNG)
-  }
-  def randDouble: Rand[Double] = (rng: RNG) => double(rng)
-
-  def chooseDouble(rng0: RNG)(start: Double, stopExclusive: Double): (Double, RNG) = {
-    val (nextNonNegativeInt, rng1): Tuple2[Int, RNG] = RNG.nonNegativeInt(rng0)
-    val scale: Double = (nextNonNegativeInt.toDouble/Double.MaxValue)
-    val nextChosenDouble: Double = (stopExclusive*scale - (start-1)*scale)
-    (nextChosenDouble, rng1)
-
-  }
-
-  def intDouble(rng: RNG): ((Int,Double), RNG) = {
-    // val (nextInt, secondRNG) = rng.nextInt
-   // val (nextDouble, thirdRNG) = RNG.double(secondRNG)
-
-    // ((nextInt, nextDouble), thirdRNG)
-    val intDoubleRand: Rand[(Int, Double)] =
-      RNG.map2(
-        (rngA: RNG) => rngA.nextInt,
-        (rngB: RNG) => RNG.double(rngB)
-      )((int: Int, dbl: Double) => (int, dbl))
-
-    intDoubleRand(rng)
-  }
-
-  def doubleInt(rng: RNG): ((Double,Int), RNG) = {
-    val (nextDouble, secondRNG) = RNG.double(rng)
-    val (nextInt, thirdRNG) = secondRNG.nextInt
-    ((nextDouble, nextInt), thirdRNG)
-  }
-
-  def double3(rng: RNG): ((Double,Double,Double), RNG) = {
-    /*
-     It would be nice to figure out this solution with flatMap,
-     fold, etc.
-     */
-    // for(i<-1:3;
-    //   val (nextDouble, nextRNG){
-
-    // }
-    val ll = List.fill(3)(randDouble)
-
-    ???
-    
-  }
-
-  def ints(count: Int)(rng: RNG): (List[Int], RNG) = {
-    val ll = List.fill(count)(randInt)
-
-    // ll.foldRight(z: B)(op: Function2[Function1[Int], B, B])
-
-    ll.foldRight((List[Int](), rng))(
-      (nextRand: Rand[Int], l2: (List[Int], RNG)) => {
-        val (nextInt, nextRNG) = nextRand(l2._2)
-        (nextInt :: l2._1, nextRNG)
-      }
-    )
-  }
-  def list[A](count: Int)(rng: RNG)(rand: Rand[A]): (List[A], RNG) = {
-    val ll = List.fill(count)(rand)
-    ll.foldRight((List[A](), rng))(
-
-      // [error] Note: Tuples cannot be directly destructured in method or function parameters.
-      // [error]       Either create a single parameter accepting the Tuple1,
-      // [error]       or consider a pattern matching anonymous function: `{ case (param1, param1) => ... }
-      // [error]       (nextRand: Rand[A], (prevAList, prevRNG): (List[A], RNG)) => {
-      // [error]                                               ^
-
-
-      //       (nextRand: Rand[A], (prevAList, prevRNG): (List[A], RNG)) => {
-      //         val (nextA, nextRNG) = nextRand(prevRNG)
-      //         (nextA :: prevAList, nextRNG)
-      //       }
-
-      (nextRand: Rand[A], l2: (List[A], RNG)) => {
-        val (nextA, nextRNG) = nextRand(l2._2)
-        (nextA :: l2._1, nextRNG)
-      }
-
-    )
-  }
-
-  def map2[A,B,C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
-  {
-    // Return function RNG => (C, RNG)
-    (rng: RNG) => {
-      val (raValue, raRNG) = ra(rng)
-      val (rbValue, rbRNG) = rb(raRNG)
-      (f(raValue, rbValue), rbRNG)
-    }
-
-  }
-
-  def both[A,B](ra: Rand[A], rb: Rand[B]): Rand[(A,B)] =
-    RNG.map2(ra,rb){
-      (a: A, b: B) => (a,b)
-    }
-
-  def randIntDouble: Rand[(Int, Double)] =
-    RNG.both(RNG.randInt, RNG.randDouble)
-
-  def randIntDoubleEquivalent: Rand[(Int, Double)] =
-    RNG.both(RNG.randInt, RNG.double)
-
-  def randIntDoubleEquivalent2: Rand[(Int, Double)] =
-    RNG.both(RNG.randInt, RNG.double(_))
-
-
-  def randDoubleInt: Rand[(Double, Int)] =
-    RNG.both(RNG.randDouble, RNG.randInt)
-
-
-  /*
-   List[Rand[A]]
-   Cons(Rand[A], Cons(Rand[A], Cons(Rand[A], Nil)))
-   Cons((rng1)=>(a1,rng2), Cons(rng2=>(a2,rng3), Cons(rng3=>(a3,rng4), Nil)))
-
-   
-   Rand[List[A]]
-   (rng1) => (Cons(a1,Cons(a2,Cons(a3,Nil))), rng4)
-
-   sequence
-   map2(
-
-
-   Remember List has all the built-in methods that Rand lacks:
-   fold
-   flatMap
-   etc.
-   */
-
-  def sequence[A](fs: List[Rand[A]]): Rand[List[A]] = {
-    // fs.foldRight(z: B)(op: Function2[Function1[A], B, B])
-    // fs.fold(z: A1)(op: Function2[A1, A1, A1])
-    // fs.foldLeft(z: B)(f: Function2[B, Function1[A], B])
-    
-    fs.foldRight{
-      RNG.unit(scala.collection.immutable.Nil): Rand[List[A]]
-    }{
-      (ra: Rand[A], rl: Rand[List[A]]) => {
-        RNG.map2(ra, rl){(a: A, la: List[A]) =>
-          a :: la
-        }
-      }
-    }
-  }
-
-  def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B] = {
-
-    /*
-    Is there a difference between
-    (g: A) => Rand[B]
-    and
-    f: A => Rand[B]
-    ?
-     I think so, when it comes to passing.
-     f would take the form
-        def f(a: A): Rand[B]
-     Can f
-
-
-    Rand[A] = RNG => (A, RNG)
-    Rand[B] = RNG => (B, RNG)
-    g = A => (RNG => (A, RNG))
-    g = (a: A) => ((rng: RNG) => (a, rng))
-     */
-    (rng: RNG) => {
-      val (valueA, rngA) = f(rng)
-      val randB = g(valueA)
-      randB(rngA)
-    }
-  }
-
-  def mapWithFlatMap[A,B](s: Rand[A])(f: A => B): Rand[B] = {
-    //def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B]
-
-    // this is 'unit'
-    //val g: (A => Rand[B]) = (a: A) => ((rng: RNG) => (f(a), rng))
-    val g: (A => Rand[B]) = (a: A) => RNG.unit(f(a))
-    flatMap(s)(g): Rand[B]
-
-  }
-}
-
 //type Rand[A] = State[RNG, A]
 
 /*
@@ -318,9 +73,17 @@ sealed trait Input
 case object Coin extends Input
 case object Turn extends Input
 
-case class Machine(locked: Boolean, candies: Int, coins: Int)
+case class Machine(locked: Boolean, candies: Int, coins: Int) {
+  val printout: MachinePrintout = MachinePrintout(coins, candies)
+}
+
+case class MachinePrintout(coinsHeld: Int, candiesHeld: Int) {
+  override def toString: String = s"Coins held: $coinsHeld  Candies held: $candiesHeld"
+}
 
 object State {
+  val simple = RNG.Simple(321.toLong)
+
   def unit[S,A](a: A): State[S,A] =
     State {
       (s: S) => (a, s)
@@ -471,35 +234,208 @@ class AddOne extends Function[Int, Int] {
 
   type Rand[A] = State[RNG, A]
 
-//  def randInt: Rand[Int] = 
+  def rand[A](f: Int => A): Rand[A] = {
+    val transition = (rng: RNG) => {
+      val intRNG: Tuple2[Int, RNG] = rng.nextInt
+      val aRNG: Tuple2[A, RNG] = (f(intRNG._1), intRNG._2)
+      aRNG
+    }
+    State(transition)
+  }
+
+  def nonNegativeInt = rand((i: Int) => i.abs)
+
+  def double = rand((i: Int) => i.doubleValue/Int.MaxValue)
+
+
+
+
+  // def randInt: Rand[Int] =
   // S = Machine
   // A = (Coins held, Candies held)
   // def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = {
-  // (machine: Machine) =>
-  // inputs.foldRight(
-  //   //State[Machine, (Int,Int)](machine, (machine.coins,machine.candies))
-  //   State.unit(machine)
-  // ){
-  //   (nextInput: Input,
-  //     (machine: Machine, (coinsHeld: Int, candiesHeld: Int))) => {
-  //     machine.locked match {
-  //       case false => {
-  //         nextInput match {
-  //           case Coin
-  //         }
-  //         case true => (machine, (coinsHeld, candiesHeld))
-  //       }
-
-  //   (machine0: Machine) =>
+  //   (machine: Machine) =>
   //   inputs.foldRight(
-  //     State.unit(machine0)
+  //     //State[Machine, (Int,Int)](machine, (machine.coins,machine.candies))
+  //     State.unit(machine)
   //   ){
   //     (nextInput: Input,
   //       (machine: Machine, (coinsHeld: Int, candiesHeld: Int))) => {
-  //       // flatMap: old Machine => new Machine and coins, candies tuple
+  //       machine.locked match {
+  //         case false => {
+  //           nextInput match {
+  //             case Coin
+  //           }
+  //           case true => (machine, (coinsHeld, candiesHeld))
+  //         }
+
+  //           (machine0: Machine) =>
+  //           inputs.foldRight(
+  //             State.unit(machine0)
+  //           ){
+  //             (nextInput: Input,
+  //               (machine: Machine, (coinsHeld: Int, candiesHeld: Int))) => {
+  //               // flatMap: old Machine => new Machine and coins, candies tuple
+  //             }
+  //           }
+  //       }
+  //       //def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)]
   //     }
   //   }
-  // }
-  //def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)]
+
+  /*
+   S = Machine
+   A = MachinePrintout
+   */
+
+
+
+    def candyMachineTransition(currentMachine: Machine, input: Input): (MachinePrintout, Machine) =
+      input match {
+        case Coin if currentMachine.locked == true && currentMachine.candies > 0 =>
+          val replacementMachine =
+            Machine(locked = false, candies = currentMachine.candies, coins = currentMachine.coins + 1)
+          val printout = replacementMachine.printout
+          (printout, replacementMachine)
+        case Coin =>
+          val printout = currentMachine.printout
+          (printout, currentMachine)
+
+        case Turn if currentMachine.locked == false =>
+          val replacementMachine =
+            Machine(locked = true, candies = currentMachine.candies - 1, coins = currentMachine.coins)
+          val printout = replacementMachine.printout
+          (printout, replacementMachine)
+
+        case Turn =>
+          val printout = currentMachine.printout
+          (printout, currentMachine)
+
+      }
+
+  def candyMachineState(input: Input): State[Machine, MachinePrintout] =
+    State((machine: Machine) => candyMachineTransition(machine, input))
+  
+
+  // def simulateMachine(inputs: List[Input]): State[Machine, MachinePrintout] = {
+  //   (machine: Machine) => {
+  //     val initialMachineState: State[Machine, Unit] =
+  //       set(machine)
+
+  //     inputs.foldRight(initialMachineState){
+  //       (nextInput: Input, machineState: State[Machine, MachinePrintout]) => {
+  //         val currentCandies = get
+  //         val currentLocked = currentMachine.locked
+  //         nextInput match {
+  //           case Coin if currentCandies > 0 && currentLocked == false =>
+
+
+  def simulateMachine(inputs: List[Input]): State[Machine, List[MachinePrintout]] = {
+    val listStates: List[State[Machine, MachinePrintout]] =
+      inputs.map { (input: Input) => candyMachineState(input) }
+
+    sequence(listStates)
+
+  }
+
+}
+
+
+object StateExamples {// extends App {
+  import State._
+
+  val incrementer: State[Int, Unit] = modify {
+    (i: Int) => i+1
+  }
+
+
+
+}
+
+
+object SimpleCandyMachine extends App {
+  import State._
+
+  println("Candy machine with state transitions set up manually")
+
+  val candyMachine = Machine(locked = true, candies = 10, coins = 0)
+
+  println("Candy machine's initial state: "+candyMachine)
+
+  val givenCoin: Tuple2[MachinePrintout, Machine] = candyMachineTransition(candyMachine, Coin)
+
+  println("Candy machine after given coin: "+givenCoin._2)
+  println("Machine printout: "+givenCoin._1)
+
+  val givenTurn = candyMachineTransition(givenCoin._2, Turn)
+
+  println("Candy machine after given turn: "+givenTurn._2)
+  println("Machine printout: "+givenTurn._1)
+
+
+}
+
+object CandyMachine extends App {
+  import State._
+
+  val easyInputs: List[Input] = List(Coin, Turn, Coin, Turn, Coin, Turn)
+
+  println(s"inputs: $easyInputs")
+
+  val state1: State[Machine, List[MachinePrintout]] = simulateMachine(easyInputs)
+
+  println(s"State from inputs: $state1")
+
+  val initialMachine = Machine(locked = true, candies = 10, coins = 0)
+
+  println(s"initial machine: $initialMachine")
+
+  val out1: Tuple2[List[MachinePrintout], Machine] = state1.run(initialMachine)
+
+  println(s"machine after inputs: ${out1._2}")
+  println(s"machine printouts: ${out1._1}")
+
+  println("----------------------------------------")
+
+
+  val inputs2: List[Input] = List(Coin, Coin, Coin, Turn, Turn, Turn, Turn)
+
+  println(s"inputs: $inputs2")
+
+  val state2: State[Machine, List[MachinePrintout]] = simulateMachine(inputs2)
+
+  println(s"State from inputs: $state2")
+
+  // No need to redefine the inital machine -- it hasn't changed
+
+  println(s"initial machine: $initialMachine")
+
+  val out2: Tuple2[List[MachinePrintout], Machine] = state2.run(initialMachine)
+
+  println(s"machine after inputs: ${out2._2}")
+  println(s"machine printouts: ${out2._1}")
+
+
+  println("----------------------------------------")
+
+
+  val inputs3: List[Input] = List(Turn, Turn, Turn, Turn)
+
+  println(s"inputs: $inputs3")
+
+  val state3: State[Machine, List[MachinePrintout]] = simulateMachine(inputs3)
+
+  println(s"State from inputs: $state3")
+
+  // No need to redefine the inital machine -- it hasn't changed
+
+  println(s"initial machine: $initialMachine")
+
+  val out3: Tuple2[List[MachinePrintout], Machine] = state3.run(initialMachine)
+
+  println(s"machine after inputs: ${out3._2}")
+  println(s"machine printouts: ${out3._1}")
+
+
 
 }

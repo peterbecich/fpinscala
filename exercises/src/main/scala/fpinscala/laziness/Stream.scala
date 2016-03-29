@@ -13,18 +13,24 @@ trait Stream[+A] {
   //foo
   //bar
 
-  def foldRight[C, B<:C](z: => B)(f: (A, => B) => B): C = {
+  def foldRight[B](z: => B)(f: (A, => B) => B): B = {
     //println(s"foldRight on: $this. z: $z f: $f")
   // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match {
       case Stream.cons(h,t) => {
-        println(s"foldRight on: $this. z: $z f: $f  head: $h")
+        // println(s"foldRight on: $this. z: $z f: $f  head: $h")
         f(h, t.foldRight(z)(f))
       }
       // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
     }
   }
+
+
+  // def scanRight[B](z: => B)(f: (A, => B) => B): B = {
+
+
+  // }
 
   /*
    Think about implementing fold left over a Stream.
@@ -73,7 +79,7 @@ trait Stream[+A] {
     case fpinscala.laziness.Stream.cons(h, t) if n>0 =>
       fpinscala.laziness.Stream.cons(h, t.take(n-1))
     case _ if n==0 => Stream.empty
-    case _ => Stream.empty
+    case Empty => Stream.empty
   }
   def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
     case fpinscala.laziness.Stream.cons(h, t) if n>0 =>
@@ -119,6 +125,16 @@ trait Stream[+A] {
   def feedback: Unit = 
     println(this.toListFinite(30))
 
+  def printer(n: Int): Unit =
+    this match {
+      case Stream.cons(head, lazyTail) if n > 0 => {
+        println(head)
+        lazyTail.printer(n-1)
+      }
+      case Stream.cons(head, lazyTail) if n <= 0 => println("printed out number of elements requested")
+      case Empty => println("reached end of Stream")
+    }
+
 
   // def drop(n: Int): fpinscala.laziness.Stream[A] = this match {
   //   case Empty => empty[A]
@@ -132,6 +148,8 @@ trait Stream[+A] {
     (a, b) => p(a) && b
   )
 
+
+
   // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
   // writing your own function signatures.
 
@@ -142,7 +160,7 @@ trait Stream[+A] {
   def map[B](f: A => B): fpinscala.laziness.Stream[B] = {
     def g(a: A, sb: => fpinscala.laziness.Stream[B]):
         fpinscala.laziness.Stream[B] = {
-      println(s"map  a: $a")
+      // println(s"map  a: $a")
       fpinscala.laziness.Stream.cons(f(a), sb)
     }
     //                                     ^
@@ -327,6 +345,16 @@ trait Stream[+A] {
 
   }
 
+  def tail: Stream[A] = this match {
+    case Stream.cons(h, t) => t
+    case empty => empty
+  }
+
+  def tails: Stream[Stream[A]] =
+    Stream.unfold(this) {
+      (state: Stream[A]) => Some((state, state.tail))
+    }
+
   def continually: Stream[A] = this match {
     case Cons(h,t) => Stream.constant(h())
     case emp@Empty => emp
@@ -336,6 +364,12 @@ case object Empty extends fpinscala.laziness.Stream[Nothing]
 case class Cons[+C](h: () => C, t: () => fpinscala.laziness.Stream[C]) extends fpinscala.laziness.Stream[C]
 
 object Stream {
+
+  def counter(s: Stream[Int], maxElements: Int): Int = {
+    def f(i: Int, s: => Int) = i + s
+
+    s.take(maxElements).foldRight(0)(f)
+  }
   // def cons[C](hd: => C, tl: => fpinscala.laziness.Stream[C]): fpinscala.laziness.Stream[C] = {
   //   lazy val head = hd
   //   lazy val tail = tl
@@ -410,6 +444,10 @@ object Stream {
     (tpl: (Int,Int)) => Some(tpl._1 + tpl._2, (tpl._2, tpl._1 + tpl._2))
   )
 
+
+
+
+
   // ASCII characters 0x21 to 0x7E
   def characters: Stream[Char] = unfold(0x21){(i: Int)=>
     if(i<=0x7E) Some((i.toChar, i+1)) else None
@@ -423,6 +461,13 @@ object Stream {
       Cons(() => start, () => seq(increment(start), increment))
     else
       Cons(() => start, () => Empty)
+
+
+  // def count2(start: Int): Stream[Int] = {
+  //   def f(i: Int, acc: => Stream[Int]): Stream[Int] = cons(i, acc)
+  //   foldRight(empty[Int])(f)
+
+  //   }
 
 
   // If `f` doesn't evaluate its second argument, the recursion never occurs
@@ -530,6 +575,17 @@ object StreamTests {
     val s = sum2(Stream.from(0).take(10))
 
     println("sum: "+s)
+
+    reverseNumbers.printer(16)
+
+    println("tails")
+
+    def g(s: Stream[Int], foo: => Unit) = s.printer(8)
+
+    Stream.from(0).tails.foldRight(())(g)
+
+
+
 
   }
 
