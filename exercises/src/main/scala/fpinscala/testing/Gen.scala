@@ -93,7 +93,7 @@ object Prop {
       case Prop.Passed => println(s"Passed $testCases tests")
     }
 
-  // forALl for Gen[A] from answers
+  // forAll for Gen[A] from answers
   def forAll[A](as: Gen[A])(f: A => Boolean): Prop = {
     val g: (MaxSize, TestCases, RNG) => Result = 
       (max: Int, n: Int, rng: RNG) => {
@@ -122,7 +122,7 @@ object Prop {
               if (f(a)) Passed else Falsified(a.toString, i)
             } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
             result
-          }: Result
+          }
           }: Stream[Result]
         // println("Stream[Result]")
         //streamResult.feedback
@@ -232,12 +232,11 @@ object Prop {
  case class State[S,A](run: S => (A, S))
  */
 
-// A monad?
 // case class Gen[A](sample: State[RNG, A]){
 case class Gen[A](sample: State.Rand[A]){
   def map[B](f: A => B): Gen[B] = {
-    val newState: State.Rand[B] = this.sample.map(f)
-    Gen[B](newState)
+    val stateB: State.Rand[B] = this.sample.map(f)
+    Gen[B](stateB)
   }
 
   def map2[B,C](gb: Gen[B])(f: (A, B) => C): Gen[C] = {
@@ -252,8 +251,8 @@ case class Gen[A](sample: State.Rand[A]){
     // Is this equivalent to the meticulous, error-prone "wiring"
     // between states, mentioned here?
     // https://www.youtube.com/watch?v=Jg3Uv_YWJqI
-    Gen{
-      State{
+    Gen {
+      State {
         (rng0: RNG) => {
           val (a1, rng1): Tuple2[A, RNG] = sample.run(rng0)
           val fOut: Gen[B] = f(a1)
@@ -263,6 +262,14 @@ case class Gen[A](sample: State.Rand[A]){
       }
     }
   }
+
+  // def flatMap[B](f: A => Gen[B]): Gen[B] = {
+  //   val runA: Function1[RNG,Tuple2[A,RNG]] = this.sample.run
+  //   val runB: Function1[RNG,Tuple2[B,RNG]] =
+  //     (rng: RNG) => runA(rng)
+
+
+
   // redundant use of method name, but arguments are different
   def listOfN(size: Gen[Int]): Gen[List[A]] = {
     // Int => Gen[List[A]]

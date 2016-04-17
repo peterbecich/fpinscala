@@ -9,7 +9,7 @@ import scala.language.implicitConversions
 import fpinscala.monads.Monad
 import fpinscala.parsing.Parsers._
 
-trait JSON
+sealed trait JSON
 object JSON {
   /*
 object
@@ -94,7 +94,7 @@ value
   //   // type Parser.
   //   // The implementations of these primitives in SimpleParser
   //   // assume a concrete type of Parser.
-  //   def flatMap[B](p: Parser[JSON])(f: JSON=>Parser[B]): Parser[B] =
+  //   // def flatMap[B](p: Parser[JSON])(f: JSON=>Parser[B]): Parser[B] =
 
     
 

@@ -57,11 +57,18 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   def product[A,B](p: Parser[A], p2: => Parser[B]): Parser[(A,B)] =
     flatMap(p)(a => map(p2)(b => (a,b)))
 
+  def map3[A,B,C,D](p1: Parser[A], p2: Parser[B], p3: Parser[C])(f: (A,B,C) => D): Parser[D] =
+    for {
+      a <- p1
+      b <- p2
+      c <- p3
+    } yield f(a,b,c)
+
   def map2[A,B,C](p: Parser[A], p2: => Parser[B])(f: (A,B) => C): Parser[C] =
     for { a <- p; b <- p2 } yield f(a,b)
 
   def map[A,B](a: Parser[A])(f: A => B): Parser[B] =
-    flatMap(a)(f andThen succeed)
+    flatMap(a)(f andThen succeed) // prefer explicit anon function to `andThen`
 
   def label[A](msg: String)(p: Parser[A]): Parser[A]
 
@@ -104,7 +111,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
   /** C/Java style floating point literals, e.g .1, -1.0, 1e9, 1E-23, etc.
     * Result is left as a string to keep full precision
     */
-  def doubleString: Parser[String] =
+   def doubleString: Parser[String] =
     token("[-+]?([0-9]*\\.)?[0-9]+([eE][-+]?[0-9]+)?".r)
 
   /** Floating point literals, converted to a `Double`. */
@@ -128,7 +135,7 @@ trait Parsers[Parser[+_]] { self => // so inner classes may call methods of trai
     map2(p, many(op ** p))((h,t) => t.foldLeft(h)((a,b) => b._1(a,b._2)))
 
   /** Wraps `p` in start/stop delimiters. */
-  def surround[A](start: Parser[Any], stop: Parser[Any])(p: => Parser[A]) =
+  def surround[A](start: Parser[Any], stop: Parser[Any])(p: => Parser[A]): Parser[A] =
     start *> p <* stop
 
   /** A parser that succeeds when given empty input. */
@@ -248,4 +255,277 @@ case class ParseError(stack: List[(Location,String)] = List()) {
 
 object Parsers {
 
+  case class StringToken(st: String)
+
+  def stringTokenParser[Parser[+_]](P: Parsers[Parser]): Parser[StringToken] = {
+    val pString = P.string("foo")
+
+    val pStringToken = P.map(pString)(s => StringToken(s))
+
+    pStringToken
+
+  }
+
+  sealed trait Nested
+  case class Tuple(left: Nested, right: Nested) extends Nested {
+    override def toString = left.toString + " " + right.toString
+  }
+  case class Enclosed(middle: Nested) extends Nested {
+    override def toString = "( " + middle + " )"
+  }
+  case object Leaf extends Nested {
+    override def toString = " ( ) "
+  }
+      
+
+  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
+  //   val detectLeftParen: Parser[String] =
+  //     P.map(P.string("("))(s => {println(s"detected $s"); s})
+
+  //   val detectRightParen: Parser[String] =
+  //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
+
+  //   // will accept ())
+  //   // will not accept (()
+  //   // use EOF to fix this
+  //   val detectLeaf: Parser[Nested] =
+  //     P.map(P.product(detectLeftParen, detectRightParen))( _ => {
+  //       println("detected Leaf")
+  //       Leaf
+  //     }
+  //     )
+
+  //   // val detectEnclosed: Parser[Tuple2[Tuple2[String, Nested], String]] =
+
+  //   // should be lazy, use def
+  // demo this!!
+
+  /*
+   FURTHERMORE,
+   this parser requires an infinitely deepening nested structure
+   (((((((((((((((((((....)))))))))))))))))))
+   So this parser will never accept
+   This explains why it was rejected on the first encountered right paren
+   */
+  //   lazy val detectEnclosed: Parser[Nested] =
+  //     P.map(
+  //       P.product(
+  //         P.product(detectLeftParen, detectEnclosed), detectRightParen
+  //       )
+  //     ){ (tuptup) => {
+  //       println(tuptup)
+  //       val leftString = tuptup._1._1
+  //       val enclosedNested: Nested = tuptup._1._2
+  //       val rightString = tuptup._2
+
+  //       Enclosed(Leaf)
+  //     }
+  //     }
+
+  //   // val detectEnclosedNested: Parser[Nested] =
+  //   //   P.map(detectEnclosedString)((tuptup) => {
+  //   //     val leftString = tuptup._1._1
+  //   //     val enclosedNested: Nested = tuptup._1._2
+  //   //     val rightString = tuptup._2
+
+  //   //     Enclosed(Leaf)
+  //   //   }
+  //   //   )
+
+  //   // P.or(detectEnclosed, detectLeaf)
+  //   P.or(detectLeaf, detectEnclosed)
+  //   // detectEnclosed
+  // }
+
+  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
+  //   val detectLeftParen: Parser[String] =
+  //     P.map(P.string("("))(s => {println(s"detected $s"); s})
+
+  //   val detectRightParen: Parser[String] =
+  //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
+
+  //   lazy val detectNested: Parser[Nested] =
+  //     P.map(
+  //       P.product(detectLeftParen, P.or(detectNested, detectRightParen))
+  //     ) { (parserTup: Parser[Tuple]) => {
+  //       println(tuptup)
+  //       val leftString = tuptup._1._1
+  //       val enclosedNested: Nested = tuptup._1._2
+  //       val rightString = tuptup._2
+
+  //       Enclosed(Leaf)
+  //     }
+  //     }
+
+  //   detectNested
+  // }
+
+  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
+  //   val detectLeftParen: Parser[String] =
+  //     P.map(P.string("("))(s => {println(s"detected $s"); s})
+
+  //   val detectRightParen: Parser[String] =
+  //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
+
+  //   val middle: Parser[String] =
+  //     P.map(P.string(" "))(s => {println(s"detected $s"); s})
+
+  //   lazy val detectNested: Parser[Nested] =
+  //     P.map3(detectLeftParen, P.or(detectNested, middle), detectRightParen)((stringLeft: String, nest: Tuple2[Nested, String], stringRight: String) => Leaf)
+
+  //   detectNested
+  // }
+
+
+  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[String] = {
+  //   val detectLeftParen: Parser[String] =
+  //     P.map(P.string("("))(s => {println(s"detected $s"); s})
+
+  //   val detectRightParen: Parser[String] =
+  //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
+
+  //   val middle: Parser[String] =
+  //     P.map(P.string(" "))(s => {println(s"detected $s"); s})
+
+  //   lazy val detectNested: Parser[String] =
+  //     P.surround(detectLeftParen, detectRightParen)(middle)
+
+  //   detectNested
+  // }
+
+
+  def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[String] = {
+    val detectLeftParen: Parser[String] =
+      P.map(P.string("("))(s => {println(s"detected $s"); s})
+
+    val detectRightParen: Parser[String] =
+      P.map(P.string(")"))(s => {println(s"detected $s"); s})
+
+    val middle: Parser[String] =
+      P.map(P.string(" "))(s => {println(s"detected $s"); s})
+
+    // lazy val detectNested: Parser[String] =
+    //   P.or(P.surround(detectLeftParen, detectRightParen)(middle), detectNested)
+
+    // lazy val detectNested: Parser[String] =
+    //   P.or(P.surround(detectLeftParen, detectRightParen)(middle), detectNested)
+
+    lazy val detectNested: Parser[String] =
+      P.or(P.surround(detectLeftParen, detectRightParen)(detectNested), middle)
+
+
+    detectNested
+  }
+  
+}
+
+object ParserExamples extends App {
+
+  // def stringParser[Parser[+_]](P: Parsers[Parser]): Parser[String] = {
+  //   import P._
+
+  //   implicit def string(s: String): Parser[String] = 
+
+  // }
+
+
+  def document = "foofoofoo"
+  def document2 = "barbarbar"
+
+  def detect = "bar"
+
+  import Parsers._
+  val P = fpinscala.answers.parsing.Reference
+  import fpinscala.answers.parsing.ReferenceTypes.Parser
+
+
+  val stringTokenP = stringTokenParser(P)
+
+  println(P.run(stringTokenP)(document))
+
+  println(P.run(stringTokenP)(document2))
+
+
+  val succ = P.succeed(StringToken("This parser always succeeds and always produces this token"))
+
+  println(P.run(succ)(document2))
+
+  println("----------------------------")
+  println("detect 3 foos")
+
+  val fooToken3 = P.listOfN(3, stringTokenP)
+  println(P.run(fooToken3)(document))
+
+  val document3 = "barbarbarbarfoo"
+
+
+  val detectFoo = P.string("foo")
+  val detectBar = P.string("bar")
+
+  println("----------------------------")  
+  println("detect more than one bar")
+
+  val manyBar = P.many1(detectBar)
+
+  println(P.run(manyBar)(document3))
+
+  println("----------------------------")  
+  println("detect more than one bar and then one foo")
+
+  val manyBarThenFoo = P.product(manyBar, detectFoo)
+
+  println(P.run(manyBarThenFoo)(document3))
+
+  println("----------------------------")  
+  println("detect abababab...")
+
+  // val detectAB = P.skipR(P.many1(P.product(P.string("a"), P.string("b"))), P.eof)
+  // val detectAB = P.skipR(P.many1(P.product(P.string("a"), P.string("b"))), P.eof)
+  // val detectAB = P.root(P.skipR(P.many(P.product(P.string("a"), P.string("b"))), P.whitespace))
+  val detectAB = P.token(P.many(P.product(P.string("a"), P.string("b"))))
+
+  // List out of bounds exception
+  // val abdoc = "abababababab"
+  val abdoc = "abababababab   "
+  println("doc: "+abdoc)
+  println(P.run(detectAB)(abdoc))
+
+
+  println("----------------------------")  
+
+  val abdoc2 = "abbab"
+  println("doc: "+abdoc2)
+  println(P.run(detectAB)(abdoc2))
+
+
+  println("----------------------------")  
+  println("detect matching parentheses")
+
+  val docParens1 = "()"
+
+  // val docParens2 = "())" // require EOF to be rejected
+  // good to note this in slides
+
+  val docParens2 = "(()"
+
+  // val detectNestedParens: Parser[Nested] = nestedParens(P)
+  val detectNestedParens: Parser[String] = nestedParens(P)
+
+  // println(P.run(detectNestedParens)(docParens1))
+
+  println("----------------------------")  
+  println(P.run(detectNestedParens)(docParens2))
+
+  val docParens3 = "((( )))"
+
+  println("----------------------------")  
+  println(P.run(detectNestedParens)(docParens3))
+
+
+  val docParens4 = "( )"
+
+  println("----------------------------")  
+  println(P.run(detectNestedParens)(docParens4))
+  
+  
 }

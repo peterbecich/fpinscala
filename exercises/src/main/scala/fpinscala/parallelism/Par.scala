@@ -110,7 +110,7 @@ object Par {
   }
 }
 
-object Examples {
+object ParExamples {
   import Par._
 
   // does not use Parallel types
@@ -340,9 +340,10 @@ object Examples {
     val service = Executors.newFixedThreadPool(5)
     println(Thread.currentThread())
     val vec = (1 to 10).toVector
-    println("no use of Par: " + Examples.sum(vec))
+    println("no use of Par: " + ParExamples.sum(vec))
 
-    val parInt: Par[Int] = Examples.parSum(vec)
+    println("using par...")
+    val parInt: Par[Int] = ParExamples.parSum(vec)
     // start computation asynchronously
     val runParInt: Future[Int] = Par.run(service)(parInt)
 
@@ -355,7 +356,7 @@ object Examples {
 
     val service3 = Executors.newFixedThreadPool(50)
 
-    val parInt3: Par[Int] = Par.fork(Examples.parSum3(vec))
+    val parInt3: Par[Int] = Par.fork(ParExamples.parSum3(vec))
     // start computation asynchronously
     val runParInt3: Future[Int] = Par.run(service3)(parInt3)
 

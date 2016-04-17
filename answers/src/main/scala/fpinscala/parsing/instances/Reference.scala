@@ -96,10 +96,12 @@ object Reference extends Parsers[Parser] {
     val msg = "'" + w + "'"
     s => {
       val i = firstNonmatchingIndex(s.loc.input, w, s.loc.offset)
-      if (i == -1) // they matched
+      val out = if (i == -1) // they matched
         Success(w, w.length)
       else
         Failure(s.loc.advanceBy(i).toError(msg), i != 0)
+      // println("out "+out)
+      out
     }
   }
 

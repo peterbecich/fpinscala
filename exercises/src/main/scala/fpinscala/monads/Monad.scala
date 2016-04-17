@@ -117,7 +117,7 @@ trait Monad[M[_]] extends Functor[M] {
   def map[A,B](ma: M[A])(f: A => B): M[B] =
     this.flatMap(ma)(a => this.unit(f(a)))
 
-  def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
+  def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, =>B) => C): M[C] =
     this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
 
   /*
@@ -201,8 +201,10 @@ trait Monad[M[_]] extends Functor[M] {
    'product' is *not* 'zip'
    It is the Cartesion product
    */
-  def product[A,B](ma: M[A], mb: M[B]): M[(A, B)] =
-    this.map2(ma, mb)((a: A, b: B) => (a,b): Tuple2[A,B])
+  def product[A,B](ma: M[A], mb: M[B]): M[(A, B)] = {
+    def f(a: A, b: => B) = (a,b)
+    this.map2(ma, mb)(f)
+  }
 
 
   // def zip[A,B](fa: M[A], fb: M[B]): M[(A,B)] = {
@@ -271,10 +273,10 @@ object Monad {
       Par.flatMap(ma)(f)
   }
 
-  def parserMonad[P[+_]](p: Parsers[P]): Monad[P] =
-    new Monad[P] {
-      def unit[A](a: => A): P[A] = p.succeed(a)
-      def flatMap[A,B](pa: P[A])(f: A=>P[B]): P[B] =
+  def parserMonad[Parser[+_]](p: Parsers[Parser]): Monad[Parser] =
+    new Monad[Parser] {
+      def unit[A](a: => A): Parser[A] = p.succeed(a)
+      def flatMap[A,B](pa: Parser[A])(f: A=>Parser[B]): Parser[B] =
         p.flatMap(pa)(f)
     }
 
@@ -682,7 +684,7 @@ trait Monad2[M[_]] extends Monad[M] {
   override def map[A,B](ma: M[A])(f: A => B): M[B] =
     this.flatMap(ma)(a => this.unit(f(a)))
 
-  override def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
+  override def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, =>B) => C): M[C] =
     this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
 
 
@@ -722,7 +724,7 @@ trait Monad3[M[_]] extends Monad[M] {
 
   override def join[A](mma: M[M[A]]): M[A]
 
-  override def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, B) => C): M[C] =
+  override def map2[A,B,C](ma: M[A], mb: M[B])(f: (A, =>B) => C): M[C] =
     this.flatMap(ma)(a => this.map(mb)(b => f(a, b)))
 
   def flatMap[A,B](ma: M[A])(f: A => M[B]): M[B] = {
