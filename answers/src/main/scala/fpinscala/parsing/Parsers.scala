@@ -268,13 +268,13 @@ object Parsers {
 
   sealed trait Nested
   case class Tuple(left: Nested, right: Nested) extends Nested {
-    override def toString = left.toString + " " + right.toString
+    override def toString = "Tuple: "+left.toString + "" + right.toString
   }
-  case class Enclosed(middle: Nested) extends Nested {
-    override def toString = "( " + middle + " )"
+  case class Surrounded(middle: Nested) extends Nested {
+    override def toString = "Surrounded: (" + middle + ")"
   }
-  case object Leaf extends Nested {
-    override def toString = " ( ) "
+  case object Blank extends Nested {
+    override def toString = "Blank"
   }
       
 
@@ -401,6 +401,7 @@ object Parsers {
     val detectRightParen: Parser[String] =
       P.map(P.string(")"))(s => {println(s"detected $s"); s})
 
+    // lack of middle space causes List out of bounds exception
     val middle: Parser[String] =
       P.map(P.string(" "))(s => {println(s"detected $s"); s})
 
@@ -416,7 +417,54 @@ object Parsers {
 
     detectNested
   }
+
+  def nestedParens2[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
+    val detectLeftParen: Parser[String] =
+      P.map(P.string("("))(s => {println(s"detected $s"); s})
+
+    val detectRightParen: Parser[String] =
+      P.map(P.string(")"))(s => {println(s"detected $s"); s})
+
+    val detectBlank: Parser[Nested] =
+      P.map(P.string(" "))(s => {println(s"detected $s"); Blank})
+
+    lazy val detectNested: Parser[Nested] =
+      P.or(
+        P.map(
+          P.surround(detectLeftParen, detectRightParen)(detectNested)
+        )( nested => Surrounded(nested))
+          , detectBlank )
   
+
+
+    detectNested
+  }
+
+  // with tuple
+  def nestedParens3[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
+    val detectLeftParen: Parser[String] =
+      P.map(P.string("("))(s => {println(s"detected $s"); s})
+
+    val detectRightParen: Parser[String] =
+      P.map(P.string(")"))(s => {println(s"detected $s"); s})
+
+    val detectBlank: Parser[Nested] =
+      P.map(P.string(" "))(s => {println(s"detected $s"); Blank})
+
+    lazy val detectNested: Parser[Nested] =
+      P.or(
+        P.map(
+          P.surround(detectLeftParen, detectRightParen)(detectNested)
+        )( nested => Surrounded(nested))
+          , detectBlank )
+  
+    lazy val detectTuple: Parser[Nested] =
+      P.map(P.product(P.attempt(detectNested), detectNested))( tup => Tuple(tup._1, tup._2) )
+
+    P.or(P.attempt(detectTuple), detectNested)
+  }
+
+
 }
 
 object ParserExamples extends App {
@@ -479,10 +527,17 @@ object ParserExamples extends App {
   println("----------------------------")  
   println("detect abababab...")
 
+  case object AB
+
   // val detectAB = P.skipR(P.many1(P.product(P.string("a"), P.string("b"))), P.eof)
   // val detectAB = P.skipR(P.many1(P.product(P.string("a"), P.string("b"))), P.eof)
   // val detectAB = P.root(P.skipR(P.many(P.product(P.string("a"), P.string("b"))), P.whitespace))
-  val detectAB = P.token(P.many(P.product(P.string("a"), P.string("b"))))
+  val detectAB =
+    P.token(
+      P.many(
+        P.map(P.product(P.string("a"), P.string("b")))(_ => AB)
+      )
+    )
 
   // List out of bounds exception
   // val abdoc = "abababababab"
@@ -497,6 +552,33 @@ object ParserExamples extends App {
   println("doc: "+abdoc2)
   println(P.run(detectAB)(abdoc2))
 
+  println("----------------------------")  
+  val abra1 = "abra    cadabra"
+
+  println("doc: "+abra1)
+
+  val p1 = P.product(P.product(P.string("abra"), P.whitespace), P.string("cadabra"))
+
+  println(P.run(p1)(abra1))
+
+
+  println("----------------------------")  
+
+  val abra2 = "abba babba"
+
+  println("doc: "+abra2)
+
+  val p2 = P.product(P.product(P.string("abba"), P.whitespace), P.string("babba"))
+
+  println(P.run(p2)(abra2))
+
+  println("----------------------------")  
+  
+  val p12 = P.or(P.attempt(p1), p2)
+
+  println("doc: "+abra2)
+
+  println(P.run(p12)(abra2))
 
   println("----------------------------")  
   println("detect matching parentheses")
@@ -526,6 +608,41 @@ object ParserExamples extends App {
 
   println("----------------------------")  
   println(P.run(detectNestedParens)(docParens4))
-  
+
+
+  println("----------------------------")  
+  println("using tokens")
+
+  val detectNestedParens2 = nestedParens2(P)
+
+  println(P.run(detectNestedParens2)(docParens1))
+
+
+  println(P.run(detectNestedParens2)(docParens2))
+
+
+  println(P.run(detectNestedParens2)(docParens3))
+
+  println(P.run(detectNestedParens2)(docParens4))
+
+  println("----------------------------")  
+  println("including tuples")
+  val detectNestedParens3 = nestedParens2(P)
+
+  val docParens5 = "( )( )"
+
+  println(P.run(detectNestedParens3)(docParens5))
+
+  println("----------------------------")
+
+  val docParens6 = "((( )( )))"
+
+  println(P.run(detectNestedParens3)(docParens6))
+
+  println("----------------------------")  
+
+  val docParens7 = "((( )))( )"
+
+  println(P.run(detectNestedParens3)(docParens7))
   
 }
