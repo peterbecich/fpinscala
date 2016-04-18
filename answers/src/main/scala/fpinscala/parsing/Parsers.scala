@@ -273,197 +273,69 @@ object Parsers {
   case class Surrounded(middle: Nested) extends Nested {
     override def toString = "Surrounded: (" + middle + ")"
   }
-  case object Blank extends Nested {
-    override def toString = "Blank"
+  case object Leaf extends Nested {
+    override def toString = "()"
   }
       
-
-  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
+  // def nestedParens3[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
   //   val detectLeftParen: Parser[String] =
   //     P.map(P.string("("))(s => {println(s"detected $s"); s})
 
   //   val detectRightParen: Parser[String] =
   //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
 
-  //   // will accept ())
-  //   // will not accept (()
-  //   // use EOF to fix this
-  //   val detectLeaf: Parser[Nested] =
-  //     P.map(P.product(detectLeftParen, detectRightParen))( _ => {
-  //       println("detected Leaf")
-  //       Leaf
-  //     }
-  //     )
-
-  //   // val detectEnclosed: Parser[Tuple2[Tuple2[String, Nested], String]] =
-
-  //   // should be lazy, use def
-  // demo this!!
-
-  /*
-   FURTHERMORE,
-   this parser requires an infinitely deepening nested structure
-   (((((((((((((((((((....)))))))))))))))))))
-   So this parser will never accept
-   This explains why it was rejected on the first encountered right paren
-   */
-  //   lazy val detectEnclosed: Parser[Nested] =
-  //     P.map(
-  //       P.product(
-  //         P.product(detectLeftParen, detectEnclosed), detectRightParen
-  //       )
-  //     ){ (tuptup) => {
-  //       println(tuptup)
-  //       val leftString = tuptup._1._1
-  //       val enclosedNested: Nested = tuptup._1._2
-  //       val rightString = tuptup._2
-
-  //       Enclosed(Leaf)
-  //     }
-  //     }
-
-  //   // val detectEnclosedNested: Parser[Nested] =
-  //   //   P.map(detectEnclosedString)((tuptup) => {
-  //   //     val leftString = tuptup._1._1
-  //   //     val enclosedNested: Nested = tuptup._1._2
-  //   //     val rightString = tuptup._2
-
-  //   //     Enclosed(Leaf)
-  //   //   }
-  //   //   )
-
-  //   // P.or(detectEnclosed, detectLeaf)
-  //   P.or(detectLeaf, detectEnclosed)
-  //   // detectEnclosed
-  // }
-
-  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
-  //   val detectLeftParen: Parser[String] =
-  //     P.map(P.string("("))(s => {println(s"detected $s"); s})
-
-  //   val detectRightParen: Parser[String] =
-  //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
+  //   val detectBlank: Parser[Nested] =
+  //     P.map(P.string(" "))(s => {println(s"detected $s"); Blank})
 
   //   lazy val detectNested: Parser[Nested] =
-  //     P.map(
-  //       P.product(detectLeftParen, P.or(detectNested, detectRightParen))
-  //     ) { (parserTup: Parser[Tuple]) => {
-  //       println(tuptup)
-  //       val leftString = tuptup._1._1
-  //       val enclosedNested: Nested = tuptup._1._2
-  //       val rightString = tuptup._2
-
-  //       Enclosed(Leaf)
-  //     }
-  //     }
-
-  //   detectNested
-  // }
-
-  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
-  //   val detectLeftParen: Parser[String] =
-  //     P.map(P.string("("))(s => {println(s"detected $s"); s})
-
-  //   val detectRightParen: Parser[String] =
-  //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
-
-  //   val middle: Parser[String] =
-  //     P.map(P.string(" "))(s => {println(s"detected $s"); s})
-
-  //   lazy val detectNested: Parser[Nested] =
-  //     P.map3(detectLeftParen, P.or(detectNested, middle), detectRightParen)((stringLeft: String, nest: Tuple2[Nested, String], stringRight: String) => Leaf)
-
-  //   detectNested
-  // }
-
-
-  // def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[String] = {
-  //   val detectLeftParen: Parser[String] =
-  //     P.map(P.string("("))(s => {println(s"detected $s"); s})
-
-  //   val detectRightParen: Parser[String] =
-  //     P.map(P.string(")"))(s => {println(s"detected $s"); s})
-
-  //   val middle: Parser[String] =
-  //     P.map(P.string(" "))(s => {println(s"detected $s"); s})
-
-  //   lazy val detectNested: Parser[String] =
-  //     P.surround(detectLeftParen, detectRightParen)(middle)
-
-  //   detectNested
-  // }
-
-
-  def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[String] = {
-    val detectLeftParen: Parser[String] =
-      P.map(P.string("("))(s => {println(s"detected $s"); s})
-
-    val detectRightParen: Parser[String] =
-      P.map(P.string(")"))(s => {println(s"detected $s"); s})
-
-    // lack of middle space causes List out of bounds exception
-    val middle: Parser[String] =
-      P.map(P.string(" "))(s => {println(s"detected $s"); s})
-
-    // lazy val detectNested: Parser[String] =
-    //   P.or(P.surround(detectLeftParen, detectRightParen)(middle), detectNested)
-
-    // lazy val detectNested: Parser[String] =
-    //   P.or(P.surround(detectLeftParen, detectRightParen)(middle), detectNested)
-
-    lazy val detectNested: Parser[String] =
-      P.or(P.surround(detectLeftParen, detectRightParen)(detectNested), middle)
-
-
-    detectNested
-  }
-
-  def nestedParens2[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
-    val detectLeftParen: Parser[String] =
-      P.map(P.string("("))(s => {println(s"detected $s"); s})
-
-    val detectRightParen: Parser[String] =
-      P.map(P.string(")"))(s => {println(s"detected $s"); s})
-
-    val detectBlank: Parser[Nested] =
-      P.map(P.string(" "))(s => {println(s"detected $s"); Blank})
-
-    lazy val detectNested: Parser[Nested] =
-      P.or(
-        P.map(
-          P.surround(detectLeftParen, detectRightParen)(detectNested)
-        )( nested => Surrounded(nested))
-          , detectBlank )
+  //     P.or(
+  //       P.map(
+  //         P.surround(detectLeftParen, detectRightParen)(detectNested)
+  //       )( nested => Surrounded(nested))
+  //         , detectBlank )
   
+  //   lazy val detectTuple: Parser[Nested] =
+  //     P.map(P.product(P.attempt(detectNested), detectNested))( tup => Tuple(tup._1, tup._2) )
+
+  //   P.or(P.attempt(detectTuple), detectNested)
+  // }
 
 
-    detectNested
-  }
-
-  // with tuple
-  def nestedParens3[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
-    val detectLeftParen: Parser[String] =
+  def nestedParens[Parser[+_]](P: Parsers[Parser]): Parser[Nested] = {
+    lazy val detectLeftParen: Parser[String] =
       P.map(P.string("("))(s => {println(s"detected $s"); s})
 
-    val detectRightParen: Parser[String] =
+    lazy val detectRightParen: Parser[String] =
       P.map(P.string(")"))(s => {println(s"detected $s"); s})
 
-    val detectBlank: Parser[Nested] =
-      P.map(P.string(" "))(s => {println(s"detected $s"); Blank})
+    lazy val detectSurrounded: Parser[Nested] =
+      P.map(
+        P.surround(
+          P.attempt(detectLeftParen),
+          P.attempt(detectRightParen)
+        )(detectNested)
+      )((nest: Nested) => Surrounded(nest))
 
-    lazy val detectNested: Parser[Nested] =
-      P.or(
-        P.map(
-          P.surround(detectLeftParen, detectRightParen)(detectNested)
-        )( nested => Surrounded(nested))
-          , detectBlank )
-  
+    lazy val detectLeaf: Parser[Nested] =
+      P.map(P.string("()"))(s => {println(s"detected $s"); Leaf})
+
     lazy val detectTuple: Parser[Nested] =
-      P.map(P.product(P.attempt(detectNested), detectNested))( tup => Tuple(tup._1, tup._2) )
+      P.map(P.product(detectNested, detectNested)){(product: Tuple2[Nested, Nested]) =>
+        val left = product._1
+          val right = product._2
+          Tuple(left, right)
+      }
 
-    P.or(P.attempt(detectTuple), detectNested)
+    lazy val detectNested: Parser[Nested] =
+      P.or(P.attempt(detectSurrounded), P.attempt(detectLeaf))
+    
+    // lazy val detectNested: Parser[Nested] =
+    //   P.attempt(P.or(P.or(P.attempt(detectSurrounded), P.attempt(detectLeaf)), P.attempt(detectTuple)))
+
+
+    P.root(detectNested)
+
   }
-
 
 }
 
@@ -504,7 +376,7 @@ object ParserExamples extends App {
   val fooToken3 = P.listOfN(3, stringTokenP)
   println(P.run(fooToken3)(document))
 
-  val document3 = "barbarbarbarfoo"
+  val document3 = "barbarbarbar foo"
 
 
   val detectFoo = P.string("foo")
@@ -520,7 +392,7 @@ object ParserExamples extends App {
   println("----------------------------")  
   println("detect more than one bar and then one foo")
 
-  val manyBarThenFoo = P.product(manyBar, detectFoo)
+  val manyBarThenFoo = P.product(P.attempt(manyBar), detectFoo)
 
   println(P.run(manyBarThenFoo)(document3))
 
@@ -529,9 +401,6 @@ object ParserExamples extends App {
 
   case object AB
 
-  // val detectAB = P.skipR(P.many1(P.product(P.string("a"), P.string("b"))), P.eof)
-  // val detectAB = P.skipR(P.many1(P.product(P.string("a"), P.string("b"))), P.eof)
-  // val detectAB = P.root(P.skipR(P.many(P.product(P.string("a"), P.string("b"))), P.whitespace))
   val detectAB =
     P.token(
       P.many(
@@ -540,7 +409,7 @@ object ParserExamples extends App {
     )
 
   // List out of bounds exception
-  // val abdoc = "abababababab"
+
   val abdoc = "abababababab   "
   println("doc: "+abdoc)
   println(P.run(detectAB)(abdoc))
@@ -583,66 +452,43 @@ object ParserExamples extends App {
   println("----------------------------")  
   println("detect matching parentheses")
 
+  val detectNestedParens: Parser[Nested] = nestedParens(P)
+
   val docParens1 = "()"
-
-  // val docParens2 = "())" // require EOF to be rejected
-  // good to note this in slides
-
   val docParens2 = "(()"
+  val docParens3 = "((()))"
+  val docParens4 = "())"
+  val docParens5 = "()()"
+  val docParens6 = "((()()))"
+  val docParens7 = "((()))()"
 
-  // val detectNestedParens: Parser[Nested] = nestedParens(P)
-  val detectNestedParens: Parser[String] = nestedParens(P)
+  println("----------------------")
+  println("doc: "+docParens1)
+  println(P.run(detectNestedParens)(docParens1))
 
-  // println(P.run(detectNestedParens)(docParens1))
+  // println("----------------------")
+  // println("doc: "+docParens2)
+  // println(P.run(detectNestedParens)(docParens2))
 
-  println("----------------------------")  
-  println(P.run(detectNestedParens)(docParens2))
-
-  val docParens3 = "((( )))"
-
-  println("----------------------------")  
+  println("----------------------")
+  println("doc: "+docParens3)
   println(P.run(detectNestedParens)(docParens3))
 
-
-  val docParens4 = "( )"
-
-  println("----------------------------")  
+  println("----------------------")
+  println("doc: "+docParens4)
   println(P.run(detectNestedParens)(docParens4))
 
+  println("----------------------")
+  println("doc: "+docParens5)
+  println(P.run(detectNestedParens)(docParens5))
 
-  println("----------------------------")  
-  println("using tokens")
+  println("----------------------")
+  println("doc: "+docParens6)
+  println(P.run(detectNestedParens)(docParens6))
 
-  val detectNestedParens2 = nestedParens2(P)
-
-  println(P.run(detectNestedParens2)(docParens1))
-
-
-  println(P.run(detectNestedParens2)(docParens2))
-
-
-  println(P.run(detectNestedParens2)(docParens3))
-
-  println(P.run(detectNestedParens2)(docParens4))
-
-  println("----------------------------")  
-  println("including tuples")
-  val detectNestedParens3 = nestedParens2(P)
-
-  val docParens5 = "( )( )"
-
-  println(P.run(detectNestedParens3)(docParens5))
-
-  println("----------------------------")
-
-  val docParens6 = "((( )( )))"
-
-  println(P.run(detectNestedParens3)(docParens6))
-
-  println("----------------------------")  
-
-  val docParens7 = "((( )))( )"
-
-  println(P.run(detectNestedParens3)(docParens7))
+  println("----------------------")
+  println("doc: "+docParens7)
+  println(P.run(detectNestedParens)(docParens7))
+  
   
 }

@@ -57,14 +57,14 @@ object ReferenceTypes {
   /** Returns -1 if s1.startsWith(s2), otherwise returns the
     * first index where the two strings differed. If s2 is
     * longer than s1, returns s1.length. */
-  def firstNonmatchingIndex(s1: String, s2: String, offset: Int): Int = {
+  def firstNonmatchingIndex(input: String, detect: String, offset: Int): Int = {
     var i = 0
-    while (i < s1.length && i < s2.length) {
-      if (s1.charAt(i+offset) != s2.charAt(i)) return i
+    while (i < input.length && i+offset < detect.length) {
+      if (input.charAt(i+offset) != detect.charAt(i)) return i
       i += 1
     }
-    if (s1.length-offset >= s2.length) -1
-    else s1.length-offset
+    if (input.length-offset >= detect.length) -1
+    else input.length-offset
   }
 }
 
@@ -85,11 +85,15 @@ object Reference extends Parsers[Parser] {
     }
 
   def flatMap[A,B](f: Parser[A])(g: A => Parser[B]): Parser[B] =
-    s => f(s) match {
-      case Success(a,n) => g(a)(s.advanceBy(n))
-                           .addCommit(n != 0)
-                           .advanceSuccess(n)
-      case f@Failure(_,_) => f
+    s => {
+      val fs = f(s)
+      // println("f(s) = "+fs)
+      fs match {
+        case Success(a,n) => g(a)(s.advanceBy(n))
+            .addCommit(n != 0)
+            .advanceSuccess(n)
+        case f@Failure(_,_) => f
+      }
     }
 
   def string(w: String): Parser[String] = {
