@@ -7,6 +7,7 @@ import testing._
 import state._
 import parallelism.Nonblocking.Par
 //import laziness.Stream
+import language.higherKinds
 
 
 // http://www.scala-lang.org/api/current/#scala.language$

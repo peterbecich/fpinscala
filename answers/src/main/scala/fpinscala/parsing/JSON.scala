@@ -3,6 +3,9 @@ import scala.language.implicitConversions
 import scala.language.higherKinds
 
 
+import language.higherKinds
+import language.implicitConversions
+
 trait JSON
 
 object JSON {

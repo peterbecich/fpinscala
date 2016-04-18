@@ -1,6 +1,7 @@
 package fpinscala.iomonad
 
 import language.higherKinds // Disable warnings for type constructor polymorphism
+import language.implicitConversions
 
 import scala.language.implicitConversions
 

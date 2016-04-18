@@ -3,6 +3,8 @@ package fpinscala.answers.streamingio
 import scala.language.postfixOps
 //import scala.language.higherKinds
 
+import language.postfixOps
+
 /* Data type representing either A, B, or both A and B. */
 trait These[+A,+B] {
   import These._

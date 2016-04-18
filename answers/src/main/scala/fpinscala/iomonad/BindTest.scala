@@ -4,6 +4,9 @@ import scala.language.implicitConversions
 import scala.language.postfixOps
 import scala.language.higherKinds
 
+import language.higherKinds
+import language.postfixOps
+
 object BindTest extends App {
 
   def timeit(n: Int)(task: => Unit): Unit = {

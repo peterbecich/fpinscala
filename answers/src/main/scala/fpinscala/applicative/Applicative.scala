@@ -4,10 +4,15 @@ import scala.language.implicitConversions
 import scala.language.postfixOps
 import scala.language.higherKinds
 
+import fpinscala.answers.monoids._
+
 import fpinscala.answers.monads.Functor
 import fpinscala.answers.state._
 import State._
-import fpinscala.answers.monoids._
+
+import language.higherKinds
+import language.implicitConversions
+
 
 trait Applicative[F[_]] extends Functor[F] {
   // `map2` is implemented by first currying `f` so we get a function

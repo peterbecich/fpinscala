@@ -2,6 +2,7 @@ package fpinscala.monoids
 
 import fpinscala.parallelism.Nonblocking._
 import fpinscala.parallelism.Nonblocking.Par.toParOps // infix syntax for `Par.map`, `Par.flatMap`, etc
+import language.higherKinds
 
 import scala.language.higherKinds
 import scala.language.implicitConversions

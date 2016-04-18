@@ -3,6 +3,8 @@ package fpinscala.answers.streamingio
 // import scala.language.postfixOps
 import scala.language.higherKinds
 
+import language.higherKinds
+
 /* 
  * A context in which exceptions can be caught and
  * thrown. 

@@ -4,6 +4,10 @@ import scala.language.implicitConversions
 import scala.language.postfixOps
 import scala.language.higherKinds
 
+import scala.io.StdIn.readLine
+import language.higherKinds
+import language.postfixOps
+
 object IO0 {
                             /*
 
