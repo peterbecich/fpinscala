@@ -242,16 +242,28 @@ trait Monad[M[_]] extends Functor[M] {
   /*
    Imagine the uses of filterM.
    ms = List(1,2,3,4)
-   f: A => List[Boolean] = a > 2
+   f: A => List[Boolean] = (i: Int) => 
 
    ms = List(1,2,3,4)
    f: A => Option[Boolean]   ???????
 
    */
-  // def filterM[A](ms: List[A])(f: A => M[Boolean]): M[List[A]] = {
+
+  // def filterM[A](la: List[A])(f: A => M[Boolean]): M[List[A]] =
+  //   la.foldRight(unit(List[A]())){(a: A, mla: M[List[A]]) =>
+  //     flatMap(f(a)){ bool =>
+  //       if(bool) map2(unit(a), mla)(_::_) else mla
+  //     }
+  //   }
+  
+
+  def filterM[A](la: List[A])(f: A => M[Boolean]): M[List[A]] =
+    traverse(la)((a: A) => map(f(a))(_ => a))
+
+  def filterM[A](a: A)(f: A => M[Boolean]): M[A] =
+    map(f(a))(_ => a)
 
 
-  // }
   // exercise 12.11
   // show why not possible
   // def compose[G[_]](G: Monad[G]):
@@ -670,7 +682,20 @@ object MonadTest {
     // println("use of counter, from 5, for 9")
     // println(counter(5,9))
 
+    println("---------------------------")
+    println("filterM")
 
+    val nums = (1 to 10).toList
+    println(nums)
+    val filterFunction = (i: Int) => if(i>5) Some(true) else None
+
+    val filtered = Monad.optionMonad.filterM(nums)(filterFunction)
+
+    println(filtered)
+
+    val filterFunction2 = (i: Int) => if(i > -1) Some(true) else None
+    val filtered2 = Monad.optionMonad.filterM(nums)(filterFunction2)
+    println(filtered2)
   }
 }
 
@@ -742,4 +767,48 @@ trait Monad3[M[_]] extends Monad[M] {
 
 }
 
+
+object FromMonoid {
+  trait Monoid[M] {
+    val identity: M
+    def append(a: M, b: M): M
+  }
+
+  type EndoMonoid[B] = Monoid[B=>B]
+
+  def endoMonoid[B]: Monoid[B => B] = new Monoid[B => B] {
+    val identity: B => B = (in: B) => in    
+    def append(bb0: B => B, bb1: B => B): B => B = (in: B) => bb1(bb0(in))
+  }
+
+  trait Category[F[_,_]] {
+    def compose[A,B,C](f: F[B,C], g: F[A,B]): F[A,C]
+    def identity[A]: F[A,A]
+  }
+
+  val catScala = new Category[Function1] {
+    def compose[A,B,C](f: B => C, g: A => B): A => C =
+      f compose g
+    def identity[A]: A => A =
+      (a: A) => a
+  }
+
+  def catMonoid[M](m: Monoid[M]) = {
+    type λ[α,β] = M
+    new Category[λ] {
+      def compose[X,Y,Z](f: M, g: M): M = m.append(f, g)
+      def identity[A] = m.identity
+    }
+  }
+
+  // trait Monad[M[_]] extends EndoMonoid {
+  //   def map[A,B](f: A => B): M[A] => M[B]
+  //   def unit[A](a: A): M[A]
+  //   def join[A](m: M[M[A]]): M[A]
+  // }
+
+
+  // trait Monad4[M[_]] extends 
+
+}
 

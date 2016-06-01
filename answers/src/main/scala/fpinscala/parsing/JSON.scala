@@ -51,7 +51,7 @@ object JSON {
     def lit = scope("literal") {
       "null".as(JNull) |
       double.map(JNumber(_)) |
-      escapedQuoted.map(JString(_)) |
+       escapedQuoted.map(JString(_)) |
       "true".as(JBool(true)) |
       "false".as(JBool(false))
     }

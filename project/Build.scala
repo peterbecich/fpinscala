@@ -2,6 +2,8 @@ import sbt._
 import Keys._
 
 object FPInScalaBuild extends Build {
+  val algebirdVersion = "0.12.0"
+  
   val opts = Project.defaultSettings ++ Seq(
     scalaVersion := "2.11.8",
     scalacOptions ++= Seq("-feature","-deprecation"),
@@ -12,7 +14,12 @@ object FPInScalaBuild extends Build {
     ),
     libraryDependencies ++= Seq(
       "org.scala-lang" % "scala-reflect" % "2.11.7",
-      "com.chuusai" %% "shapeless" % "2.2.5"
+      "com.chuusai" %% "shapeless" % "2.2.5",
+      "com.twitter" %% "algebird-core" % algebirdVersion,
+      "com.twitter" %% "algebird-test" % algebirdVersion,
+      "com.twitter" %% "algebird-util" % algebirdVersion,
+      "com.twitter" %% "algebird-bijection" % algebirdVersion
+
     )
   )
 

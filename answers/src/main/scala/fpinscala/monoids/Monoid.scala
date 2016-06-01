@@ -183,7 +183,10 @@ object Monoid {
         Stub(c.toString)
     // `unstub(s)` is 0 if `s` is empty, otherwise 1.
     def unstub(s: String) = s.length min 1
-    foldMapV(s.toIndexedSeq, wcMonoid)(wc) match {
+
+    val wcReduced: WC = foldMapV(s.toIndexedSeq, wcMonoid)(wc)
+
+    wcReduced match {
       case Stub(s) => unstub(s)
       case Part(l, w, r) => unstub(l) + w + unstub(r)
     }
@@ -198,8 +201,8 @@ object Monoid {
 
   def functionMonoid[A,B](B: Monoid[B]): Monoid[A => B] =
     new Monoid[A => B] {
-      def op(f: A => B, g: A => B) = a => B.op(f(a), g(a))
-      val zero: A => B = a => B.zero
+      def op(f: A => B, g: A => B) = (a: A) => B.op(f(a), g(a))
+      val zero: A => B = (_: A) => B.zero
     }
 
   def mapMergeMonoid[K,V](V: Monoid[V]): Monoid[Map[K, V]] =
@@ -224,8 +227,11 @@ trait Foldable[F[_]] {
   def foldRight[A,B](as: F[A])(z: B)(f: (A, B) => B): B =
     foldMap(as)(f.curried)(endoMonoid[B])(z)
 
-  def foldLeft[A,B](as: F[A])(z: B)(f: (B, A) => B): B =
-    foldMap(as)(a => (b: B) => f(b, a))(dual(endoMonoid[B]))(z)
+  def foldLeft[A,B](as: F[A])(z: B)(f: (B, A) => B): B = {
+    val bToB = foldMap(as)(a => (b: B) => f(b, a))(dual(endoMonoid[B]))
+
+    bToB(z): B
+  }
 
   def foldMap[A, B](as: F[A])(f: A => B)(mb: Monoid[B]): B =
     foldRight(as)(mb.zero)((a, b) => mb.op(f(a), b))
@@ -306,3 +312,59 @@ object OptionFoldable extends Foldable[Option] {
   }
 }
 
+
+
+object WCMonoidExamples extends App {
+
+  import fpinscala.answers.monoids.Monoid._
+  import fpinscala.answers.state.State
+  import fpinscala.answers.state.RNG
+  import fpinscala.answers.testing.Gen
+  import fpinscala.answers.testing.Prop
+
+  println("only whitespace")
+
+  val whitespace = "    "
+
+  println("word count = " + Monoid.count(whitespace))
+
+  println("----------------")
+
+  val hello = "hello world"
+  println(hello)
+  println("word count = " + Monoid.count(hello))
+
+  println("----------------")
+
+  val genASCII: Gen[Char] = Gen.choose(65,90).map((i: Int) => i.toChar)
+  val genListChar: Gen[List[Char]] = genASCII.listOfN(Gen.choose(2,10))
+
+  val genString: Gen[String] = genListChar.map{(lc: List[Char])=>
+    Monoid.foldMap(lc, stringMonoid)((c: Char) => c.toString)
+  }
+  
+  val genListString: Gen[List[String]] =
+    genString.listOfN(Gen.choose(4,15))
+
+  val genSentence: Gen[String] = genListString.map{(ls: List[String]) =>
+    Monoid.foldMap(ls, Monoid.stringMonoid)((s: String) => s+" ")
+  }
+
+
+  println("checking 'count' method using generated strings")
+  val countProp: Prop =
+    Prop.forAll(genSentence){(sentence: String) => {
+      val length = Monoid.count(sentence)
+      println("sentence: '"+sentence+"'")
+      println("length: "+length)
+      //length >= 4 && length <= 14
+      val realLength = sentence.split(" ").length
+      println("real length: " + realLength)
+      length == realLength
+    }
+    }
+
+
+  println(Prop.run(countProp, 10, 10))
+
+}

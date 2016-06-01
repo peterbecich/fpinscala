@@ -26,11 +26,44 @@ trait Stream[+A] {
     }
   }
 
+  def _scanRight[B](z: => B)(f: (A, => B) => B): Stream[B] = {
+    val tls: Stream[Stream[A]] = this.tails
 
-  // def scanRight[B](z: => B)(f: (A, => B) => B): B = {
+    tls.map { (sa: Stream[A]) => sa.foldRight(z)(f) }
 
 
+  }
+  // def scanRight[B](z: => B)(f: (A, => B) => B): Stream[B] = {
+  //   // def g(a: A, streamB: => Stream[B]): Stream[B] =
+  //   //   streamB.foldRight(z)(f)
+
+  //   // foldRight(Stream.cons(z, Stream.empty[B]))(g)
+
+  //   def g(a: A, streamB: => Stream[B]): Stream[B] =
+  //     streamB match {
+  //       case Stream.cons(h, t) => Stream.cons(f(a,h), streamB)
+  //       case Empty => Stream.cons(f(a, z), Stream.empty)
+  //     }
+
+  //   // Stream.cons(f(a, z), streamB)
+
+  //   foldRight(Stream.empty[B])(g)
   // }
+
+  // from answers
+  def scanRight[B](z: => B)(f: (A, => B) => B): Stream[B] = {
+    def g(a: A, tuple: => (B, Stream[B])): (B, Stream[B]) = {
+      val a1 = f(a, tuple._1)
+      (a1, Stream.cons(a1, tuple._2))
+    }
+      
+    val bStreamB: (B, Stream[B]) =
+      foldRight((z, Stream.cons(z, Stream.empty)))(g)
+
+    bStreamB._2
+  }
+
+
 
   /*
    Think about implementing fold left over a Stream.
@@ -123,7 +156,8 @@ trait Stream[+A] {
     }
   }
   def feedback: Unit = 
-    println(this.toListFinite(30))
+    printer(30)
+  //    println(this.toListFinite(30))
 
   def printer(n: Int): Unit =
     this match {
@@ -438,6 +472,13 @@ object Stream {
       case Some((a, s)) => fpinscala.laziness.Stream.cons(a, unfold(s)(f))
     }
 
+  // def _unfold[A, S](z: S)(f: S => Option[(A,S)]):
+  //     fpinscala.laziness.Stream[A] = {
+
+  //   cons.foldRigh
+
+  // }
+
   def _constant[A](a: A): fpinscala.laziness.Stream[A] = unfold(a)((a1: A) => Some(a1,a1))
   def _from(n: Int): fpinscala.laziness.Stream[Int] = unfold(n)((n0: Int) => Some(n0, n0+1))
   def _fibs: fpinscala.laziness.Stream[Int] = unfold((0,1))(
@@ -585,7 +626,9 @@ object StreamTests {
     Stream.from(0).tails.foldRight(())(g)
 
 
-
+    println("----------------------------------")
+    println("scanRight")
+    Stream.from(0).take(6).scanRight(0)(_+_).printer(12)
 
   }
 

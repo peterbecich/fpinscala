@@ -89,6 +89,9 @@ object State {
       (s: S) => (a, s)
     }
 
+  def compose[S,A,B,C](f: A => State[S,B], g: B => State[S,C]): A => State[S,C] =
+    (a: A) => f(a).flatMap(g)
+
   def sequence[S,A](sas: List[State[S,A]]): State[S, List[A]] = {
     /*
      The main "leap" was knowing the type signature of this method.
@@ -103,6 +106,12 @@ object State {
       state.map2(stateList)((a: A, la: List[A]) => a::la)
     }
   }
+
+  def traverse[S,A,B](la: List[A])(f: A => State[S,B]): State[S, List[B]] =
+    la.foldRight[State[S,List[B]]](unit(List[B]())){(a: A, slb: State[S, List[B]]) =>
+      compose(f, (b: B) => slb.map((lb: List[B]) => b::lb))(a)
+    }
+
 
   def modify[S](f: S => S): State[S, Unit] = {
     State.get.flatMap(s => State.set(f(s)))
@@ -153,7 +162,7 @@ class AddOne extends Function[Int, Int] {
      = ((s:S)=>(s,s)): scala.Function1[S, Tuple2[A, S]]
 
    */
-  def set[S](s: S): State[S, Unit] = State(_ => ((), s))
+  def set[S](s: S): State[S, Unit] = State((_: Any) => ((), s))
   /*
 
    def set[S](s: S): State[S, Unit] = new State {
@@ -330,14 +339,19 @@ class AddOne extends Function[Int, Int] {
   //           case Coin if currentCandies > 0 && currentLocked == false =>
 
 
-  def simulateMachine(inputs: List[Input]): State[Machine, List[MachinePrintout]] = {
-    val listStates: List[State[Machine, MachinePrintout]] =
-      inputs.map { (input: Input) => candyMachineState(input) }
+  // def simulateMachine(inputs: List[Input]):
+  //     State[Machine, List[MachinePrintout]] = {
+  //   val listStates: List[State[Machine, MachinePrintout]] =
+  //     inputs.map { (input: Input) => candyMachineState(input) }
+  //   sequence(listStates)
+  // }
 
-    sequence(listStates)
 
-  }
+  def simulateMachine(inputs: List[Input]):
+      State[Machine, List[MachinePrintout]] =
+    traverse(inputs)(candyMachineState)
 
+  
 }
 
 

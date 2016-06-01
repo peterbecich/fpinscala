@@ -85,6 +85,8 @@ object Monoid {
 
     /* note that monoids have no commutative property.
      Order of applications of b1 and b0 matters.
+
+     Some monoids are commutative; for these `dual` has no effect.
      */
     def op(bb0: B => B, bb1: B => B): B => B = (in: B) => bb1(bb0(in))
 
@@ -347,16 +349,17 @@ object Monoid {
     //   // B starting value...
     //   z
     // }
-    val b: B = foldMap(as, dual(endoMonoidC)){
-      // need A => C
-      g
-    }{
-      // need C starting value
-      // B starting value...
-      z
-    }
+    // val b: B = foldMap(as, dual(endoMonoidC)){
+    //   // need A => C
+    //   g
+    // }{
+    //   // need C starting value
+    //   // B starting value...
+    //   z
+    // }
 
-    b
+    val bToB: C = foldMap(as, dual(endoMonoidC))(g)
+    bToB(z)
   }
 
   /*
@@ -467,7 +470,7 @@ object Monoid {
   case class Part(lStr: String, words: Int, rStr: String) extends WC
 
   def parMonoid[A](m: Monoid[A]): Monoid[Par[A]] = new Monoid[Par[A]] {
-    //  type Par[A] = ExecutorService => Future[A]
+    //  type Par[`A] = ExecutorService => Future[A]
     def op(par1: Par[A], par2: Par[A]): Par[A] = Par.fork{
       println("Par Monoid 'op' thread: "+Thread.currentThread().getId())
       //merging "+par1+" and "+par2)
@@ -614,7 +617,7 @@ object Monoid {
   val wcMonoid: Monoid[WC] = new Monoid[WC] {
     // copied from answers ...
     def op(a: WC, b: WC) = {
-      // println("a: "+a+"\t b:"+b)
+      println("WC a: "+a+"\t WC b: "+b)
       val merged: WC = (a, b) match {
         case (Stub(c), Stub(d)) => Stub(c + d)
         case (Stub(c), Part(l, w, r)) => Part(c + l, w, r)
@@ -626,7 +629,7 @@ object Monoid {
           //def middleSpace = (if ((r1 + l2).isEmpty) 1 else 0) // 0 if middle space
           //Part(l1, w1 + middleSpace + w2, r2)
           // from answers...
-          Part(l1, w1 + (if (r1 == "" || l2 == "") 1 else 0) + w2, r2)
+          Part(l1, w1 + (if (r1 == "" && l2 == "") 0 else 1) + w2, r2)
         }
       }
       // println("merged: "+merged)
@@ -926,7 +929,7 @@ object MonoidTest {
 
     println("wc monoid prop")
     println(wcMonoidProp)
-    Prop.run(wcMonoidProp, 10, 10)
+    println(Prop.run(wcMonoidProp, 10, 10))
 
     println("checking 'count' method using generated strings")
     val countProp: Prop =
@@ -937,10 +940,10 @@ object MonoidTest {
         //length >= 4 && length <= 14
         val realLength = sentence.split(" ").length
         println("real length: " + realLength)
-        (length <= realLength) && (length >= (realLength-2))
+        length == realLength
       }
       }
-    Prop.run(countProp, 10, 10)
+    println(Prop.run(countProp, 10, 10))
 
     println("Count and Sum monoid")
     println(nums)
@@ -1011,6 +1014,68 @@ object MonoidTest {
 
   }
 }
+
+object WCMonoidExamples extends App {
+
+  import fpinscala.monoids.Monoid._
+  import fpinscala.state.State
+  import fpinscala.state.RNG
+  import fpinscala.testing.Gen
+  import fpinscala.testing.Prop
+
+  println("only whitespace")
+
+  val whitespace = "    "
+
+  println("word count = " + Monoid.count(whitespace))
+
+  println("----------------")
+
+  val hello = "hello world"
+  println(hello)
+  println("word count = " + Monoid.count(hello))
+
+  println("----------------")
+
+  val helloAgain = "hello world again"
+  println(helloAgain)
+  println("word count = " + Monoid.count(helloAgain))
+
+  println("----------------")
+
+  val genASCII: Gen[Char] = Gen.choose(65,90).map((i: Int) => i.toChar)
+  val genListChar: Gen[List[Char]] = genASCII.listOfN(Gen.choose(2,10))
+
+  val genString: Gen[String] = genListChar.map{(lc: List[Char])=>
+    Monoid.foldMap(lc, stringMonoid)((c: Char) => c.toString)
+  }
+  
+  val genListString: Gen[List[String]] =
+    genString.listOfN(Gen.choose(4,15))
+
+  val genSentence: Gen[String] = genListString.map{(ls: List[String]) =>
+    Monoid.foldMap(ls, Monoid.stringMonoid)((s: String) => s+" ")
+  }
+
+
+  println("checking 'count' method using generated strings")
+  val countProp: Prop =
+    Prop.forAll(genSentence){(sentence: String) => {
+      val length = Monoid.count(sentence)
+      println("sentence: '"+sentence+"'")
+      println("length: "+length)
+      //length >= 4 && length <= 14
+      val realLength = sentence.split(" ").length
+      println("real length: " + realLength)
+      length == realLength
+    }
+    }
+
+
+  println(Prop.run(countProp, 10, 10))
+
+}
+
 trait Foldable[F[_]] {
   /*
    Exercise 12.15
