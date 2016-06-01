@@ -295,7 +295,7 @@ case class SGen[+A](g: Int => Gen[A]) {
   def apply(n: Int): Gen[A] = g(n)
 
   def map[B](f: A => B): SGen[B] =
-    SGen(g andThen (_ map f))
+    SGen { g(_) map f }
 
   // how is this a flatMap if Functor is not preserved?
   // SGen[A] is replaced with Gen[B] by f.
