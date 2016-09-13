@@ -1,8 +1,10 @@
 import sbt._
 import Keys._
 
+import org.ensime.EnsimePlugin
+
 object FPInScalaBuild extends Build {
-  val algebirdVersion = "0.12.0"
+  val algebirdVersion = "0.12.1"
   
   val opts = Project.defaultSettings ++ Seq(
     scalaVersion := "2.11.8",
@@ -13,7 +15,7 @@ object FPInScalaBuild extends Build {
       Resolver.sonatypeRepo("snapshots")
     ),
     libraryDependencies ++= Seq(
-      "org.scala-lang" % "scala-reflect" % "2.11.7",
+      "org.scala-lang" % "scala-reflect" % "2.11.8",
       "com.chuusai" %% "shapeless" % "2.2.5",
       "com.twitter" %% "algebird-core" % algebirdVersion,
       "com.twitter" %% "algebird-test" % algebirdVersion,
@@ -24,11 +26,11 @@ object FPInScalaBuild extends Build {
   )
 
   lazy val root =
-    Project(id = "fpinscala",
+    Project(id = "root",
             base = file("."),
             settings = opts ++ Seq(
               onLoadMessage ~= (_ + nio2check())
-            )).aggregate(chapterCode, exercises, answers)
+            ) ++ EnsimePlugin.projectSettings).aggregate(chapterCode, exercises, answers)
   lazy val chapterCode =
     Project(id = "chapter-code",
             base = file("chaptercode"),

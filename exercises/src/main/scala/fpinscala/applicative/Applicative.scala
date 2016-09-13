@@ -48,23 +48,24 @@ trait Applicative[F[_]] extends Functor[F] {
     fe
   }
 
-  def sequence[A, G[_]:Applicative](fas: F[G[A]])(
-    applicativeG: Applicative[G]): G[F[A]] = {
-    // def merge(fa: F[A], fga: F[G[A]]): G[F[A]] =
-    //   this.map2(fa, fga){(a: A, ga: G[A])=>}
+  // these reside in Traverse
+  // def sequence[A, G[_]:Applicative](fas: F[G[A]])(
+  //   applicativeG: Applicative[G]): G[F[A]] = {
+  //   // def merge(fa: F[A], fga: F[G[A]]): G[F[A]] =
+  //   //   this.map2(fa, fga){(a: A, ga: G[A])=>}
 
 
-    //   case (fa: F[A])::(t: List[F[A]]) => merge(fa, sequence(t))
-    //   case _ => this.unit(List[A]())
-    // }
-    ???
-  }
+  //   //   case (fa: F[A])::(t: List[F[A]]) => merge(fa, sequence(t))
+  //   //   case _ => this.unit(List[A]())
+  //   // }
+  //   ???
+  // }
 
-  def traverse[A,B, G[_]:Applicative](fa: F[A])(f: A => G[B])(
-    applicativeG: Applicative[G]): G[F[B]] = {
-    val fgb: F[G[B]] = map(fa)(a => f(a))
-    sequence(fgb)(applicativeG)
-  }
+  // def traverse[A,B, G[_]:Applicative](fa: F[A])(f: A => G[B])(
+  //   applicativeG: Applicative[G]): G[F[B]] = {
+  //   val fgb: F[G[B]] = map(fa)(a => f(a))
+  //   sequence(fgb)(applicativeG)
+  // }
 
   // try to implement sequence in terms of traverse, rather than visa versa
   // def traverse[A,B, G[_]:Applicative](fa: F[A])(f: A => G[B]): G[F[B]] = {
@@ -728,73 +729,73 @@ object StateUtil {
     State(_ => ((), s))
 }
 
-object ApplicativeTests {
-  // val listStreamInt: List[Stream[Int]] =
-  //   List(Stream._from(1), Stream._from(4), Stream._fibs)
-  // val sequencedStreams: Stream[List[Int]] =
-  //   Applicative.streamApplicative.sequence(listStreamInt)
+// object ApplicativeTests {
+//   val listStreamInt: List[Stream[Int]] =
+//     List(Stream._from(1), Stream._from(4), Stream._fibs)
+//   val sequencedStreams: Stream[List[Int]] =
+//     Applicative.streamApplicative.sequence(listStreamInt)
 
-  // // web form example -- Listing 12.5
-  // case class WebForm(
-  //   name: String,
-  //   birthdate: java.util.Date,
-  //   phoneNumber: String
-  // )
-  // def validName(name: String): Validation[String, String] =
-  //   if(name != "") Success(name)
-  //   else Failure("Name cannot be empty")
-  // def validBirthdate(birthdate: String): Validation[String, java.util.Date] =
-  //   try {
-  //     import java.text._
-  //     Success((new SimpleDateFormat("yyyy-MM-dd")).parse(birthdate))
-  //   } catch {
-  //     case e => Failure("Birthdate must be in form yyyy-MM-dd")
-  //       // ^^ case statement was neccessary
-  //       // http://stackoverflow.com/questions/19950345/value-isdefinedat-is-not-a-member-of-play-api-mvc-simpleresult
-  //   }
-  // def validPhone(phoneNumber: String): Validation[String, String] =
-  //   if (phoneNumber.matches("[0-9]{10}")) // << learn this regex
-  //     Success(phoneNumber)
-  //   else Failure("Phone number must be 10 digits")
+//   // web form example -- Listing 12.5
+//   case class WebForm(
+//     name: String,
+//     birthdate: java.util.Date,
+//     phoneNumber: String
+//   )
+//   def validName(name: String): Validation[String, String] =
+//     if(name != "") Success(name)
+//     else Failure("Name cannot be empty")
+//   def validBirthdate(birthdate: String): Validation[String, java.util.Date] =
+//     try {
+//       import java.text._
+//       Success((new SimpleDateFormat("yyyy-MM-dd")).parse(birthdate))
+//     } catch {
+//       case e => Failure("Birthdate must be in form yyyy-MM-dd")
+//         // ^^ case statement was neccessary
+//         // http://stackoverflow.com/questions/19950345/value-isdefinedat-is-not-a-member-of-play-api-mvc-simpleresult
+//     }
+//   def validPhone(phoneNumber: String): Validation[String, String] =
+//     if (phoneNumber.matches("[0-9]{10}")) // << learn this regex
+//       Success(phoneNumber)
+//     else Failure("Phone number must be 10 digits")
 
-  // // "lift" with map3
-  // def validWebForm(name: String, birthdate: String, phone: String):
-  //     Validation[String, WebForm] =
-  //   Applicative.validationApplicative.map3(
-  //     validName(name),
-  //     validBirthdate(birthdate),
-  //     validPhone(phone)
-  //   ){(  // << interesting difference between {} and () shown here
-  //        // () required to enclosure multiple arguments,
-  //        // but not one argument?
-  //     successfulName: String,
-  //     successfulBirthdate: java.util.Date,
-  //     successfulPhone: String
-  //   ) => WebForm(successfulName, successfulBirthdate, successfulPhone)
-  //   }
+//   // "lift" with map3
+//   def validWebForm(name: String, birthdate: String, phone: String):
+//       Validation[String, WebForm] =
+//     Applicative.validationApplicative.map3(
+//       validName(name),
+//       validBirthdate(birthdate),
+//       validPhone(phone)
+//     ){(  // << interesting difference between {} and () shown here
+//          // () required to enclosure multiple arguments,
+//          // but not one argument?
+//       successfulName: String,
+//       successfulBirthdate: java.util.Date,
+//       successfulPhone: String
+//     ) => WebForm(successfulName, successfulBirthdate, successfulPhone)
+//     }
 
-  // val badName = ""
-  // val badBirthdate = "1000 AD"
-  // val badPhone = "411"
+//   val badName = ""
+//   val badBirthdate = "1000 AD"
+//   val badPhone = "411"
 
-  // val validatedWebForm: Validation[String, WebForm] =
-  //   validWebForm(badName, badBirthdate, badPhone)
+//   val validatedWebForm: Validation[String, WebForm] =
+//     validWebForm(badName, badBirthdate, badPhone)
 
-  // def main(args: Array[String]): Unit = {
-  //   println("Stream of Lists of Ints")
-  //   for(l<-sequencedStreams.toListFinite(10)) println(l)
+//   def main(args: Array[String]): Unit = {
+//     println("Stream of Lists of Ints")
+//     for(l<-sequencedStreams.toListFinite(10)) println(l)
 
-  //   println("web form example -- Listing 12.5")
-  //   validatedWebForm match {
-  //     case Success(form) => println(form)
-  //     case Failure(h, tail) => {
-  //       println("first error: "+h)
-  //       println("others: "+tail)
-  //     }
-  //   }
+//     println("web form example -- Listing 12.5")
+//     validatedWebForm match {
+//       case Success(form) => println(form)
+//       case Failure(h, tail) => {
+//         println("first error: "+h)
+//         println("others: "+tail)
+//       }
+//     }
 
-  // }
-}
+//   }
+// }
 
 
 object TraverseTests {

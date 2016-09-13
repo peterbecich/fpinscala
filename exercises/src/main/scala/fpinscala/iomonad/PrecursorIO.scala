@@ -199,10 +199,19 @@ object IO1Tests {
     converter.run
     println("single Fibonacci number")
     fibSequence.run
-    println("Fibonacci REPL")
+    println("Factorial REPL")
     factorialREPL.run
 
   }
+}
+
+object FactorialREPL extends App {
+
+  import IO1._
+
+  println("Factorial REPL")
+  factorialREPL.run
+
 }
 
 
@@ -457,10 +466,10 @@ object IO2bTests {
   }
 }
 
+import fpinscala.parallelism.Nonblocking._
 
 object IO2c {
 
-  import fpinscala.parallelism.Nonblocking._
 
   /*
    * We've solved our first problem of ensuring stack safety, but we're still
@@ -476,8 +485,6 @@ object IO2c {
       FlatMap(this, f)
     def map[B](f: A => B): Async[B] =
       flatMap(f andThen (Return(_)))
-    // def suspend[A](a: => Async[A]): Async[A] =
-    //   Suspend(() => ()).flatMap{_ => a }
 
   }
   case class Return[A](a: A) extends Async[A]
@@ -488,8 +495,8 @@ object IO2c {
   object Async extends Monad[Async] {
     def unit[A](a: => A): Async[A] = Return(a)
     def flatMap[A,B](a: Async[A])(f: A => Async[B]): Async[B] = a flatMap f
-    // def suspend[A](a: => Async[A]): Async[A] =
-    //   Suspend(() => ()).flatMap{_ => a }
+    def suspend[A](a: => Async[A]): Async[A] =
+      Suspend(Par.unit(())).flatMap{_ => a }
 
   }
 
@@ -522,33 +529,41 @@ object IO2c {
 object IO2cTests {
   import IO2c._
 
-  val f: Int => Async[Int] = (i: Int) => Return(i)
+  val f: Int => Async[Int] = (i: Int) => Async.suspend(Async.unit(i))
 
-  // val g: Int => Async[Int] =
-  //   List.fill(10000)(f).foldLeft(f){
-  //     (x: Function1[Int, Async[Int]],
-  //       y: Function1[Int, Async[Int]]) => {
-  //       (i: Int) => Async.suspend(x(i).flatMap(y))
-  //     }
-  //   }
+  val g: Int => Async[Int] =
+    List.fill(10000)(f).foldLeft(f){
+      (x: Function1[Int, Async[Int]], y: Function1[Int, Async[Int]]) => {
+        (i: Int) => Async.suspend(x(i).flatMap(y))
+      }
+    }
 
+  import java.util.concurrent.ExecutorService
+  import java.util.concurrent.Executors
 
-  // def main(args: Array[String]): Unit = {
-  //   println("using the IO2c monad (Async)")
-
-  //   val gForty = g(40)
-
-  //   print("g(40) = ")
-  //   println(gForty)
-
-  //   print("run(g(40)) = ")
-  //   println(run(gForty))
+  def main(args: Array[String]): Unit = {
+    val service = Executors.newFixedThreadPool(5)
+    println(Thread.currentThread())
 
 
-  //   // do Stream example in Free monad
-  //   //println("Imagine a Stream of integers which we want to recursively sum")
+    println("using the IO2c monad (Async)")
 
+    val gForty: Async[Int] = g(40)
 
-  // }
+    print("g(40) = ")
+    println(gForty)
+
+    print("run(g(40)) = ")
+    println(run(gForty))
+
+    val gFortyPar: Par[Int] = run(gForty)
+
+    print(s"Par.run(gFortyPar)(service) = ")
+    val i = Par.run(service)(gFortyPar)
+
+    println(i)
+    // do Stream example in Free monad
+    //println("Imagine a Stream of integers which we want to recursively sum")
+  }
 }
 

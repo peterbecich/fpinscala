@@ -84,7 +84,7 @@ trait RunnableST[A] {
 
 // Scala requires an implicit Manifest for constructing arrays.
 sealed abstract class STArray[S,A](implicit manifest: Manifest[A]) {
-  protected def array: Array[A]
+  protected val array: Array[A]
   def stSize: ST[S,Int] = ST(array.size)
 
   // Write a value at the give index of the array
@@ -261,17 +261,17 @@ object STTests {
 
 
     // fpinscala.localeffects.ST[Nothing, STRef[Nothing, Tuple2[Int, Int]]]
-    val out2 =
+    val out2: ST[Nothing, STRef[Nothing, (Int, Int)]] =
       STRef[Nothing,Int](1).flatMap(r1 =>
         STRef[Nothing,Int](1).flatMap(r2 =>
           r1.read.flatMap(x =>
             r2.read.flatMap(y =>
               r1.write(y+1).flatMap(_ =>
                 r2.write(x+1).flatMap(_ =>
-                r1.read.flatMap(a =>
-                  r2.read.flatMap(b => STRef.apply((a,b)))
+                  r1.read.flatMap(a =>
+                    r2.read.flatMap(b => STRef.apply((a,b)))
+                  )
                 )
-              )
               )
             )
           )

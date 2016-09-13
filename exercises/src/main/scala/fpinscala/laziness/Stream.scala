@@ -626,9 +626,18 @@ object StreamTests {
     Stream.from(0).tails.foldRight(())(g)
 
 
+
+    println("----------------------------------")
+
+    // val zeroes = cons(0, zeroes)
+    // val oneZero = cons(1, zeroes)
+
+    // oneZero.take(16).printer(12)
+
     println("----------------------------------")
     println("scanRight")
-    Stream.from(0).take(6).scanRight(0)(_+_).printer(12)
+    // Stream.from(0).take(6).scanRight(0.0){ (i: Int, acc: Double) =>
+    //   i + (0.5*y)}.printer(12)
 
   }
 

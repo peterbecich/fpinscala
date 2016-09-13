@@ -413,15 +413,30 @@ object Monad {
     }
   }
 
+  trait t[B] {
+    val b: B
+  }
+
+  val foo = new t[Int]{
+    val b = 5
+  }
+
+  // val foo2 = new {trait t[B] {
+  //   val b: B
+  // }}[Int]{
+  //   val b = 5
+  // }
+
 
   // S replaced by Int
-  def stateMonad[S] =  // what is the type of this?
+  def stateMonad[S]() =  // what is the type of this?
     new Monad[({type f[X] = State[S,X]})#f] {
       //             ^ an anonymous type: fpinscala.state.State[S, X]
       def unit[A](a: => A): State[S,A] = State((s: S) => (a,s))
       def flatMap[A,B](st: State[S,A])(f: A => State[S,B]): State[S,B] =
         st.flatMap(f)
     }
+
 
   // def intStateMonadAlt2[A]: Monad[Int] = stateMonad[Int]
   //                       ^ not Monad[State[(Int,A)]]

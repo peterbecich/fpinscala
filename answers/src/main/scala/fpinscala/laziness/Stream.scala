@@ -1,6 +1,6 @@
 package fpinscala.answers.laziness
 
-import Stream._
+import fpinscala.answers.laziness.Stream._
 trait Stream[+A] {
 
   // The natural recursive solution
@@ -76,7 +76,7 @@ trait Stream[+A] {
   def foldRight[B](z: => B)(f: (A, => B) => B): B = {
     this match {
       case Cons(h,t) =>
-        println(h())
+        // println(h())
         f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
     }
@@ -206,19 +206,23 @@ trait Stream[+A] {
     foldRight((z, Stream(z)))((a, p0) => {
       // p0 is passed by-name and used in by-name args in f and cons. So use lazy val to ensure only one evaluation...
       lazy val p1 = p0
-      println(p1)
+      // println(p1)
       val b2 = f(a, p1._1)
       (b2, cons(b2, p1._2))
     })._2
 
   def feedback: Unit = 
     printer(30)
+
   def print(n: Int): Unit = {
+    println("Foo!!!")
     def f(a: A, remaining: => Int): Int = {
-      println(a)
+      Predef.print(a)
       remaining - 1
     }
     this.take(n).foldRight(n)(f)
+
+    println()
   }
 
   def printer(n: Int): Unit =
@@ -264,10 +268,11 @@ object Stream {
       lazy val tail = tl
       Cons(() => head, () => tail)
     }
-    def unapply[C](cs: Cons[C]):
-        Option[Tuple2[C,Stream[C]]] =
+    def unapply[C](cs: Cons[C]): Option[Tuple2[C,Stream[C]]] =
       Some((cs.h(), cs.t()))
   }
+
+  def unit[A](a: => A): Stream[A] = cons(a, empty)
 
   def empty[A]: Stream[A] = Empty
 
@@ -346,6 +351,12 @@ object Stream {
     else
       Cons(() => start, () => Empty)
 
+  def listToStream[A](la: List[A]): Stream[A] =
+    unfold(la){(listA: List[A]) => listA match {
+      case h::t => Some((h, t))
+      case Nil => None
+    }
+    }
   
 }
 
@@ -486,6 +497,55 @@ object StreamTests {
 
   }
 
+  
+
 }
 
+object QuickSortExample extends App {
 
+
+  def quickSort(si: fpinscala.answers.laziness.Stream[Int]):
+      fpinscala.answers.laziness.Stream[Int] = {
+    println("call")
+    si match {
+      case fpinscala.answers.laziness.Empty => empty
+      case cons(head, tail) =>
+        quickSort(tail.filter(_ < head)).
+          append(unit(head)).
+          append(quickSort(tail.filter(_ >= head)))
+    }
+  }
+
+  def quickSort(li: List[Int]): fpinscala.answers.laziness.Stream[Int] =
+    quickSort(listToStream(li))
+
+
+  import scala.util.Random
+  val rand = new Random()
+
+  val unsorted = (for (_ <- 1 to 16) yield rand.nextInt(64)).toList
+
+  println("unsorted")
+
+  println(unsorted)
+
+  val sortedLazy = quickSort(unsorted)
+
+  println("sorted lazy")
+  // sortedLazy.take(4).print(4)
+  sortedLazy.print(4)
+
+  println()
+
+  println("-----------------------")
+
+  val sortedLazy2 = quickSort(unsorted)
+
+  println("sorted lazy")
+  sortedLazy2.print(8)
+
+  println()
+
+  
+
+}
