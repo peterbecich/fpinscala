@@ -29,7 +29,9 @@ object FPInScalaBuild extends Build {
 
 
     )
-  )
+  ) ++ EnsimePlugin.projectSettings
+
+  // override lazy val rootProject = root
 
   lazy val root =
     Project(id = "root",
@@ -39,16 +41,20 @@ object FPInScalaBuild extends Build {
             ) ++ EnsimePlugin.projectSettings).aggregate(chapterCode, exercises, answers)
   lazy val chapterCode =
     Project(id = "chapter-code",
-            base = file("chaptercode"),
-            settings = opts)
+      base = file("chaptercode")
+    ).settings(opts)
+
+
   lazy val exercises =
     Project(id = "exercises",
-            base = file("exercises"),
-            settings = opts)
+      base = file("exercises")
+    ).settings(opts)
+
   lazy val answers =
     Project(id = "answers",
-            base = file("answers"),
-            settings = opts)
+      base = file("answers")
+    ).settings(opts)
+
 
   def nio2check(): String = {
     val cls = "java.nio.channels.AsynchronousFileChannel"
