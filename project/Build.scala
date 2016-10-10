@@ -5,7 +5,10 @@ import org.ensime.EnsimePlugin
 
 object FPInScalaBuild extends Build {
   val algebirdVersion = "0.12.1"
-  
+
+  val kindProjector = compilerPlugin("org.spire-math" % "kind-projector" % "0.8.0" cross CrossVersion.binary)
+  val si2712 = compilerPlugin("com.milessabin" % "si2712fix-plugin" % "1.2.0" cross CrossVersion.full)
+
   val opts = Project.defaultSettings ++ Seq(
     scalaVersion := "2.11.8",
     scalacOptions ++= Seq("-feature","-deprecation"),
@@ -20,7 +23,10 @@ object FPInScalaBuild extends Build {
       "com.twitter" %% "algebird-core" % algebirdVersion,
       "com.twitter" %% "algebird-test" % algebirdVersion,
       "com.twitter" %% "algebird-util" % algebirdVersion,
-      "com.twitter" %% "algebird-bijection" % algebirdVersion
+      "com.twitter" %% "algebird-bijection" % algebirdVersion,
+      kindProjector,
+      si2712
+
 
     )
   )

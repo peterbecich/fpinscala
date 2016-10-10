@@ -34,18 +34,27 @@ object IO3 {
   type TailRec[A] = Free[Function0, A]
 
   // Exercise 1: Implement the free monad
-  def freeMonad[F[_]]: Monad[({type f[a] = Free[F,a]})#f] =
-    new Monad[({type f[a] = Free[F,a]})#f] {
-      // abstract primitives unit and flatMap made concrete
-      // why does IO1.IO monad implement apply?
-      def unit[A](a: => A): Free[F,A] = Return(a)
-      def flatMap[A,B](freeA: Free[F,A])(
-        aFreeB: A => Free[F,B]): Free[F,B] =
+  // def freeMonad[F[_]]: Monad[({type f[a] = Free[F,a]})#f] =
+  //   new Monad[({type f[a] = Free[F,a]})#f] {
+  //     // abstract primitives unit and flatMap made concrete
+  //     // why does IO1.IO monad implement apply?
+  //     def unit[A](a: => A): Free[F,A] = Return(a)
+  //     def flatMap[A,B](freeA: Free[F,A])(
+  //       aFreeB: A => Free[F,B]): Free[F,B] =
+  //       freeA.flatMap(aFreeB)
+  //     // freeA match {
+  //     //   case Return[F,A](a) => aFreeB(a)
+  //     //   case Suspend[F,A](
+  //     // }
+  //   }
+
+
+  def freeMonad[F[_]]: Monad[Lambda[a => Free[F, a]]] =
+    new Monad[Lambda[a => Free[F, a]]] {
+      def unit[A](a: => A): Free[F,A] = Return(a) // no suspension included
+      def flatMap[A,B](freeA: Free[F,A])(aFreeB: A => Free[F,B]): Free[F,B] =
         freeA.flatMap(aFreeB)
-      // freeA match {
-      //   case Return[F,A](a) => aFreeB(a)
-      //   case Suspend[F,A](
-      // }
+
     }
 
   // TailRec[A] == Free[Function0,A]
