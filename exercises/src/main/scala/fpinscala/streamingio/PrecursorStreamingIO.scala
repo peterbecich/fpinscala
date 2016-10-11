@@ -756,7 +756,7 @@ object SimpleStreamTransducers {
 }
 
 
-object StreamingIOTests {
+object PrecursorStreamingIOTests {
   import SimpleStreamTransducers._
   //import fpinscala.laziness.Stream
   import java.util.concurrent.ExecutorService
