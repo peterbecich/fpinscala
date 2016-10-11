@@ -166,7 +166,7 @@ object SimpleStreamTransducers {
         s match {
           case FPStream.cons(h, t) => {
             val process: Process[I,O] = recv(Some(h))
-            println("process: "+process)
+            //println("process: "+process)
             val stream: FPStream[O] = process.apply(t)
             //println("stream node: "+stream)
             stream
@@ -505,7 +505,7 @@ object SimpleStreamTransducers {
       //println(s"n:$n, process:$this")
       (opI: Option[I]) => opI match {
         case Some(i: I) if n>0 => drop(n-1)
-        case Some(i: I) if n<=0 => emit(i, passThru2) 
+        case Some(i: I) if n<=0 => emit(i, passThru) 
         case None => Halt[I,I]()
       }
     }
@@ -517,10 +517,10 @@ object SimpleStreamTransducers {
     //   }
     // }
 
-    def passThru = passThru2
-    def passThru2[I]: Process[I,I] = Await {
+    //def passThru = passThru2
+    def passThru[I]: Process[I,I] = Await {
       (opI: Option[I]) => opI match {
-        case Some(i) => emit(i, passThru2)
+        case Some(i) => emit(i, passThru)
         case None => Halt[I,I]()
       }
     }
@@ -540,7 +540,7 @@ object SimpleStreamTransducers {
         (opI: Option[I]) => opI match {
           case Some(i: I) if f(i) => dropWhile(f)
             //emit(i, dropWhile(f))
-          case Some(i: I) => Emit(i, passThru2)
+          case Some(i: I) => Emit(i, passThru)
           case None => Halt[I,I]()
         }
       }
@@ -585,7 +585,7 @@ object SimpleStreamTransducers {
       println(sumAndCountProcess)
       val meanProcess: Process[Double,Double] =
         sumAndCountProcess.map{(tup: (Int,Double)) =>
-          println("tup: "+tup)
+          //println("tup: "+tup)
           val s = tup._2
           val c = tup._1
           s/c
@@ -699,8 +699,8 @@ object SimpleStreamTransducers {
       // http://stackoverflow.com/questions/9938098/how-to-check-to-see-if-a-string-is-a-decimal-number-in-scala
 
       val filter = (s: String) => !s.startsWith("#") &&
-      s.forall{(c: Char) => c.isDigit} &&
-      !s.isEmpty
+        s.forall{(c: Char) => c.isDigit} &&
+        !s.isEmpty
 
       // Process needs to handle possibility of uncastable input string
       // val filtered: Process[String,String] =
@@ -736,11 +736,11 @@ object SimpleStreamTransducers {
 
 
     def zip[A,B,C](p1: Process[A,B], p2: Process[A,C]): Process[A,(B,C)] = {
-      println("_______________")
-      println("zip:")
-      println(p1)
-      println(p2)
-      println("_______________")
+      // println("_______________")
+      // println("zip:")
+      // println(p1)
+      // println(p2)
+      // println("_______________")
       (p1, p2) match {
         case (Halt(), _) => Halt()
         case (_, Halt()) => Halt()
@@ -771,13 +771,14 @@ object StreamingIOTests {
   val streamIncrementing: FPStream[Int] = FPStream.from(0)
 
   val f = (x: Int) => x*2
-  val p = Process.liftOne(f)
+  val p: Process[Int, Int] = Process.liftOne(f)
 
   val evenProcess = Process.filter((x: Int) => x%2==0)
   // current 'take' method only applies to CollectionStream
   //val someEvenNumbersProcess = evenProcess.take(20)
 
 
+  // modulo.  [65, 90]
   val asciiCodes: Process[Int,Int] = Process.lift((i: Int) => (i%26)+65)
   val toChar: Process[Int,Char] = Process.lift((i: Int) => i.toChar)
   val ascii: Process[Int,Char] = asciiCodes |> toChar
@@ -802,14 +803,9 @@ object StreamingIOTests {
     streamIncrementing.feedback
     println("note the examples below do not compose Processes")
 
-    // println("pass through")
-    // val passedThru = Process.passThru(streamIncrementing)
-    // passedThru.feedback
-
-    println("pass through 2")
-    val passedThru2 = Process.passThru2(streamIncrementing)
-    passedThru2.feedback
-
+    println("pass through")
+    val passedThru = Process.passThru(streamIncrementing)
+    passedThru.feedback
 
     println("drop the first 10 numbers")
     val dropped = Process.drop(10)(streamIncrementing)
@@ -827,44 +823,11 @@ object StreamingIOTests {
     println("count doubles")
     Process.count(streamEven.map(_.toDouble)).feedback
 
-
-
-    // println("incrementing sum of these")
-    // val incSum = Process.sum.apply(streamEven.map(_.toDouble))
-    // incSum.feedback
-    // println("incrementing count of these")
-    // val incCount = Process.count(streamEven.map(_.toDouble))
-    // incCount.feedback
-
-    println("incrementing mean of these")
-    val incMean = Process.mean(streamEven.map((i:Int)=>i.toDouble))
-    incMean.feedback
-
     println("take while _ < 10")
     val lessThanTen =
       Process.takeWhile((x:Int)=>x<10)(streamIncrementing)
     lessThanTen.feedback
 
-    println("drop while _ < 10")
-    val tenAndGreaterProcess =
-      Process.dropWhile((x:Int)=>x<10)
-    val tenAndGreater = tenAndGreaterProcess.apply(streamIncrementing)
-    tenAndGreater.feedback
-
-    println("number 20 exists in Stream")
-    val twentyExists: Process[Int,Boolean] = Process.exists(
-      (i: Int) => i==20)
-    twentyExists(streamIncrementing).feedback
-
-    println("zip with")
-    val tenAndGreaterAndTwentyExists = Process.zip(tenAndGreaterProcess, twentyExists)
-    tenAndGreaterAndTwentyExists.apply(streamIncrementing).feedback
-
-
-    println("ten and greater zipped with count")
-    val countZip = Process.zip(tenAndGreaterProcess, Process.count[Int])
-
-    countZip.apply(streamIncrementing).feedback
 /*
 Note this counterintuitive result.  The dropping of all numbers 
 less than 10 *delays* the process checking for the existence of 20.
@@ -939,38 +902,116 @@ next: 32 satisfies f: false
 
  */
 
-
-    println("------------------------------")
-    println("composing processes (|>)")
-    println("ASCII codes")
-    // asciiCodes(streamIncrementing).feedback
-    println("to Char")
-    // toChar(streamIncrementing).feedback
-    println("ASCII codes |> to Char")
-    (asciiCodes |> toChar)(streamIncrementing).feedback
-    println("------------------------------")
-    println("summing the numbers in a file")
-    val par =
-     IO3.run(numberFileSummed)(IO3.parMonad)
-
-    val summed = Par.run(service)(par)
-
-    println("summed")
-    println(summed)
-
-    println("with a line in the file that cannot be cast to Double")
-
-    // "abc"
-    // java.lang.NumberFormatException: For input string: "abc"
-
-    val errorPar =
-      IO3.run(flawedNumberFileSummed)(IO3.parMonad)
-    val errorSum = Par.run(service)(errorPar)
-
-    println(errorSum)
-
-    service.shutdown()
   }
+}
+
+object RollingMean extends App {
+  import SimpleStreamTransducers._
+
+  val streamIncrementing: FPStream[Int] = FPStream.from(0)
+
+  val evenProcess = Process.filter((x: Int) => x%2==0)
+  
+  val streamEven: FPStream[Int] = evenProcess(
+    Process.take[Int](20)(streamIncrementing)
+  )
+
+  println("incrementing mean of these:")
+  val incMean = Process.mean(streamEven.map((i:Int)=>i.toDouble))
+  incMean.feedback
+
+
+
+}
+
+object ZipWith extends App {
+  import SimpleStreamTransducers._
+  val streamIncrementing: FPStream[Int] = FPStream.from(0)
+  println("drop while _ < 10")
+  val tenAndGreaterProcess =
+    Process.dropWhile((x:Int)=>x<10)
+  val tenAndGreater = tenAndGreaterProcess.apply(streamIncrementing)
+  tenAndGreater.feedback
+
+  println("number 20 exists in Stream")
+  val twentyExists: Process[Int,Boolean] = Process.exists(
+    (i: Int) => i==20)
+  twentyExists(streamIncrementing).feedback
+  
+  
+  println("zip with")
+  val tenAndGreaterAndTwentyExists = Process.zip(tenAndGreaterProcess, twentyExists)
+  tenAndGreaterAndTwentyExists.apply(streamIncrementing).feedback
+
+
+  println("ten and greater zipped with count")
+  val countZip = Process.zip(tenAndGreaterProcess, Process.count[Int])
+
+  countZip.apply(streamIncrementing).feedback
+
+
+}
+
+object ComposingProcesses extends App {
+  import SimpleStreamTransducers._
+  val streamIncrementing: FPStream[Int] = FPStream.from(0)
+  val asciiCodes: Process[Int,Int] = Process.lift((i: Int) => (i%26)+65)
+  val toChar: Process[Int,Char] = Process.lift((i: Int) => i.toChar)
+
+  println("composing processes (|>)")
+  println("ASCII codes")
+  asciiCodes(streamIncrementing).feedback
+  println("to Char")
+  toChar(streamIncrementing).feedback
+  println("ASCII codes |> to Char")
+  (asciiCodes |> toChar)(streamIncrementing).feedback
+
+
+
+}
+
+object SummingFile extends App {
+  import SimpleStreamTransducers._
+  //import fpinscala.laziness.Stream
+  import java.util.concurrent.ExecutorService
+  import java.util.concurrent.Executors
+  import fpinscala.parallelism.Nonblocking.Par
+  import fpinscala.iomonad.IO3
+
+  val flawedNumberFile = new java.io.File("resources/numbers_flawed.txt")
+  val flawedNumberFileSummed: IO[Double] =
+    Process.sumFile(flawedNumberFile)
+
+  val numberFile = new java.io.File("resources/numbers.txt")
+
+  val fahrenheitFile = new java.io.File("resources/fahrenheit.txt")
+  val numberFileSummed: IO[Double] =
+    Process.sumFile(numberFile)
+
+  val service = Executors.newFixedThreadPool(4)
+
+  println("summing the numbers in a file")
+  val par =
+    IO3.run(numberFileSummed)(IO3.parMonad)
+
+  val summed = Par.run(service)(par)
+
+  println("summed")
+  println(summed)
+
+  println("with a line in the file that cannot be cast to Double")
+
+  // "abc"
+  // java.lang.NumberFormatException: For input string: "abc"
+
+  val errorPar =
+    IO3.run(flawedNumberFileSummed)(IO3.parMonad)
+  val errorSum = Par.run(service)(errorPar)
+
+  println(errorSum)
+
+  service.shutdown()
+
 }
 
 object InfiniteStreamingIOTest {
