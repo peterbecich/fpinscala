@@ -13,6 +13,10 @@ import scala.language.higherKinds
 trait MonadCatch[F[_]] extends Monad[F] {
   def attempt[A](a: F[A]): F[Either[Throwable,A]]
   def fail[A](t: Throwable): F[A]
+
+  def map2[A,B,C](fa: F[A], fb: F[B])(abc: (A,B) => C): C =
+    this.bind(fa)((a: A) => this.map(fb)((b: B) => abc(a,b)))
+
 }
 
 object MonadCatch {
