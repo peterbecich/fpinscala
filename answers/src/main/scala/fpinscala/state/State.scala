@@ -17,6 +17,16 @@ object RNG {
     }
   }
 
+  case class PlusOne(seed: Long) extends RNG {
+    def nextInt: (Int, RNG) = {
+      val newSeed = seed + 1 // `&` is bitwise AND. We use the current seed to generate a new seed.
+      val nextRNG = PlusOne(newSeed) // The next state, which is an `RNG` instance created from the new seed.
+      val nextInt = newSeed.toInt
+      (nextInt, nextRNG) // The return value is a tuple containing both a pseudo-random integer and the next `RNG` state.
+    }
+  }
+  
+
   // We need to be quite careful not to skew the generator.
   // Since `Int.Minvalue` is 1 smaller than `-(Int.MaxValue)`,
   // it suffices to increment the negative numbers by 1 and make them positive.
@@ -142,6 +152,7 @@ object RNG {
   def flatMap[A,B](f: Rand[A])(g: A => Rand[B]): Rand[B] =
     rng => {
       val (a, r1) = f(rng)
+      println("a: "+a+" r1: "+r1)
       g(a)(r1) // We pass the new state along
     }
 
@@ -157,6 +168,35 @@ object RNG {
 
   def _map2[A,B,C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
     flatMap(ra)(a => map(rb)(b => f(a, b)))
+
+  def __map2[A,B,C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
+    flatMap(ra){a =>
+      println("a: "+a)
+      flatMap(rb)(b => unit(f(a, b)))
+    }
+  
+}
+
+
+object RandQuestion extends App {
+
+  import RNG._
+
+  val zero: RNG = PlusOne(0)
+
+  // val one: Rand[Int] = start
+  // val two: Rand[Int] = start.nextInt._2.nextInt
+
+  val twoRand: Rand[Int] = __map2(int, int)(_+_)
+  println(twoRand)
+
+  val two = twoRand(zero)
+
+  println(two)
+
+
+
+
 }
 
 import State._
